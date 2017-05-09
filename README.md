@@ -28,8 +28,8 @@ vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Old sna
 ## References
 
 The VMWare exporter uses 2 libraries:
-- `pyVmomi <https://github.com/vmware/pyvmomi>`_ for VMWare connection
-- Prometheus `client_python <https://github.com/prometheus/client_python>`_ for Prometheus supervision
+- [pyVmomi](https://github.com/vmware/pyvmomi) for VMWare connection
+- Prometheus [client_python](https://github.com/prometheus/client_python) for Prometheus supervision
 
 The initial code is mainly inspired from:
 - https://www.robustperception.io/writing-a-jenkins-exporter-in-python/
