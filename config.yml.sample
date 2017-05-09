@@ -1,0 +1,5 @@
+main:
+    vcenter_ip: 'vcenter.example.com'
+    vcenter_user: 'administrator@vsphere.local'
+    vcenter_password: 'password'
+    ignore_ssl: True
