@@ -44,7 +44,10 @@ class VMWareSnapshotsCollector(object):
 
         print("Collecting snapshots")
         print("Begin: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
-        vm_counts, vm_ages = self._vmware_get_snapshots()
+
+        # Get VMWare VM Informations
+        content = self._vmware_get_content()
+        vm_counts, vm_ages = self._vmware_get_snapshots(content)
         for v in vm_counts:
             metric[0].add_metric([v['vm_name']], v['snapshot_count'])
         for vm_age in vm_ages:
@@ -52,8 +55,10 @@ class VMWareSnapshotsCollector(object):
                 metric[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
                                         v['vm_snapshot_age_days'])
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
-        yield metric[0]
-        yield metric[1]
+
+        for m in metric:
+            yield m
+
 
     def _vmware_get_obj(self, content, vimtype, name):
         """
@@ -83,9 +88,9 @@ class VMWareSnapshotsCollector(object):
         return snapshot_data
 
 
-    def _vmware_get_snapshots(self):
+    def _vmware_get_content(self):
         """
-        Connect to Vcenter and get all snapshots for a VM
+        Connect to Vcenter and get all VM Content Information
         """
 
         si = None
@@ -104,42 +109,46 @@ class VMWareSnapshotsCollector(object):
             atexit.register(connect.Disconnect, si)
 
             content = si.RetrieveContent()
-
-            container = content.rootFolder  # starting point to look into
-            viewType = [vim.VirtualMachine]  # object types to look for
-            containerView = content.viewManager.CreateContainerView(
-                                container, viewType, recursive=True)
-
-            children = containerView.view
-
-            snapshots_count_table = []
-            snapshots_age_table = []
-            for child in children:
-                summary = child.summary
-
-                vm = self._vmware_get_obj(content, [vim.VirtualMachine], summary.config.name)
-
-                if not vm or vm.snapshot is None:
-                    continue
-
-                else:
-                    snapshot_paths = self._vmware_list_snapshots_recursively(
-                                        vm.snapshot.rootSnapshotList)
-                    for sn in snapshot_paths:
-                        sn['vm_name'] = vm.name
-                    # Add Snapshot count per VM
-                    snapshot_count = len(snapshot_paths)
-                    snapshot_count_info = {
-                        'vm_name': vm.name,
-                        'snapshot_count': snapshot_count
-                    }
-                    snapshots_count_table.append(snapshot_count_info)
-                snapshots_age_table.append(snapshot_paths)
-            return snapshots_count_table, snapshots_age_table
+            return content
 
         except vmodl.MethodFault as error:
             print("Caught vmodl fault : " + error.msg)
             return -1
+
+
+    def _vmware_get_snapshots(self, content):
+        container = content.rootFolder  # starting point to look into
+        viewType = [vim.VirtualMachine]  # object types to look for
+        containerView = content.viewManager.CreateContainerView(
+                            container, viewType, recursive=True)
+
+        children = containerView.view
+
+        snapshots_count_table = []
+        snapshots_age_table = []
+        for child in children:
+            summary = child.summary
+
+            vm = self._vmware_get_obj(content, [vim.VirtualMachine], summary.config.name)
+
+            if not vm or vm.snapshot is None:
+                continue
+
+            else:
+                snapshot_paths = self._vmware_list_snapshots_recursively(
+                                    vm.snapshot.rootSnapshotList)
+                for sn in snapshot_paths:
+                    sn['vm_name'] = vm.name
+                # Add Snapshot count per VM
+                snapshot_count = len(snapshot_paths)
+                snapshot_count_info = {
+                    'vm_name': vm.name,
+                    'snapshot_count': snapshot_count
+                }
+                snapshots_count_table.append(snapshot_count_info)
+            snapshots_age_table.append(snapshot_paths)
+        return snapshots_count_table, snapshots_age_table
+
 
 
 if __name__ == '__main__':
