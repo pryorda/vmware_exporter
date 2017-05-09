@@ -47,6 +47,8 @@ class VMWareSnapshotsCollector(object):
 
         # Get VMWare VM Informations
         content = self._vmware_get_content()
+
+        # Fill Snapshots (count and age)
         vm_counts, vm_ages = self._vmware_get_snapshots(content)
         for v in vm_counts:
             metric[0].add_metric([v['vm_name']], v['snapshot_count'])
@@ -54,8 +56,8 @@ class VMWareSnapshotsCollector(object):
             for v in vm_age:
                 metric[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
                                         v['vm_snapshot_age_days'])
-        print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
+        print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
         for m in metric:
             yield m
 
