@@ -58,6 +58,8 @@ class VMWareSnapshotsCollector(object):
                                         v['vm_snapshot_timestamp_seconds'])
 
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
+
+        # Fill all metrics
         for m in metric:
             yield m
 
@@ -74,20 +76,6 @@ class VMWareSnapshotsCollector(object):
                 obj = c
                 break
         return obj
-
-
-    def _vmware_list_snapshots_recursively(self, snapshots):
-        snapshot_data = []
-        for snapshot in snapshots:
-            snap_timestamp = (snapshot.createTime - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds()
-            snap_info = {
-                            'vm_snapshot_name': snapshot.name,
-                            'vm_snapshot_timestamp_seconds': snap_timestamp
-                        }
-            snapshot_data.append(snap_info)
-            snapshot_data = snapshot_data + self._vmware_list_snapshots_recursively(
-                                            snapshot.childSnapshotList)
-        return snapshot_data
 
 
     def _vmware_get_content(self):
@@ -117,18 +105,44 @@ class VMWareSnapshotsCollector(object):
             print("Caught vmodl fault : " + error.msg)
             return -1
 
-
-    def _vmware_get_snapshots(self, content):
+    def _vmware_list_vms(self, content):
+        """
+        Get the Virtual machine lists from VMWare Content
+        """
         container = content.rootFolder  # starting point to look into
         viewType = [vim.VirtualMachine]  # object types to look for
+        recursive = True  # whether we should look into it recursively
         containerView = content.viewManager.CreateContainerView(
-                            container, viewType, recursive=True)
+            container, viewType, recursive)
 
         children = containerView.view
+        return children
 
+
+    def _vmware_list_snapshots_recursively(self, snapshots):
+        """
+        Get snapshots from a VM list, recursively
+        """
+        snapshot_data = []
+        for snapshot in snapshots:
+            snap_timestamp = (snapshot.createTime - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds()
+            snap_info = {
+                            'vm_snapshot_name': snapshot.name,
+                            'vm_snapshot_timestamp_seconds': snap_timestamp
+                        }
+            snapshot_data.append(snap_info)
+            snapshot_data = snapshot_data + self._vmware_list_snapshots_recursively(
+                                            snapshot.childSnapshotList)
+        return snapshot_data
+
+
+    def _vmware_get_snapshots(self, content):
+        """
+        Get snapshots from all VM
+        """
         snapshots_count_table = []
         snapshots_age_table = []
-        for child in children:
+        for child in self._vmware_list_vms(content):
             summary = child.summary
 
             vm = self._vmware_get_obj(content, [vim.VirtualMachine], summary.config.name)
