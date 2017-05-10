@@ -80,9 +80,18 @@ class VMWareVCenterCollector(object):
                         labels=['ds_name'])
                 ]
 
+        host_metrics = [
+                    GaugeMetricFamily(
+                        'vmware_host_power_state',
+                        'VMWare Host Power state (On / Off)',
+                        labels=['host_name']),
+                    GaugeMetricFamily(
+                        'vmware_host_boot_timestamp_seconds',
+                        'VMWare Host boot time in seconds',
+                        labels=['host_name']),
+                ]
 
-        print("Collecting snapshots")
-        print("Begin: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
+        print("[%s] Start collecting vcenter metrics" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
         # Get VMWare VM Informations
         content = self._vmware_get_content()
@@ -102,16 +111,13 @@ class VMWareVCenterCollector(object):
         # Fill VM Informations
         self._vmware_get_vms(content, vm_metrics)
 
-        print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
+        # Fill Hosts Informations
+        self._vmware_get_hosts(content, host_metrics)
+
+        print("[%s] Stop Collecting" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
         # Fill all metrics
-        for m in vm_metrics:
-            yield m
-
-        for m in snap_metrics:
-            yield m
-
-        for m in ds_metrics:
+        for m in vm_metrics + snap_metrics + ds_metrics + host_metrics:
             yield m
 
 
@@ -238,7 +244,17 @@ class VMWareVCenterCollector(object):
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
 
-
+    def _vmware_get_hosts(self, content, host_metrics):
+        """
+        Get Host (ESXi) information
+        """
+        for host in self._vmware_get_obj(content, [vim.HostSystem]):
+            summary = host.summary
+            power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
+            host_metrics[0].add_metric([host.name], power_state)
+            if summary.runtime.bootTime:
+                host_metrics[1].add_metric([host.name],
+                            self._to_unix_timestamp(summary.runtime.bootTime))
 if __name__ == '__main__':
     REGISTRY.register(VMWareVCenterCollector())
     # Start up the server to expose the metrics.
