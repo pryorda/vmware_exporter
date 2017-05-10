@@ -64,19 +64,21 @@ class VMWareSnapshotsCollector(object):
             yield m
 
 
-    def _vmware_get_obj(self, content, vimtype, name):
+    def _vmware_get_obj(self, content, vimtype, name=None):
         """
          Get the vsphere object associated with a given text name
         """
         obj = None
         container = content.viewManager.CreateContainerView(
             content.rootFolder, vimtype, True)
-        for c in container.view:
-            if c.name == name:
-                obj = c
-                break
-        return obj
-
+        if name:
+            for c in container.view:
+                if c.name == name:
+                    print obj
+                    obj = c
+                    return [obj]
+        else:
+            return container.view
 
     def _vmware_get_content(self):
         """
@@ -105,19 +107,6 @@ class VMWareSnapshotsCollector(object):
             print("Caught vmodl fault : " + error.msg)
             return -1
 
-    def _vmware_list_vms(self, content):
-        """
-        Get the Virtual machine lists from VMWare Content
-        """
-        container = content.rootFolder  # starting point to look into
-        viewType = [vim.VirtualMachine]  # object types to look for
-        recursive = True  # whether we should look into it recursively
-        containerView = content.viewManager.CreateContainerView(
-            container, viewType, recursive)
-
-        children = containerView.view
-        return children
-
 
     def _vmware_list_snapshots_recursively(self, snapshots):
         """
@@ -142,10 +131,7 @@ class VMWareSnapshotsCollector(object):
         """
         snapshots_count_table = []
         snapshots_age_table = []
-        for child in self._vmware_list_vms(content):
-            summary = child.summary
-
-            vm = self._vmware_get_obj(content, [vim.VirtualMachine], summary.config.name)
+        for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
 
             if not vm or vm.snapshot is None:
                 continue
