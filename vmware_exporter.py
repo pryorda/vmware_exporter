@@ -68,6 +68,13 @@ class VMWareVCenterCollector(object):
                         labels=['ds_name'])
                 ]
 
+        vm_metrics = [
+                    GaugeMetricFamily(
+                        'vmware_vm_power_state',
+                        'VMWare VM Power state (On / Off)',
+                        labels=['vm_name']),
+        ]
+
         print("Collecting snapshots")
         print("Begin: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
@@ -86,6 +93,9 @@ class VMWareVCenterCollector(object):
         # Fill Datastore
         self._vmware_get_datastores(content, ds_metrics)
 
+        # Fill VM Informations
+        self._vmware_get_vms(content, vm_metrics)
+
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
         # Fill all metrics
@@ -94,6 +104,10 @@ class VMWareVCenterCollector(object):
 
         for m in ds_metrics:
             yield m
+
+        for m in vm_metrics:
+            yield m
+
 
     def _vmware_get_obj(self, content, vimtype, name=None):
         """
@@ -200,6 +214,17 @@ class VMWareVCenterCollector(object):
             ds_metrics[3].add_metric([summary.name], ds_provisioned)
             ds_metrics[4].add_metric([summary.name], len(ds.host))
             ds_metrics[5].add_metric([summary.name], len(ds.vm))
+
+
+    def _vmware_get_vms(self, content, vm_metrics):
+        """
+        Get VM information
+        """
+        for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
+            summary = vm.summary
+            power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
+            vm_metrics[0].add_metric([vm.name], power_state)
+
 
 
 if __name__ == '__main__':
