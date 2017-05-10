@@ -32,12 +32,12 @@ class VMWareSnapshotsCollector(object):
     def collect(self):
         metric= [
                     GaugeMetricFamily(
-                        'vmware_snapshot_count',
-                        'VMWare Snapshot count',
+                        'vmware_snapshots',
+                        'VMWare current number of existing snapshots',
                         labels=['vm_name']),
                     GaugeMetricFamily(
-                        'vmware_snapshot_age',
-                        'VMWare Snapshot Age',
+                        'vmware_snapshot_timestamp_seconds',
+                        'VMWare Snapshot creation time in seconds',
                         labels=['vm_name', 'vm_snapshot_name'])
                 ]
 
@@ -55,7 +55,7 @@ class VMWareSnapshotsCollector(object):
         for vm_age in vm_ages:
             for v in vm_age:
                 metric[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
-                                        v['vm_snapshot_age_days'])
+                                        v['vm_snapshot_timestamp_seconds'])
 
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
         for m in metric:
@@ -79,10 +79,10 @@ class VMWareSnapshotsCollector(object):
     def _vmware_list_snapshots_recursively(self, snapshots):
         snapshot_data = []
         for snapshot in snapshots:
-            snap_age = datetime.utcnow().replace(tzinfo=pytz.utc) - snapshot.createTime
+            snap_timestamp = (snapshot.createTime - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds()
             snap_info = {
                             'vm_snapshot_name': snapshot.name,
-                            'vm_snapshot_age_days': snap_age.days
+                            'vm_snapshot_timestamp_seconds': snap_timestamp
                         }
             snapshot_data.append(snap_info)
             snapshot_data = snapshot_data + self._vmware_list_snapshots_recursively(

@@ -2,8 +2,8 @@
 VMWare VCenter Exporter for Prometheus.
 
 Get VMWare VCenter snapshot informations:
-- Snapshot count
-- Snapshot age (in days)
+- Current number of active snapshots
+- Snapshot Unix timestamp creation date
 
 ## Usage
 
@@ -16,13 +16,13 @@ Get VMWare VCenter snapshot informations:
 - Only VCenter 6 and 6.5 have been tested.
 - Only Snapshot information is exported, i.e:
 ```
-# HELP vmware_snapshot_count VMWare Snapshot count
+# HELP vmware_snapshots VMWare current number of existing snapshots
 # TYPE vmware_snapshot_count gauge
-vmware_snapshot_count{vm_name="My Super Virtual Machine"} 2.0
-# HELP vmware_snapshot_age VMWare Snapshot Age
-# TYPE vmware_snapshot_age gauge
-vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Very old snaphot"} 187.0
-vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Old snapshot"} 183.0
+vmware_snapshot_timestamp_seconds{vm_name="My Super Virtual Machine"} 2.0
+# HELP vmware_snapshot_timestamp_seconds VMWare Snapshot creation time in seconds
+# TYPE vmware_snapshot_timestamp_seconds gauge
+vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Very old snaphot"} 1478146956.96092
+vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Old snapshot"} 1478470046.975632
 ```
 
 ## References
