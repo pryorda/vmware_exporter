@@ -54,7 +54,7 @@ class VMWareVCenterCollector(object):
                         'VMWare current number of existing snapshots',
                         labels=['vm_name']),
                     GaugeMetricFamily(
-                        'vmware_vm_napshot_timestamp_seconds',
+                        'vmware_vm_snapshot_timestamp_seconds',
                         'VMWare Snapshot creation time in seconds',
                         labels=['vm_name', 'vm_snapshot_name']),
                 ]
