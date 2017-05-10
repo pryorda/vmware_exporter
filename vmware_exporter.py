@@ -30,13 +30,25 @@ class VMWareVCenterCollector(object):
     config = YamlConfig('config.yml', defaults)
 
     def collect(self):
+
+        vm_metrics = [
+                    GaugeMetricFamily(
+                        'vmware_vm_power_state',
+                        'VMWare VM Power state (On / Off)',
+                        labels=['vm_name']),
+                    GaugeMetricFamily(
+                        'vmware_vm_boot_timestamp_seconds',
+                        'VMWare VM boot time in seconds',
+                        labels=['vm_name']),
+        ]
+
         snap_metrics = [
                     GaugeMetricFamily(
-                        'vmware_snapshots',
+                        'vmware_vm_snapshots',
                         'VMWare current number of existing snapshots',
                         labels=['vm_name']),
                     GaugeMetricFamily(
-                        'vmware_snapshot_timestamp_seconds',
+                        'vmware_vm_napshot_timestamp_seconds',
                         'VMWare Snapshot creation time in seconds',
                         labels=['vm_name', 'vm_snapshot_name']),
                 ]
@@ -68,12 +80,6 @@ class VMWareVCenterCollector(object):
                         labels=['ds_name'])
                 ]
 
-        vm_metrics = [
-                    GaugeMetricFamily(
-                        'vmware_vm_power_state',
-                        'VMWare VM Power state (On / Off)',
-                        labels=['vm_name']),
-        ]
 
         print("Collecting snapshots")
         print("Begin: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
@@ -99,15 +105,18 @@ class VMWareVCenterCollector(object):
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
         # Fill all metrics
+        for m in vm_metrics:
+            yield m
+
         for m in snap_metrics:
             yield m
 
         for m in ds_metrics:
             yield m
 
-        for m in vm_metrics:
-            yield m
 
+    def _to_unix_timestamp(self, my_date):
+        return ((my_date - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds())
 
     def _vmware_get_obj(self, content, vimtype, name=None):
         """
@@ -159,7 +168,7 @@ class VMWareVCenterCollector(object):
         """
         snapshot_data = []
         for snapshot in snapshots:
-            snap_timestamp = (snapshot.createTime - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds()
+            snap_timestamp = self._to_unix_timestamp(snapshot.createTime)
             snap_info = {
                             'vm_snapshot_name': snapshot.name,
                             'vm_snapshot_timestamp_seconds': snap_timestamp
@@ -224,6 +233,9 @@ class VMWareVCenterCollector(object):
             summary = vm.summary
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             vm_metrics[0].add_metric([vm.name], power_state)
+            if summary.runtime.bootTime:
+                vm_metrics[1].add_metric([vm.name],
+                            self._to_unix_timestamp(summary.runtime.bootTime))
 
 
 
