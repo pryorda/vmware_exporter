@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 # Generic imports
 import atexit
 import argparse
@@ -7,6 +9,7 @@ import sys
 import time
 import ssl
 import pytz
+
 from datetime import datetime
 from yamlconfig import YamlConfig
 
@@ -91,7 +94,7 @@ class VMWareVCenterCollector(object):
                         labels=['host_name']),
                 ]
 
-        print("[%s] Start collecting vcenter metrics" % datetime.utcnow().replace(tzinfo=pytz.utc))
+        print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
         # Get VMWare VM Informations
         content = self._vmware_get_content()
@@ -114,7 +117,7 @@ class VMWareVCenterCollector(object):
         # Fill Hosts Informations
         self._vmware_get_hosts(content, host_metrics)
 
-        print("[%s] Stop Collecting" % datetime.utcnow().replace(tzinfo=pytz.utc))
+        print("[{0}] Stop Collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
         # Fill all metrics
         for m in vm_metrics + snap_metrics + ds_metrics + host_metrics:
@@ -134,7 +137,6 @@ class VMWareVCenterCollector(object):
         if name:
             for c in container.view:
                 if c.name == name:
-                    print obj
                     obj = c
                     return [obj]
         else:
