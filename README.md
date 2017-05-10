@@ -5,6 +5,7 @@ Get VMWare VCenter information:
 - Current number of active snapshots
 - Snapshot Unix timestamp creation date
 - Datastore size and other stuff
+- Basic VM and Host metrics
 
 ## Usage
 
@@ -15,7 +16,7 @@ Get VMWare VCenter information:
 ## Current Status
 
 - Only VCenter 6 and 6.5 have been tested.
-- Only Snapshot and Datastore information is exported, i.e:
+- VM information, Snapshot, Host and Datastore basic information is exported, i.e:
 ```
 # HELP vmware_snapshots VMWare current number of existing snapshots
 # TYPE vmware_snapshot_count gauge
@@ -43,6 +44,22 @@ vmware_datastore_hosts{ds_name="ESX1-LOCAL"} 1.0
 # HELP vmware_datastore_vms VMWare Virtual Machines number using this datastore
 # TYPE vmware_datastore_vms gauge
 vmware_datastore_vms{ds_name="ESX1-LOCAL"} 0.0
+
+# HELP vmware_host_power_state VMWare Host Power state (On / Off)
+# TYPE vmware_host_power_state gauge
+vmware_host_power_state{host_name="esx1.company.com"} 1.0
+# HELP vmware_host_cpu_usage VMWare Host CPU usage in Mhz
+# TYPE vmware_host_cpu_usage gauge
+vmware_host_cpu_usage{host_name="esx1.company.com"} 2959.0
+# HELP vmware_host_cpu_max VMWare Host CPU max availability in Mhz
+# TYPE vmware_host_cpu_max gauge
+vmware_host_cpu_max{host_name="esx1.company.com"} 28728.0
+# HELP vmware_host_memory_usage VMWare Host Memory usage in Mbytes
+# TYPE vmware_host_memory_usage gauge
+vmware_host_memory_usage{host_name="esx1.company.com"} 107164.0
+# HELP vmware_host_memory_max VMWare Host Memory Max availability in Mbytes
+# TYPE vmware_host_memory_max gauge
+vmware_host_memory_max{host_name="esx1.company.com"} 131059.01953125
 ```
 
 ## References
