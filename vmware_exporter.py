@@ -25,12 +25,12 @@ defaults = {
             'ignore_ssl': True
             }
 
-class VMWareSnapshotsCollector(object):
+class VMWareVCenterCollector(object):
 
     config = YamlConfig('config.yml', defaults)
 
     def collect(self):
-        metric= [
+        snap_metrics = [
                     GaugeMetricFamily(
                         'vmware_snapshots',
                         'VMWare current number of existing snapshots',
@@ -38,9 +38,35 @@ class VMWareSnapshotsCollector(object):
                     GaugeMetricFamily(
                         'vmware_snapshot_timestamp_seconds',
                         'VMWare Snapshot creation time in seconds',
-                        labels=['vm_name', 'vm_snapshot_name'])
+                        labels=['vm_name', 'vm_snapshot_name']),
                 ]
 
+        ds_metrics = [
+                    GaugeMetricFamily(
+                        'vmware_datastore_capacity_size',
+                        'VMWare Datasore capacity in bytes',
+                        labels=['ds_name']),
+                    GaugeMetricFamily(
+                        'vmware_datastore_freespace_size',
+                        'VMWare Datastore freespace in bytes',
+                        labels=['ds_name']),
+                    GaugeMetricFamily(
+                        'vmware_datastore_uncommited_size',
+                        'VMWare Datastore uncommitted in bytes',
+                        labels=['ds_name']),
+                    GaugeMetricFamily(
+                        'vmware_datastore_provisoned_size',
+                        'VMWare Datastore provisoned in bytes',
+                        labels=['ds_name']),
+                    GaugeMetricFamily(
+                        'vmware_datastore_hosts',
+                        'VMWare Hosts number using this datastore',
+                        labels=['ds_name']),
+                    GaugeMetricFamily(
+                        'vmware_datastore_vms',
+                        'VMWare Virtual Machines number using this datastore',
+                        labels=['ds_name'])
+                ]
 
         print("Collecting snapshots")
         print("Begin: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
@@ -51,18 +77,23 @@ class VMWareSnapshotsCollector(object):
         # Fill Snapshots (count and age)
         vm_counts, vm_ages = self._vmware_get_snapshots(content)
         for v in vm_counts:
-            metric[0].add_metric([v['vm_name']], v['snapshot_count'])
+            snap_metrics[0].add_metric([v['vm_name']], v['snapshot_count'])
         for vm_age in vm_ages:
             for v in vm_age:
-                metric[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
+                snap_metrics[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
                                         v['vm_snapshot_timestamp_seconds'])
+
+        # Fill Datastore
+        self._vmware_get_datastores(content, ds_metrics)
 
         print("End: %s" % datetime.utcnow().replace(tzinfo=pytz.utc))
 
         # Fill all metrics
-        for m in metric:
+        for m in snap_metrics:
             yield m
 
+        for m in ds_metrics:
+            yield m
 
     def _vmware_get_obj(self, content, vimtype, name=None):
         """
@@ -152,9 +183,27 @@ class VMWareSnapshotsCollector(object):
         return snapshots_count_table, snapshots_age_table
 
 
+    def _vmware_get_datastores(self, content, ds_metrics):
+        """
+        Get Datastore information
+        """
+        for ds in self._vmware_get_obj(content, [vim.Datastore]):
+            summary = ds.summary
+            ds_capacity = summary.capacity
+            ds_freespace = summary.freeSpace
+            ds_uncommitted = summary.uncommitted if summary.uncommitted else 0
+            ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
+
+            ds_metrics[0].add_metric([summary.name], ds_capacity)
+            ds_metrics[1].add_metric([summary.name], ds_freespace)
+            ds_metrics[2].add_metric([summary.name], ds_uncommitted)
+            ds_metrics[3].add_metric([summary.name], ds_provisioned)
+            ds_metrics[4].add_metric([summary.name], len(ds.host))
+            ds_metrics[5].add_metric([summary.name], len(ds.vm))
+
 
 if __name__ == '__main__':
-    REGISTRY.register(VMWareSnapshotsCollector())
+    REGISTRY.register(VMWareVCenterCollector())
     # Start up the server to expose the metrics.
     start_http_server(8000)
     # Generate some requests.
