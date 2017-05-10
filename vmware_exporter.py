@@ -21,6 +21,8 @@ from pyVim import connect
 from prometheus_client import start_http_server, Counter, Gauge, Summary
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
 
+REQUEST_TIME = Summary('vmware_request_processing_seconds', 'Time spent processing request')
+
 defaults = {
             'vcenter_ip': 'localhost',
             'vcenter_user': 'administrator@vsphere.local',
@@ -32,6 +34,7 @@ class VMWareVCenterCollector(object):
 
     config = YamlConfig('config.yml', defaults)
 
+    @REQUEST_TIME.time()
     def collect(self):
 
         vm_metrics = [
@@ -91,6 +94,22 @@ class VMWareVCenterCollector(object):
                     GaugeMetricFamily(
                         'vmware_host_boot_timestamp_seconds',
                         'VMWare Host boot time in seconds',
+                        labels=['host_name']),
+                    GaugeMetricFamily(
+                        'vmware_host_cpu_usage',
+                        'VMWare Host CPU usage in Mhz',
+                        labels=['host_name']),
+                    GaugeMetricFamily(
+                        'vmware_host_cpu_max',
+                        'VMWare Host CPU max availability in Mhz',
+                        labels=['host_name']),
+                    GaugeMetricFamily(
+                        'vmware_host_memory_usage',
+                        'VMWare Host Memory usage in Mbytes',
+                        labels=['host_name']),
+                    GaugeMetricFamily(
+                        'vmware_host_memory_max',
+                        'VMWare Host Memory Max availability in Mbytes',
                         labels=['host_name']),
                 ]
 
@@ -252,11 +271,32 @@ class VMWareVCenterCollector(object):
         """
         for host in self._vmware_get_obj(content, [vim.HostSystem]):
             summary = host.summary
+
+            # Power state
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             host_metrics[0].add_metric([host.name], power_state)
+
+            # Uptime
             if summary.runtime.bootTime:
                 host_metrics[1].add_metric([host.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
+
+
+            # CPU Usage (in Mhz)
+            host_metrics[2].add_metric([host.name],
+                                        summary.quickStats.overallCpuUsage)
+            cpu_core_num = summary.hardware.numCpuCores
+            cpu_total = summary.hardware.cpuMhz * cpu_core_num
+            host_metrics[3].add_metric([host.name], cpu_total)
+
+            # Memory Usage (in Mhz)
+            host_metrics[4].add_metric([host.name],
+                                        summary.quickStats.overallMemoryUsage)
+            host_metrics[5].add_metric([host.name],
+                            float(summary.hardware.memorySize) / 1024 / 1024)
+
+
+
 if __name__ == '__main__':
     REGISTRY.register(VMWareVCenterCollector())
     # Start up the server to expose the metrics.
