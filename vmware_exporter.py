@@ -263,8 +263,9 @@ class VMWareVCenterCollector(object):
             summary = vm.summary
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             vm_metrics[0].add_metric([vm.name], power_state)
-            if summary.runtime.bootTime:
-                vm_metrics[1].add_metric([vm.name],
+            if power_state:
+                if summary.runtime.bootTime:
+                    vm_metrics[1].add_metric([vm.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
 
@@ -279,23 +280,23 @@ class VMWareVCenterCollector(object):
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             host_metrics[0].add_metric([host.name], power_state)
 
-            # Uptime
-            if summary.runtime.bootTime:
-                host_metrics[1].add_metric([host.name],
+            if power_state:
+                # Uptime
+                if summary.runtime.bootTime:
+                    host_metrics[1].add_metric([host.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
-
-            # CPU Usage (in Mhz)
-            host_metrics[2].add_metric([host.name],
+                # CPU Usage (in Mhz)
+                host_metrics[2].add_metric([host.name],
                                         summary.quickStats.overallCpuUsage)
-            cpu_core_num = summary.hardware.numCpuCores
-            cpu_total = summary.hardware.cpuMhz * cpu_core_num
-            host_metrics[3].add_metric([host.name], cpu_total)
+                cpu_core_num = summary.hardware.numCpuCores
+                cpu_total = summary.hardware.cpuMhz * cpu_core_num
+                host_metrics[3].add_metric([host.name], cpu_total)
 
-            # Memory Usage (in Mhz)
-            host_metrics[4].add_metric([host.name],
+                # Memory Usage (in Mhz)
+                host_metrics[4].add_metric([host.name],
                                         summary.quickStats.overallMemoryUsage)
-            host_metrics[5].add_metric([host.name],
+                host_metrics[5].add_metric([host.name],
                             float(summary.hardware.memorySize) / 1024 / 1024)
 
 
