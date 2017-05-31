@@ -1,0 +1,13 @@
+[Unit]
+Description=Prometheus VMWare Exporter
+After=network.target
+
+[Service]
+User=prometheus
+Group=prometheus
+WorkingDirectory=/opt/prometheus/vmware_exporter/
+ExecStart=/opt/prometheus/vmware_exporter/vmware_exporter.py
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
