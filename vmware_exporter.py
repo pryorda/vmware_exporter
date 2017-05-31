@@ -3,12 +3,12 @@
 from __future__ import print_function
 
 # Generic imports
-import atexit
 import argparse
+import atexit
+import pytz
+import ssl
 import sys
 import time
-import ssl
-import pytz
 
 from datetime import datetime
 from yamlconfig import YamlConfig
@@ -32,11 +32,15 @@ defaults = {
 
 class VMWareVCenterCollector(object):
 
-    config = YamlConfig('config.yml', defaults)
+    def __init__(self):
+        self.config = YamlConfig('config.yml', defaults)
+        self.si = self._vmware_connect()
+        if not self.si:
+            print("Error, cannot connect to vmware")
+
 
     @REQUEST_TIME.time()
     def collect(self):
-
         vm_metrics = [
                     GaugeMetricFamily(
                         'vmware_vm_power_state',
@@ -116,7 +120,7 @@ class VMWareVCenterCollector(object):
         print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
         # Get VMWare VM Informations
-        content = self._vmware_get_content()
+        content = self.si.RetrieveContent()
 
         # Fill Snapshots (count and age)
         vm_counts, vm_ages = self._vmware_get_snapshots(content)
@@ -139,12 +143,13 @@ class VMWareVCenterCollector(object):
         print("[{0}] Stop Collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
         # Fill all metrics
-        for m in vm_metrics + snap_metrics + ds_metrics + host_metrics:
-            yield m
+        for metric in vm_metrics + snap_metrics + ds_metrics + host_metrics:
+            yield metric
 
 
     def _to_unix_timestamp(self, my_date):
         return ((my_date - datetime(1970,1,1,tzinfo=pytz.utc)).total_seconds())
+
 
     def _vmware_get_obj(self, content, vimtype, name=None):
         """
@@ -161,12 +166,11 @@ class VMWareVCenterCollector(object):
         else:
             return container.view
 
-    def _vmware_get_content(self):
-        """
-        Connect to Vcenter and get all VM Content Information
-        """
 
-        si = None
+    def _vmware_connect(self):
+        """
+        Connect to Vcenter and get connection
+        """
 
         context = None
         if self.config['main']['ignore_ssl'] and \
@@ -181,12 +185,11 @@ class VMWareVCenterCollector(object):
 
             atexit.register(connect.Disconnect, si)
 
-            content = si.RetrieveContent()
-            return content
+            return si
 
         except vmodl.MethodFault as error:
             print("Caught vmodl fault : " + error.msg)
-            return -1
+            return None
 
 
     def _vmware_list_snapshots_recursively(self, snapshots):
@@ -301,6 +304,6 @@ if __name__ == '__main__':
     REGISTRY.register(VMWareVCenterCollector())
     # Start up the server to expose the metrics.
     start_http_server(8000)
-    # Generate some requests.
+    # Loop
     while True:
         time.sleep(1)
