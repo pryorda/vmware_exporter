@@ -41,81 +41,72 @@ class VMWareVCenterCollector(object):
 
     @REQUEST_TIME.time()
     def collect(self):
-        vm_metrics = [
-                    GaugeMetricFamily(
+        metrics = {
+                    'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
                         'VMWare VM Power state (On / Off)',
                         labels=['vm_name']),
-                    GaugeMetricFamily(
+                    'vmware_vm_boot_timestamp_seconds': GaugeMetricFamily(
                         'vmware_vm_boot_timestamp_seconds',
                         'VMWare VM boot time in seconds',
                         labels=['vm_name']),
-        ]
-
-        snap_metrics = [
-                    GaugeMetricFamily(
+                    'vmware_vm_snapshots': GaugeMetricFamily(
                         'vmware_vm_snapshots',
                         'VMWare current number of existing snapshots',
                         labels=['vm_name']),
-                    GaugeMetricFamily(
+                    'vmware_vm_snapshot_timestamp_seconds': GaugeMetricFamily(
                         'vmware_vm_snapshot_timestamp_seconds',
                         'VMWare Snapshot creation time in seconds',
                         labels=['vm_name', 'vm_snapshot_name']),
-                ]
-
-        ds_metrics = [
-                    GaugeMetricFamily(
+                    'vmware_datastore_capacity_size': GaugeMetricFamily(
                         'vmware_datastore_capacity_size',
                         'VMWare Datasore capacity in bytes',
                         labels=['ds_name']),
-                    GaugeMetricFamily(
+                    'vmware_datastore_freespace_size': GaugeMetricFamily(
                         'vmware_datastore_freespace_size',
                         'VMWare Datastore freespace in bytes',
                         labels=['ds_name']),
-                    GaugeMetricFamily(
+                    'vmware_datastore_uncommited_size': GaugeMetricFamily(
                         'vmware_datastore_uncommited_size',
                         'VMWare Datastore uncommitted in bytes',
                         labels=['ds_name']),
-                    GaugeMetricFamily(
+                    'vmware_datastore_provisoned_size': GaugeMetricFamily(
                         'vmware_datastore_provisoned_size',
                         'VMWare Datastore provisoned in bytes',
                         labels=['ds_name']),
-                    GaugeMetricFamily(
+                    'vmware_datastore_hosts': GaugeMetricFamily(
                         'vmware_datastore_hosts',
                         'VMWare Hosts number using this datastore',
                         labels=['ds_name']),
-                    GaugeMetricFamily(
+                    'vmware_datastore_vms': GaugeMetricFamily(
                         'vmware_datastore_vms',
                         'VMWare Virtual Machines number using this datastore',
-                        labels=['ds_name'])
-                ]
-
-        host_metrics = [
-                    GaugeMetricFamily(
+                        labels=['ds_name']),
+                    'vmware_host_power_state': GaugeMetricFamily(
                         'vmware_host_power_state',
                         'VMWare Host Power state (On / Off)',
                         labels=['host_name']),
-                    GaugeMetricFamily(
+                    'vmware_host_boot_timestamp_seconds': GaugeMetricFamily(
                         'vmware_host_boot_timestamp_seconds',
                         'VMWare Host boot time in seconds',
                         labels=['host_name']),
-                    GaugeMetricFamily(
+                    'vmware_host_cpu_usage': GaugeMetricFamily(
                         'vmware_host_cpu_usage',
                         'VMWare Host CPU usage in Mhz',
                         labels=['host_name']),
-                    GaugeMetricFamily(
+                    'vmware_host_cpu_max': GaugeMetricFamily(
                         'vmware_host_cpu_max',
                         'VMWare Host CPU max availability in Mhz',
                         labels=['host_name']),
-                    GaugeMetricFamily(
+                    'vmware_host_memory_usage': GaugeMetricFamily(
                         'vmware_host_memory_usage',
                         'VMWare Host Memory usage in Mbytes',
                         labels=['host_name']),
-                    GaugeMetricFamily(
+                    'vmware_host_memory_max': GaugeMetricFamily(
                         'vmware_host_memory_max',
                         'VMWare Host Memory Max availability in Mbytes',
                         labels=['host_name']),
-                ]
+                }
 
         print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
@@ -125,25 +116,26 @@ class VMWareVCenterCollector(object):
         # Fill Snapshots (count and age)
         vm_counts, vm_ages = self._vmware_get_snapshots(content)
         for v in vm_counts:
-            snap_metrics[0].add_metric([v['vm_name']], v['snapshot_count'])
+            metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],
+                                                            v['snapshot_count'])
         for vm_age in vm_ages:
             for v in vm_age:
-                snap_metrics[1].add_metric([v['vm_name'], v['vm_snapshot_name']],
+                metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],
+                                        v['vm_snapshot_name']],
                                         v['vm_snapshot_timestamp_seconds'])
 
         # Fill Datastore
-        self._vmware_get_datastores(content, ds_metrics)
+        self._vmware_get_datastores(content, metrics)
 
         # Fill VM Informations
-        self._vmware_get_vms(content, vm_metrics)
+        self._vmware_get_vms(content, metrics)
 
         # Fill Hosts Informations
-        self._vmware_get_hosts(content, host_metrics)
+        self._vmware_get_hosts(content, metrics)
 
         print("[{0}] Stop Collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
-        # Fill all metrics
-        for metric in vm_metrics + snap_metrics + ds_metrics + host_metrics:
+        for metricname, metric in metrics.items():
             yield metric
 
 
@@ -247,12 +239,12 @@ class VMWareVCenterCollector(object):
             ds_uncommitted = summary.uncommitted if summary.uncommitted else 0
             ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
-            ds_metrics[0].add_metric([summary.name], ds_capacity)
-            ds_metrics[1].add_metric([summary.name], ds_freespace)
-            ds_metrics[2].add_metric([summary.name], ds_uncommitted)
-            ds_metrics[3].add_metric([summary.name], ds_provisioned)
-            ds_metrics[4].add_metric([summary.name], len(ds.host))
-            ds_metrics[5].add_metric([summary.name], len(ds.vm))
+            ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name], ds_capacity)
+            ds_metrics['vmware_datastore_freespace_size'].add_metric([summary.name], ds_freespace)
+            ds_metrics['vmware_datastore_uncommited_size'].add_metric([summary.name], ds_uncommitted)
+            ds_metrics['vmware_datastore_provisoned_size'].add_metric([summary.name], ds_provisioned)
+            ds_metrics['vmware_datastore_hosts'].add_metric([summary.name], len(ds.host))
+            ds_metrics['vmware_datastore_vms'].add_metric([summary.name], len(ds.vm))
 
 
     def _vmware_get_vms(self, content, vm_metrics):
@@ -262,10 +254,10 @@ class VMWareVCenterCollector(object):
         for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
             summary = vm.summary
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-            vm_metrics[0].add_metric([vm.name], power_state)
+            vm_metrics['vmware_vm_power_state'].add_metric([vm.name], power_state)
             if power_state:
                 if summary.runtime.bootTime:
-                    vm_metrics[1].add_metric([vm.name],
+                    vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
 
@@ -278,25 +270,25 @@ class VMWareVCenterCollector(object):
 
             # Power state
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-            host_metrics[0].add_metric([host.name], power_state)
+            host_metrics['vmware_host_power_state'].add_metric([host.name], power_state)
 
             if power_state:
                 # Uptime
                 if summary.runtime.bootTime:
-                    host_metrics[1].add_metric([host.name],
+                    host_metrics['vmware_host_boot_timestamp_seconds'].add_metric([host.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
                 # CPU Usage (in Mhz)
-                host_metrics[2].add_metric([host.name],
+                host_metrics['vmware_host_cpu_usage'].add_metric([host.name],
                                         summary.quickStats.overallCpuUsage)
                 cpu_core_num = summary.hardware.numCpuCores
                 cpu_total = summary.hardware.cpuMhz * cpu_core_num
-                host_metrics[3].add_metric([host.name], cpu_total)
+                host_metrics['vmware_host_cpu_max'].add_metric([host.name], cpu_total)
 
                 # Memory Usage (in Mhz)
-                host_metrics[4].add_metric([host.name],
+                host_metrics['vmware_host_memory_usage'].add_metric([host.name],
                                         summary.quickStats.overallMemoryUsage)
-                host_metrics[5].add_metric([host.name],
+                host_metrics['vmware_host_memory_max'].add_metric([host.name],
                             float(summary.hardware.memorySize) / 1024 / 1024)
 
 
