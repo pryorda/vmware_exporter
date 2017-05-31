@@ -36,7 +36,7 @@ class VMWareVCenterCollector(object):
         self.config = YamlConfig('config.yml', defaults)
         self.si = self._vmware_connect()
         if not self.si:
-            print("Error, cannot connect to vmware")
+            raise SystemExit("Error, cannot connect to vmware")
 
 
     @REQUEST_TIME.time()
