@@ -110,8 +110,11 @@ class VMWareVCenterCollector(object):
 
         print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
-        # Get VMWare VM Informations
+        # Get VMWare Content Information
         content = self.si.RetrieveContent()
+
+        # Get performance metrics counter information
+        counter_info = self._vmware_perf_metrics(content)
 
         # Fill Snapshots (count and age)
         vm_counts, vm_ages = self._vmware_get_snapshots(content)
@@ -128,7 +131,7 @@ class VMWareVCenterCollector(object):
         self._vmware_get_datastores(content, metrics)
 
         # Fill VM Informations
-        self._vmware_get_vms(content, metrics)
+        self._vmware_get_vms(content, metrics, counter_info)
 
         # Fill Hosts Informations
         self._vmware_get_hosts(content, metrics)
@@ -182,6 +185,19 @@ class VMWareVCenterCollector(object):
         except vmodl.MethodFault as error:
             print("Caught vmodl fault : " + error.msg)
             return None
+
+
+    def _vmware_perf_metrics(self, content):
+        # create a mapping from performance stats to their counterIDs
+        # counter_info: [performance stat => counterId]
+        # performance stat example: cpu.usagemhz.LATEST
+        counter_info = {}
+        for c in content.perfManager.perfCounter:
+            prefix = c.groupInfo.key
+            counter_full = "{}.{}.{}".format(c.groupInfo.key,
+                                                    c.nameInfo.key,c.rollupType)
+            counter_info[counter_full] = c.key
+        return counter_info
 
 
     def _vmware_list_snapshots_recursively(self, snapshots):
@@ -247,18 +263,57 @@ class VMWareVCenterCollector(object):
             ds_metrics['vmware_datastore_vms'].add_metric([summary.name], len(ds.vm))
 
 
-    def _vmware_get_vms(self, content, vm_metrics):
+    def _vmware_get_vms(self, content, vm_metrics, counter_info):
         """
         Get VM information
         """
+
+        # List of performance counter we want
+        perf_list = [
+            'cpu.usage.average',
+            'disk.usage.average',
+            'disk.read.average',
+            'disk.write.average',
+            'mem.usage.average',
+            'net.received.average',
+            'net.transmitted.average',
+            ]
+
+        # Prepare gauges
+        for p in perf_list:
+            p_metric = 'vmware_vm_' + p.replace('.', '_')
+            vm_metrics[p_metric] = GaugeMetricFamily(
+                                            p_metric,
+                                            p_metric,
+                                            labels=['vm_name'])
+
         for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
             summary = vm.summary
+
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             vm_metrics['vmware_vm_power_state'].add_metric([vm.name], power_state)
+
+            # Get metrics for poweredOn vms only
             if power_state:
                 if summary.runtime.bootTime:
                     vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
+
+                for p in perf_list:
+                    p_metric = 'vmware_vm_' + p.replace('.', '_')
+                    counter_key = counter_info[p]
+                    metric_id = vim.PerformanceManager.MetricId(
+                                                        counterId=counter_key,
+                                                        instance='')
+                    spec = vim.PerformanceManager.QuerySpec(
+                                                        maxSample=1,
+                                                        entity=vm,
+                                                        metricId=[metric_id],
+                                                        intervalId=20)
+                    result = content.perfManager.QueryStats(querySpec=[spec])
+                    vm_metrics[p_metric].add_metric([vm.name],
+                                        float(sum(result[0].value[0].value)))
+
 
 
     def _vmware_get_hosts(self, content, host_metrics):
