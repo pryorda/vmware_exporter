@@ -311,8 +311,11 @@ class VMWareVCenterCollector(object):
                                                         metricId=[metric_id],
                                                         intervalId=20)
                     result = content.perfManager.QueryStats(querySpec=[spec])
-                    vm_metrics[p_metric].add_metric([vm.name],
+                    try:
+                        vm_metrics[p_metric].add_metric([vm.name],
                                         float(sum(result[0].value[0].value)))
+                    except:
+                        pass
 
 
 
