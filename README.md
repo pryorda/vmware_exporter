@@ -11,7 +11,7 @@ Get VMWare VCenter information:
 
 - Create a `config.yml` file based on the `config.yml.sample`.
 - Run `$ python vmware_exporter.py`
-- Go to http://localhost:8000/metrics to see metrics
+- Go to http://localhost:9272/metrics to see metrics
 
 ## Current Status
 

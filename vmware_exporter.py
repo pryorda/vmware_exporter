@@ -354,7 +354,7 @@ class VMWareVCenterCollector(object):
 if __name__ == '__main__':
     REGISTRY.register(VMWareVCenterCollector())
     # Start up the server to expose the metrics.
-    start_http_server(8000)
+    start_http_server(9272)
     # Loop
     while True:
         time.sleep(1)
