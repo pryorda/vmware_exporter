@@ -11,6 +11,7 @@ import sys
 import time
 
 from datetime import datetime
+from argparse import ArgumentParser
 from yamlconfig import YamlConfig
 
 # VMWare specific imports
@@ -32,8 +33,11 @@ defaults = {
 
 class VMWareVCenterCollector(object):
 
-    def __init__(self):
-        self.config = YamlConfig('config.yml', defaults)
+    def __init__(self, args):
+        try:
+            self.config = YamlConfig(args.config_file, defaults)
+        except:
+            raise SystemExit("Error, cannot read configuration file")
         self.si = self._vmware_connect()
         if not self.si:
             raise SystemExit("Error, cannot connect to vmware")
@@ -352,9 +356,20 @@ class VMWareVCenterCollector(object):
 
 
 if __name__ == '__main__':
-    REGISTRY.register(VMWareVCenterCollector())
+    parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
+    parser.add_argument('-c', '--config', dest='config_file',
+                            default='config.yml', help="configuration file")
+    parser.add_argument('-p', '--port', dest='port', type=int,
+                            default=9272, help="HTTP port to expose metrics")
+
+    args = parser.parse_args(sys.argv[1:])
+
+    REGISTRY.register(VMWareVCenterCollector(args))
     # Start up the server to expose the metrics.
-    start_http_server(9272)
+    try:
+        start_http_server(args.port)
+    except:
+        print("Cannot bind to %s" % args.port)
     # Loop
     while True:
         time.sleep(1)
