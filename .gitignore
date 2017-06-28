@@ -89,5 +89,4 @@ ENV/
 .ropeproject
 
 # Project
-config.yml
-
+config*.yml
