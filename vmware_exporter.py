@@ -140,7 +140,7 @@ class VMWareVCenterCollector(object):
         # Fill Hosts Informations
         self._vmware_get_hosts(content, metrics)
 
-        print("[{0}] Stop Collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
+        print("[{0}] Stop collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
         for metricname, metric in metrics.items():
             yield metric
@@ -319,6 +319,7 @@ class VMWareVCenterCollector(object):
                         vm_metrics[p_metric].add_metric([vm.name],
                                         float(sum(result[0].value[0].value)))
                     except:
+                        print("Error! Cannot get vm metrics, details: \n {0}", result)
                         pass
 
 
