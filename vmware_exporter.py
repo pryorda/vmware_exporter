@@ -38,9 +38,9 @@ class VMWareVCenterCollector(object):
             self.config = YamlConfig(args.config_file, defaults)
         except:
             raise SystemExit("Error, cannot read configuration file")
-        self.si = self._vmware_connect()
-        if not self.si:
-            raise SystemExit("Error, cannot connect to vmware")
+        #self.si = self._vmware_connect()
+        #if not self.si:
+        #   raise SystemExit("Error, cannot connect to vmware")
 
 
     @REQUEST_TIME.time()
@@ -114,7 +114,10 @@ class VMWareVCenterCollector(object):
 
         print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
 
-        # Get VMWare Content Information
+        self.si = self._vmware_connect()
+        if not self.si:
+           raise SystemExit("Error, cannot connect to vmware")
+
         content = self.si.RetrieveContent()
 
         # Get performance metrics counter information
@@ -144,6 +147,8 @@ class VMWareVCenterCollector(object):
 
         for metricname, metric in metrics.items():
             yield metric
+
+        self._vmware_disconnect()
 
 
     def _to_unix_timestamp(self, my_date):
@@ -181,8 +186,8 @@ class VMWareVCenterCollector(object):
                                  self.config['main']['vcenter_user'],
                                  self.config['main']['vcenter_password'],
                                  sslContext=context)
-
-            atexit.register(connect.Disconnect, si)
+            print("-> Connect")
+            #atexit.register(connect.Disconnect, si)
 
             return si
 
@@ -190,6 +195,12 @@ class VMWareVCenterCollector(object):
             print("Caught vmodl fault : " + error.msg)
             return None
 
+    def _vmware_disconnect(self):
+        """
+        Disconnect from Vcenter
+        """
+        connect.Disconnect(self.si)
+        print("-> Disconnect")
 
     def _vmware_perf_metrics(self, content):
         # create a mapping from performance stats to their counterIDs
