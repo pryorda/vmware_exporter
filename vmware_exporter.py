@@ -368,20 +368,21 @@ class VMWareVCenterCollector(object):
 
 
 if __name__ == '__main__':
-    parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
-    parser.add_argument('-c', '--config', dest='config_file',
+    try:
+        parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
+        parser.add_argument('-c', '--config', dest='config_file',
                             default='config.yml', help="configuration file")
-    parser.add_argument('-p', '--port', dest='port', type=int,
+        parser.add_argument('-p', '--port', dest='port', type=int,
                             default=9272, help="HTTP port to expose metrics")
 
-    args = parser.parse_args(sys.argv[1:])
+        args = parser.parse_args(sys.argv[1:])
 
-    REGISTRY.register(VMWareVCenterCollector(args))
-    # Start up the server to expose the metrics.
-    try:
+        REGISTRY.register(VMWareVCenterCollector(args))
+        # Start up the server to expose the metrics.
         start_http_server(args.port)
-    except:
-        print("Cannot bind to %s" % args.port)
-    # Loop
-    while True:
-        time.sleep(1)
+        # Loop
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print(" Interrupted")
+        exit(0)
