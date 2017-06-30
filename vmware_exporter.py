@@ -183,7 +183,6 @@ class VMWareVCenterCollector(object):
                                  self.config['main']['vcenter_user'],
                                  self.config['main']['vcenter_password'],
                                  sslContext=context)
-            print("-> Connect")
 
             return si
 
@@ -196,7 +195,6 @@ class VMWareVCenterCollector(object):
         Disconnect from Vcenter
         """
         connect.Disconnect(self.si)
-        print("-> Disconnect")
 
     def _vmware_perf_metrics(self, content):
         # create a mapping from performance stats to their counterIDs
