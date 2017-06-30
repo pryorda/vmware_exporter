@@ -10,8 +10,8 @@ import ssl
 import sys
 import time
 
-from datetime import datetime
 from argparse import ArgumentParser
+from datetime import datetime
 from yamlconfig import YamlConfig
 
 # VMWare specific imports
