@@ -319,7 +319,7 @@ class VMWareVCenterCollector(object):
                         vm_metrics[p_metric].add_metric([vm.name],
                                         float(sum(result[0].value[0].value)))
                     except:
-                        print("Error! Cannot get vm metrics, details: \n ", result)
+                        print("Error, cannot get vm metrics {0} for {1}".format(p_metric, vm.name))
                         pass
 
 
