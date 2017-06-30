@@ -90,3 +90,4 @@ ENV/
 
 # Project
 config*.yml
+*.swp
