@@ -38,9 +38,6 @@ class VMWareVCenterCollector(object):
             self.config = YamlConfig(args.config_file, defaults)
         except:
             raise SystemExit("Error, cannot read configuration file")
-        #self.si = self._vmware_connect()
-        #if not self.si:
-        #   raise SystemExit("Error, cannot connect to vmware")
 
 
     @REQUEST_TIME.time()
@@ -187,7 +184,6 @@ class VMWareVCenterCollector(object):
                                  self.config['main']['vcenter_password'],
                                  sslContext=context)
             print("-> Connect")
-            #atexit.register(connect.Disconnect, si)
 
             return si
 
