@@ -113,7 +113,8 @@ class VMWareVCenterCollector(object):
 
         self.si = self._vmware_connect()
         if not self.si:
-           raise SystemExit("Error, cannot connect to vmware")
+           print("Error, cannot connect to vmware")
+           return
 
         content = self.si.RetrieveContent()
 
@@ -187,7 +188,7 @@ class VMWareVCenterCollector(object):
             return si
 
         except vmodl.MethodFault as error:
-            print("Caught vmodl fault : " + error.msg)
+            print("Caught vmodl fault: " + error.msg)
             return None
 
     def _vmware_disconnect(self):
