@@ -13,9 +13,43 @@ Get VMWare VCenter information:
 - Run `$ python vmware_exporter.py`
 - Go to http://localhost:9272/metrics to see metrics
 
+### Prometheus configuration
+
+You can use the following parameters in prometheus configuration file. The `params` section is used to manage multiple login/passwords.
+
+```
+  - job_name: 'vmware_vcenter'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+        - 'vcenter.company.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9272
+
+  - job_name: 'vmware_esx'
+    metrics_path: '/metrics'
+    file_sd_configs:
+      - files:
+        - /etc/prometheus/esx.yml
+    params:
+      section: [esx]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9272
+```
+
 ## Current Status
 
-- Only VCenter 6 and 6.5 have been tested.
+- VCenter and ESXi 6 and 6.5 have been tested.
 - VM information, Snapshot, Host and Datastore basic information is exported, i.e:
 ```
 # HELP vmware_snapshots VMWare current number of existing snapshots
@@ -64,9 +98,10 @@ vmware_host_memory_max{host_name="esx1.company.com"} 131059.01953125
 
 ## References
 
-The VMWare exporter uses 2 libraries:
+The VMWare exporter uses theses libraries:
 - [pyVmomi](https://github.com/vmware/pyvmomi) for VMWare connection
 - Prometheus [client_python](https://github.com/prometheus/client_python) for Prometheus supervision
+- [Twisted](http://twistedmatrix.com/trac/) for http server
 
 The initial code is mainly inspired from:
 - https://www.robustperception.io/writing-a-jenkins-exporter-in-python/
