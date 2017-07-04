@@ -54,7 +54,6 @@ class VMWareMetricsResource(Resource):
         path = request.path.decode()
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
         if path == '/metrics':
-            target = request.args.get('target', [None])[0]
             d = deferLater(reactor, 0, lambda: request)
             d.addCallback(self.generate_latest_target)
             return NOT_DONE_YET
@@ -64,8 +63,9 @@ class VMWareMetricsResource(Resource):
 
     def generate_latest_target(self, request):
         target = request.args.get('target', [None])[0]
+        section = request.args.get('section', ['default'])[0]
         output = []
-        for metric in self.collect(target):
+        for metric in self.collect(target, section):
             output.append('# HELP {0} {1}'.format(
                 metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
@@ -81,11 +81,13 @@ class VMWareMetricsResource(Resource):
         request.write(''.join(output).encode('utf-8'))
         request.finish()
 
-    def collect(self, target=None):
+    def collect(self, target=None, section='default'):
+        if section not in self.config.keys():
+            print("{} is not a valid section, using default".format(section))
+            section='default'
         # If no target defined, use the one defined in yaml config file
         if not target:
-            target = self.config['main']['vcenter_ip']
-
+            target = self.config[section]['vcenter_ip']
         metrics = {
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
@@ -155,7 +157,7 @@ class VMWareMetricsResource(Resource):
 
         print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
-        self.si = self._vmware_connect(target)
+        self.si = self._vmware_connect(target, section)
         if not self.si:
            print("Error, cannot connect to vmware")
            return
@@ -215,20 +217,20 @@ class VMWareMetricsResource(Resource):
             return container.view
 
 
-    def _vmware_connect(self, target):
+    def _vmware_connect(self, target, section):
         """
         Connect to Vcenter and get connection
         """
 
         context = None
-        if self.config['main']['ignore_ssl'] and \
+        if self.config[section]['ignore_ssl'] and \
                 hasattr(ssl, "_create_unverified_context"):
             context = ssl._create_unverified_context()
 
         try:
             si = connect.Connect(target, 443,
-                                 self.config['main']['vcenter_user'],
-                                 self.config['main']['vcenter_password'],
+                                 self.config[section]['vcenter_user'],
+                                 self.config[section]['vcenter_password'],
                                  sslContext=context)
 
             return si
