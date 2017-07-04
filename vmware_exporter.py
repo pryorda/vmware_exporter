@@ -14,14 +14,20 @@ from argparse import ArgumentParser
 from datetime import datetime
 from yamlconfig import YamlConfig
 
+# Twisted
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+
 # VMWare specific imports
 from pyVmomi import vim, vmodl
 from pyVim import connect
 
 # Prometheus specific imports
-from prometheus_client import start_http_server, Counter, Gauge, Summary
-from prometheus_client.core import GaugeMetricFamily, REGISTRY
+from prometheus_client import Gauge, Summary
+from prometheus_client.core import GaugeMetricFamily, _floatToGoString
 
+''' Not working - yet - '''
 REQUEST_TIME = Summary('vmware_request_processing_seconds', 'Time spent processing request')
 
 defaults = {
@@ -31,17 +37,51 @@ defaults = {
             'ignore_ssl': True
             }
 
-class VMWareVCenterCollector(object):
+class VMWareMetricsResource(Resource):
+    """
+    VMWare twisted ``Resource`` handling multi endpoints
+    Only handle /metrics path
+    """
+    isLeaf = True
 
-    def __init__(self, args):
+    def __init__(self):
         try:
             self.config = YamlConfig(args.config_file, defaults)
         except:
             raise SystemExit("Error, cannot read configuration file")
 
+    def render_GET(self, request):
+        path = request.path.decode()
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        if path == '/metrics':
+            target = request.args.get('target', [None])[0]
+            return self.generate_latest_target(target)
+        else:
+            request.setResponseCode(404)
+            return '404 Not Found'.encode()
 
-    @REQUEST_TIME.time()
-    def collect(self):
+    def generate_latest_target(self, target=None):
+        output = []
+        for metric in self.collect(target):
+            output.append('# HELP {0} {1}'.format(
+                metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
+            for name, labels, value in metric.samples:
+                if labels:
+                    labelstr = '{{{0}}}'.format(','.join(
+                        ['{0}="{1}"'.format(
+                         k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                         for k, v in sorted(labels.items())]))
+                else:
+                    labelstr = ''
+                output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
+        return ''.join(output).encode('utf-8')
+
+    def collect(self, target=None):
+        # If no target defined, use the one defined in yaml config file
+        if not target:
+            target = self.config['main']['vcenter_ip']
+
         metrics = {
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
@@ -109,9 +149,9 @@ class VMWareVCenterCollector(object):
                         labels=['host_name']),
                 }
 
-        print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
+        print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
-        self.si = self._vmware_connect()
+        self.si = self._vmware_connect(target)
         if not self.si:
            print("Error, cannot connect to vmware")
            return
@@ -141,7 +181,7 @@ class VMWareVCenterCollector(object):
         # Fill Hosts Informations
         self._vmware_get_hosts(content, metrics)
 
-        print("[{0}] Stop collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
+        print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
         for metricname, metric in metrics.items():
             yield metric
@@ -169,7 +209,7 @@ class VMWareVCenterCollector(object):
             return container.view
 
 
-    def _vmware_connect(self):
+    def _vmware_connect(self, target):
         """
         Connect to Vcenter and get connection
         """
@@ -180,7 +220,7 @@ class VMWareVCenterCollector(object):
             context = ssl._create_unverified_context()
 
         try:
-            si = connect.Connect(self.config['main']['vcenter_ip'], 443,
+            si = connect.Connect(target, 443,
                                  self.config['main']['vcenter_user'],
                                  self.config['main']['vcenter_password'],
                                  sslContext=context)
@@ -363,21 +403,19 @@ class VMWareVCenterCollector(object):
 
 
 if __name__ == '__main__':
-    try:
-        parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
-        parser.add_argument('-c', '--config', dest='config_file',
-                            default='config.yml', help="configuration file")
-        parser.add_argument('-p', '--port', dest='port', type=int,
-                            default=9272, help="HTTP port to expose metrics")
+    parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
+    parser.add_argument('-c', '--config', dest='config_file',
+                        default='config.yml', help="configuration file")
+    parser.add_argument('-p', '--port', dest='port', type=int,
+                        default=9272, help="HTTP port to expose metrics")
 
-        args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args(sys.argv[1:])
 
-        REGISTRY.register(VMWareVCenterCollector(args))
-        # Start up the server to expose the metrics.
-        start_http_server(args.port)
-        # Loop
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print(" Interrupted")
-        exit(0)
+    # Start up the server to expose the metrics.
+    root = Resource()
+    root.putChild(b'metrics', VMWareMetricsResource())
+
+    factory = Site(root)
+    print("Starting web server on port {}".format(args.port))
+    reactor.listenTCP(args.port, factory)
+    reactor.run()
