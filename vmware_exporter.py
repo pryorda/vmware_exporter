@@ -6,7 +6,6 @@ from __future__ import print_function
 
 # Generic imports
 import argparse
-import atexit
 import pytz
 import ssl
 import sys
