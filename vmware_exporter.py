@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- python -*-
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 
@@ -15,20 +17,17 @@ from datetime import datetime
 from yamlconfig import YamlConfig
 
 # Twisted
-from twisted.web.server import Site
+from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import Resource
 from twisted.internet import reactor
+from twisted.internet.task import deferLater
 
 # VMWare specific imports
 from pyVmomi import vim, vmodl
 from pyVim import connect
 
 # Prometheus specific imports
-from prometheus_client import Gauge, Summary
 from prometheus_client.core import GaugeMetricFamily, _floatToGoString
-
-''' Not working - yet - '''
-REQUEST_TIME = Summary('vmware_request_processing_seconds', 'Time spent processing request')
 
 defaults = {
             'vcenter_ip': 'localhost',
@@ -50,17 +49,21 @@ class VMWareMetricsResource(Resource):
         except:
             raise SystemExit("Error, cannot read configuration file")
 
+
     def render_GET(self, request):
         path = request.path.decode()
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
         if path == '/metrics':
             target = request.args.get('target', [None])[0]
-            return self.generate_latest_target(target)
+            d = deferLater(reactor, 0, lambda: request)
+            d.addCallback(self.generate_latest_target)
+            return NOT_DONE_YET
         else:
             request.setResponseCode(404)
             return '404 Not Found'.encode()
 
-    def generate_latest_target(self, target=None):
+    def generate_latest_target(self, request):
+        target = request.args.get('target', [None])[0]
         output = []
         for metric in self.collect(target):
             output.append('# HELP {0} {1}'.format(
@@ -75,7 +78,8 @@ class VMWareMetricsResource(Resource):
                 else:
                     labelstr = ''
                 output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
-        return ''.join(output).encode('utf-8')
+        request.write(''.join(output).encode('utf-8'))
+        request.finish()
 
     def collect(self, target=None):
         # If no target defined, use the one defined in yaml config file
@@ -183,10 +187,12 @@ class VMWareMetricsResource(Resource):
 
         print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
+        self._vmware_disconnect()
+
         for metricname, metric in metrics.items():
             yield metric
 
-        self._vmware_disconnect()
+
 
 
     def _to_unix_timestamp(self, my_date):
