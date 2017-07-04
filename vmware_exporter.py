@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- python -*-
+# -*- coding: utf-8 -*-
 
 from __future__ import print_function
 
@@ -14,15 +16,18 @@ from argparse import ArgumentParser
 from datetime import datetime
 from yamlconfig import YamlConfig
 
+# Twisted
+from twisted.web.server import Site, NOT_DONE_YET
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+from twisted.internet.task import deferLater
+
 # VMWare specific imports
 from pyVmomi import vim, vmodl
 from pyVim import connect
 
 # Prometheus specific imports
-from prometheus_client import start_http_server, Counter, Gauge, Summary
-from prometheus_client.core import GaugeMetricFamily, REGISTRY
-
-REQUEST_TIME = Summary('vmware_request_processing_seconds', 'Time spent processing request')
+from prometheus_client.core import GaugeMetricFamily, _floatToGoString
 
 defaults = {
             'vcenter_ip': 'localhost',
@@ -31,20 +36,58 @@ defaults = {
             'ignore_ssl': True
             }
 
-class VMWareVCenterCollector(object):
+class VMWareMetricsResource(Resource):
+    """
+    VMWare twisted ``Resource`` handling multi endpoints
+    Only handle /metrics path
+    """
+    isLeaf = True
 
-    def __init__(self, args):
+    def __init__(self):
         try:
             self.config = YamlConfig(args.config_file, defaults)
         except:
             raise SystemExit("Error, cannot read configuration file")
-        self.si = self._vmware_connect()
-        if not self.si:
-            raise SystemExit("Error, cannot connect to vmware")
 
 
-    @REQUEST_TIME.time()
-    def collect(self):
+    def render_GET(self, request):
+        path = request.path.decode()
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        if path == '/metrics':
+            d = deferLater(reactor, 0, lambda: request)
+            d.addCallback(self.generate_latest_target)
+            return NOT_DONE_YET
+        else:
+            request.setResponseCode(404)
+            return '404 Not Found'.encode()
+
+    def generate_latest_target(self, request):
+        target = request.args.get('target', [None])[0]
+        section = request.args.get('section', ['default'])[0]
+        output = []
+        for metric in self.collect(target, section):
+            output.append('# HELP {0} {1}'.format(
+                metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
+            output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
+            for name, labels, value in metric.samples:
+                if labels:
+                    labelstr = '{{{0}}}'.format(','.join(
+                        ['{0}="{1}"'.format(
+                         k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                         for k, v in sorted(labels.items())]))
+                else:
+                    labelstr = ''
+                output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
+        request.write(''.join(output).encode('utf-8'))
+        request.finish()
+
+    def collect(self, target=None, section='default'):
+        if section not in self.config.keys():
+            print("{} is not a valid section, using default".format(section))
+            section='default'
+        # If no target defined, use the one defined in yaml config file
+        if not target:
+            target = self.config[section]['vcenter_ip']
         metrics = {
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
@@ -112,9 +155,13 @@ class VMWareVCenterCollector(object):
                         labels=['host_name']),
                 }
 
-        print("[{0}] Start collecting vcenter metrics".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
+        print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
-        # Get VMWare Content Information
+        self.si = self._vmware_connect(target, section)
+        if not self.si:
+           print("Error, cannot connect to vmware")
+           return
+
         content = self.si.RetrieveContent()
 
         # Get performance metrics counter information
@@ -140,10 +187,14 @@ class VMWareVCenterCollector(object):
         # Fill Hosts Informations
         self._vmware_get_hosts(content, metrics)
 
-        print("[{0}] Stop collecting".format(datetime.utcnow().replace(tzinfo=pytz.utc)))
+        print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
+
+        self._vmware_disconnect()
 
         for metricname, metric in metrics.items():
             yield metric
+
+
 
 
     def _to_unix_timestamp(self, my_date):
@@ -166,30 +217,33 @@ class VMWareVCenterCollector(object):
             return container.view
 
 
-    def _vmware_connect(self):
+    def _vmware_connect(self, target, section):
         """
         Connect to Vcenter and get connection
         """
 
         context = None
-        if self.config['main']['ignore_ssl'] and \
+        if self.config[section]['ignore_ssl'] and \
                 hasattr(ssl, "_create_unverified_context"):
             context = ssl._create_unverified_context()
 
         try:
-            si = connect.Connect(self.config['main']['vcenter_ip'], 443,
-                                 self.config['main']['vcenter_user'],
-                                 self.config['main']['vcenter_password'],
+            si = connect.Connect(target, 443,
+                                 self.config[section]['vcenter_user'],
+                                 self.config[section]['vcenter_password'],
                                  sslContext=context)
-
-            atexit.register(connect.Disconnect, si)
 
             return si
 
         except vmodl.MethodFault as error:
-            print("Caught vmodl fault : " + error.msg)
+            print("Caught vmodl fault: " + error.msg)
             return None
 
+    def _vmware_disconnect(self):
+        """
+        Disconnect from Vcenter
+        """
+        connect.Disconnect(self.si)
 
     def _vmware_perf_metrics(self, content):
         # create a mapping from performance stats to their counterIDs
@@ -359,18 +413,17 @@ class VMWareVCenterCollector(object):
 if __name__ == '__main__':
     parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
-                            default='config.yml', help="configuration file")
+                        default='config.yml', help="configuration file")
     parser.add_argument('-p', '--port', dest='port', type=int,
-                            default=9272, help="HTTP port to expose metrics")
+                        default=9272, help="HTTP port to expose metrics")
 
     args = parser.parse_args(sys.argv[1:])
 
-    REGISTRY.register(VMWareVCenterCollector(args))
     # Start up the server to expose the metrics.
-    try:
-        start_http_server(args.port)
-    except:
-        print("Cannot bind to %s" % args.port)
-    # Loop
-    while True:
-        time.sleep(1)
+    root = Resource()
+    root.putChild(b'metrics', VMWareMetricsResource())
+
+    factory = Site(root)
+    print("Starting web server on port {}".format(args.port))
+    reactor.listenTCP(args.port, factory)
+    reactor.run()
