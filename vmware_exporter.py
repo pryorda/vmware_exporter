@@ -327,7 +327,9 @@ class VMWareMetricsResource(Resource):
 
         # List of performance counter we want
         perf_list = [
+            'cpu.ready.summation',
             'cpu.usage.average',
+            'cpu.usagemhz.average',
             'disk.usage.average',
             'disk.read.average',
             'disk.write.average',
