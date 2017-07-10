@@ -1,11 +1,9 @@
 default:
-    vcenter_ip: 'vcenter.example.com'
-    vcenter_user: 'administrator@vsphere.local'
-    vcenter_password: 'password'
+    vmware_user: 'administrator@vsphere.local'
+    vmware_password: 'password'
     ignore_ssl: True
 
 esx:
-    vcenter_ip: 'esx1.example.com'
-    vcenter_user: 'root'
-    vcenter_password: 'password'
+    vmware_user: 'root'
+    vmware_password: 'password'
     ignore_ssl: True

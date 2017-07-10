@@ -28,12 +28,6 @@ from pyVim import connect
 # Prometheus specific imports
 from prometheus_client.core import GaugeMetricFamily, _floatToGoString
 
-defaults = {
-            'vcenter_ip': 'localhost',
-            'vcenter_user': 'administrator@vsphere.local',
-            'vcenter_password': 'password',
-            'ignore_ssl': True
-            }
 
 class VMWareMetricsResource(Resource):
     """
@@ -44,7 +38,10 @@ class VMWareMetricsResource(Resource):
 
     def __init__(self):
         try:
-            self.config = YamlConfig(args.config_file, defaults)
+            self.config = YamlConfig(args.config_file)
+            if 'default' not in self.config.keys():
+                print("Error, you must have a default section in config file")
+                exit(1)
         except:
             raise SystemExit("Error, cannot read configuration file")
 
@@ -53,6 +50,9 @@ class VMWareMetricsResource(Resource):
         path = request.path.decode()
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
         if path == '/metrics':
+            if not request.args.get('target', [None])[0]:
+                request.setResponseCode(404)
+                return 'No target defined\r\n'.encode()
             d = deferLater(reactor, 0, lambda: request)
             d.addCallback(self.generate_latest_target)
             return NOT_DONE_YET
@@ -84,9 +84,6 @@ class VMWareMetricsResource(Resource):
         if section not in self.config.keys():
             print("{} is not a valid section, using default".format(section))
             section='default'
-        # If no target defined, use the one defined in yaml config file
-        if not target:
-            target = self.config[section]['vcenter_ip']
         metrics = {
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
@@ -228,8 +225,8 @@ class VMWareMetricsResource(Resource):
 
         try:
             si = connect.Connect(target, 443,
-                                 self.config[section]['vcenter_user'],
-                                 self.config[section]['vcenter_password'],
+                                 self.config[section]['vmware_user'],
+                                 self.config[section]['vmware_password'],
                                  sslContext=context)
 
             return si
