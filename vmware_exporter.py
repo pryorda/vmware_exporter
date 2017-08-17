@@ -55,10 +55,16 @@ class VMWareMetricsResource(Resource):
                 return 'No target defined\r\n'.encode()
             d = deferLater(reactor, 0, lambda: request)
             d.addCallback(self.generate_latest_target)
+            d.addErrback(self.errback, request)
             return NOT_DONE_YET
         else:
             request.setResponseCode(404)
             return '404 Not Found'.encode()
+
+    def errback(self, failure, request):
+        failure.printTraceback()
+        request.processingFailed(failure) # This will send a trace to the browser and close the request.
+        return None
 
     def generate_latest_target(self, request):
         target = request.args.get('target', [None])[0]
@@ -77,8 +83,13 @@ class VMWareMetricsResource(Resource):
                 else:
                     labelstr = ''
                 output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
-        request.write(''.join(output).encode('utf-8'))
-        request.finish()
+        if output != []:
+            request.write(''.join(output).encode('utf-8'))
+            request.finish()
+        else:
+            request.setResponseCode(500, message=('cannot connect to vmware'))
+            request.finish()
+            return
 
     def collect(self, target=None, section='default'):
         if section not in self.config.keys():
