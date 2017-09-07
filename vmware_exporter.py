@@ -314,6 +314,7 @@ class VMWareMetricsResource(Resource):
         Get Datastore information
         """
         for ds in self._vmware_get_obj(content, [vim.Datastore]):
+            ds.RefreshDatastoreStorageInfo()
             summary = ds.summary
             ds_capacity = summary.capacity
             ds_freespace = summary.freeSpace
