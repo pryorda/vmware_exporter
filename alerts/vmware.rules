@@ -1,0 +1,44 @@
+ALERT VMWarnMemoryUsage
+  IF
+    ((vmware_vm_mem_usage_average / 100) >= 90) and ((vmware_vm_mem_usage_average / 100) < 95)
+  FOR 30m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    title = "High memory usage on {{ $labels.instance }}: {{ $value | printf \"%.2f\" }}%",
+  }
+
+ALERT VMCritMemoryUsage
+  IF
+    ((vmware_vm_mem_usage_average / 100) >= 95)
+  FOR 5m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    title = "Very High memory usage on {{ $labels.instance }}: {{ $value | printf \"%.2f\" }}%",
+  }
+
+ALERT VMWarnNumberSnapshots
+  IF
+    (vmware_vm_snapshots < 3)
+  FOR 30m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    title = "High snapshots number on {{ $labels.instance }}: {{ $value }}",
+  }
+
+ALERT VMCritNumberSnapshots
+  IF
+    (vmware_vm_snapshots >= 3)
+  FOR 30m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    title = "Very high snapshot number on {{ $labels.instance }}: {{ $value }}",
+  }
+
+ALERT VMWarnAgeSnapshots
+  IF
+    ((time() - vmware_vm_snapshot_timestamp_seconds) / (60*60*24) >= 7)
+  FOR 5m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    title = "Outdated snapshot on {{ $labels.instance }}: {{ $value | printf \"%.0f\" }} days",
+  }
