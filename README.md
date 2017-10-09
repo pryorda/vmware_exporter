@@ -9,9 +9,12 @@ Get VMWare VCenter information:
 
 ## Usage
 
+- install with `$ python setup.py install` or `$ pip install vmware_exporter`
 - Create a `config.yml` file based on the `config.yml.sample` with at least a `default` section.
-- Run `$ python vmware_exporter.py`
+- Run `$ vmware_exporter -c /path/to/your/config`
 - Go to http://localhost:9272/metrics?target=vcenter.company.com to see metrics
+
+Alternatively, if you don't wish to install the package, run using `$ vmware_exporter/vmware_exporter.py`
 
 ### Prometheus configuration
 
