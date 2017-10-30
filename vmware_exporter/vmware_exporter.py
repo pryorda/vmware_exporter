@@ -433,8 +433,8 @@ def main():
 
     factory = Site(root)
     print("Starting web server on port {}".format(args.port))
-    #reactor.listenTCP(args.port, factory)
-    #reactor.run()
+    reactor.listenTCP(args.port, factory)
+    reactor.run()
 
 
 if __name__ == '__main__':
