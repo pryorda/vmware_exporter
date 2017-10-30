@@ -11,7 +11,6 @@ import ssl
 import sys
 import time
 
-from argparse import ArgumentParser
 from datetime import datetime
 from yamlconfig import YamlConfig
 
@@ -36,7 +35,7 @@ class VMWareMetricsResource(Resource):
     """
     isLeaf = True
 
-    def __init__(self):
+    def __init__(self, args):
         try:
             self.config = YamlConfig(args.config_file)
             if 'default' not in self.config.keys():
@@ -419,21 +418,24 @@ class VMWareMetricsResource(Resource):
                             float(summary.hardware.memorySize) / 1024 / 1024)
 
 
-
-if __name__ == '__main__':
-    parser = ArgumentParser(description='VMWare metrics exporter for Prometheus')
+def main():
+    parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
                         default='config.yml', help="configuration file")
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
 
-    args = parser.parse_args(sys.argv[1:])
+    args = parser.parse_args()
 
     # Start up the server to expose the metrics.
     root = Resource()
-    root.putChild(b'metrics', VMWareMetricsResource())
+    root.putChild(b'metrics', VMWareMetricsResource(args))
 
     factory = Site(root)
     print("Starting web server on port {}".format(args.port))
-    reactor.listenTCP(args.port, factory)
-    reactor.run()
+    #reactor.listenTCP(args.port, factory)
+    #reactor.run()
+
+
+if __name__ == '__main__':
+    main()
