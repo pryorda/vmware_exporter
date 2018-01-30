@@ -31,7 +31,7 @@ from prometheus_client.core import GaugeMetricFamily, _floatToGoString
 class VMWareMetricsResource(Resource):
     """
     VMWare twisted ``Resource`` handling multi endpoints
-    Only handle /metrics path
+    Only handle /metrics and /healthz path
     """
     isLeaf = True
 
@@ -56,6 +56,9 @@ class VMWareMetricsResource(Resource):
             d.addCallback(self.generate_latest_target)
             d.addErrback(self.errback, request)
             return NOT_DONE_YET
+        elif path == '/healthz':
+            request.setResponseCode(200)
+            return 'Server is UP'.encode()
         else:
             request.setResponseCode(404)
             return '404 Not Found'.encode()
@@ -430,6 +433,7 @@ def main():
     # Start up the server to expose the metrics.
     root = Resource()
     root.putChild(b'metrics', VMWareMetricsResource(args))
+    root.putChild(b'healthz', VMWareMetricsResource(args))
 
     factory = Site(root)
     print("Starting web server on port {}".format(args.port))
