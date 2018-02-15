@@ -114,6 +114,10 @@ class VMWareMetricsResource(Resource):
                         'vmware_vm_snapshot_timestamp_seconds',
                         'VMWare Snapshot creation time in seconds',
                         labels=['vm_name', 'vm_snapshot_name']),
+                    'vmware_vm_num_cpu': GaugeMetricFamily(
+                        'vmware_vm_num_cpu',
+                        'VMWare Number of processors in the virtual machine',
+                        labels=['vm_name']),
                     'vmware_datastore_capacity_size': GaugeMetricFamily(
                         'vmware_datastore_capacity_size',
                         'VMWare Datasore capacity in bytes',
@@ -361,7 +365,9 @@ class VMWareMetricsResource(Resource):
             summary = vm.summary
 
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
+            num_cpu = summary.config.numCpu
             vm_metrics['vmware_vm_power_state'].add_metric([vm.name], power_state)
+            vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name], num_cpu)
 
             # Get metrics for poweredOn vms only
             if power_state:
