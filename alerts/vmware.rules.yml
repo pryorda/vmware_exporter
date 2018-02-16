@@ -1,0 +1,42 @@
+groups:
+- name: vmware.rules
+  rules:
+  - alert: VMWarnMemoryUsage
+    expr: ((vmware_vm_mem_usage_average / 100) >= 90) and ((vmware_vm_mem_usage_average
+      / 100) < 95)
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      title: 'High memory usage on {{ $labels.instance }}: {{ $value | printf "%.2f"
+        }}%'
+  - alert: VMCritMemoryUsage
+    expr: ((vmware_vm_mem_usage_average / 100) >= 95)
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Very High memory usage on {{ $labels.instance }}: {{ $value | printf
+        "%.2f" }}%'
+  - alert: VMWarnNumberSnapshots
+    expr: (vmware_vm_snapshots < 3)
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      title: 'High snapshots number on {{ $labels.instance }}: {{ $value }}'
+  - alert: VMCritNumberSnapshots
+    expr: (vmware_vm_snapshots >= 3)
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Very high snapshot number on {{ $labels.instance }}: {{ $value }}'
+  - alert: VMWarnAgeSnapshots
+    expr: ((time() - vmware_vm_snapshot_timestamp_seconds) / (60 * 60 * 24) >= 7)
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      title: 'Outdated snapshot on {{ $labels.instance }}: {{ $value | printf "%.0f"
+        }} days'
