@@ -16,6 +16,20 @@ Get VMWare VCenter information:
 
 Alternatively, if you don't wish to install the package, run using `$ vmware_exporter/vmware_exporter.py`
 
+### Limiting data collection
+
+Large installations may have trouble collecting all of the data in a timely fashion,
+so you can limit which subsystems are collected by adding a
+`collect_only` argument the config section, e.g. under `default`:
+
+    collect_only:
+    #   - vms
+      - datastores
+      - hosts
+
+would skip collecting information on the VMs. If there is no `collect_only`
+argument, everything will be collected as normal.
+
 ### Prometheus configuration
 
 You can use the following parameters in prometheus configuration file. The `params` section is used to manage multiple login/passwords.

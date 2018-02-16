@@ -7,3 +7,12 @@ esx:
     vmware_user: 'root'
     vmware_password: 'password'
     ignore_ssl: True
+
+limited:
+    vmware_user: 'administrator@vsphere.local'
+    vmware_password: 'password'
+    ignore_ssl: True
+    collect_only:
+    #   - vms
+      - datastores
+      - hosts
