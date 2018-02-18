@@ -367,7 +367,7 @@ class VMWareMetricsResource(Resource):
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             num_cpu = summary.config.numCpu
             vm_host = summary.runtime.host
-	    vm_host_name = vm_host.name
+            vm_host_name = vm_host.name
             vm_metrics['vmware_vm_power_state'].add_metric([vm.name, vm_host_name], power_state)
             vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name, vm_host_name], num_cpu)
 
