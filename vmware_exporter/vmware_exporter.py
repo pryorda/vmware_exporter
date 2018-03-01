@@ -97,7 +97,8 @@ class VMWareMetricsResource(Resource):
         if section not in self.config.keys():
             print("{} is not a valid section, using default".format(section))
             section='default'
-        metrics = {
+        metric_list ={}  
+        metric_list['vms'] = {  
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
                         'VMWare VM Power state (On / Off)',
@@ -117,7 +118,9 @@ class VMWareMetricsResource(Resource):
                     'vmware_vm_num_cpu': GaugeMetricFamily(
                         'vmware_vm_num_cpu',
                         'VMWare Number of processors in the virtual machine',
-                        labels=['vm_name', 'host_name']),
+                        labels=['vm_name', 'host_name'])
+                    }  
+        metric_list['datastores'] = {  
                     'vmware_datastore_capacity_size': GaugeMetricFamily(
                         'vmware_datastore_capacity_size',
                         'VMWare Datasore capacity in bytes',
@@ -141,7 +144,9 @@ class VMWareMetricsResource(Resource):
                     'vmware_datastore_vms': GaugeMetricFamily(
                         'vmware_datastore_vms',
                         'VMWare Virtual Machines number using this datastore',
-                        labels=['ds_name']),
+                        labels=['ds_name'])
+                        }  
+        metric_list['hosts'] = {  
                     'vmware_host_power_state': GaugeMetricFamily(
                         'vmware_host_power_state',
                         'VMWare Host Power state (On / Off)',
@@ -167,6 +172,13 @@ class VMWareMetricsResource(Resource):
                         'VMWare Host Memory Max availability in Mbytes',
                         labels=['host_name']),
                 }
+        collect_subsystems = self._collect_subsystems(section, metric_list.keys())  
+
+
+        metrics = {}  
+        for s in collect_subsystems:  
+            metrics.update(metric_list[s])  
+   
 
         print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
@@ -177,28 +189,34 @@ class VMWareMetricsResource(Resource):
 
         content = self.si.RetrieveContent()
 
-        # Get performance metrics counter information
-        counter_info = self._vmware_perf_metrics(content)
+        if 'vms' in collect_subsystems:  
+            # Get performance metrics counter information  
+            counter_info = self._vmware_perf_metrics(content)  
 
-        # Fill Snapshots (count and age)
-        vm_counts, vm_ages = self._vmware_get_snapshots(content)
-        for v in vm_counts:
-            metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],
-                                                            v['snapshot_count'])
-        for vm_age in vm_ages:
-            for v in vm_age:
-                metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],
-                                        v['vm_snapshot_name']],
-                                        v['vm_snapshot_timestamp_seconds'])
 
-        # Fill Datastore
-        self._vmware_get_datastores(content, metrics)
+            # Fill VM Informations  
+            self._vmware_get_vms(content, metrics, counter_info)  
 
-        # Fill VM Informations
-        self._vmware_get_vms(content, metrics, counter_info)
+            # Fill Snapshots (count and age)  
+           vm_counts, vm_ages = self._vmware_get_snapshots(content)  
+           for v in vm_counts:  
+               metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],  
+                                                               v['snapshot_count'])  
+           for vm_age in vm_ages:  
+               for v in vm_age:  
+                   metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],  
+                                           v['vm_snapshot_name']],  
+                                           v['vm_snapshot_timestamp_seconds'])  
+
+
+        # Fill Datastore  
+        if 'datastores' in collect_subsystems:  
+            self._vmware_get_datastores(content, metrics)  
 
         # Fill Hosts Informations
-        self._vmware_get_hosts(content, metrics)
+        if 'hosts' in collect_subsystems:  
+            self._vmware_get_hosts(content, metrics)  
+
 
         print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
@@ -207,6 +225,27 @@ class VMWareMetricsResource(Resource):
         for metricname, metric in metrics.items():
             yield metric
 
+ def _collect_subsystems(self, section, valid_subsystems):  
+        """  
+          Return the list of subsystems to collect - everything by default, a  
+          subset if the config section has collect_only specified  
+        """  
+        collect_subsystems = []  
+  
+        if not self.config[section].get('collect_only'):  
+            collect_subsystems = valid_subsystems  
+        else:  
+            for subsystem in self.config[section].get('collect_only'):  
+                if subsystem in valid_subsystems:  
+                    collect_subsystems.append(subsystem)  
+                else:  
+                    print("invalid subsystem specified in collect_only: " + str(subsystem))  
+  
+            if not collect_subsystems:  
+                print("no valid subystems specified in collect_only, collecting everything")  
+                collect_subsystems = valid_subsystems  
+  
+        return collect_subsystems  
 
 
 
