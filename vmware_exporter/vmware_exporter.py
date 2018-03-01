@@ -198,15 +198,15 @@ class VMWareMetricsResource(Resource):
             self._vmware_get_vms(content, metrics, counter_info)  
 
             # Fill Snapshots (count and age)  
-           vm_counts, vm_ages = self._vmware_get_snapshots(content)  
-           for v in vm_counts:  
-               metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],  
-                                                               v['snapshot_count'])  
-           for vm_age in vm_ages:  
-               for v in vm_age:  
-                   metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],  
-                                           v['vm_snapshot_name']],  
-                                           v['vm_snapshot_timestamp_seconds'])  
+            vm_counts, vm_ages = self._vmware_get_snapshots(content)  
+            for v in vm_counts:  
+                metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],  
+                                                                v['snapshot_count'])  
+            for vm_age in vm_ages:  
+                for v in vm_age:  
+                    metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],  
+                                            v['vm_snapshot_name']],  
+                                            v['vm_snapshot_timestamp_seconds'])  
 
 
         # Fill Datastore  
@@ -225,7 +225,7 @@ class VMWareMetricsResource(Resource):
         for metricname, metric in metrics.items():
             yield metric
 
- def _collect_subsystems(self, section, valid_subsystems):  
+    def _collect_subsystems(self, section, valid_subsystems):  
         """  
           Return the list of subsystems to collect - everything by default, a  
           subset if the config section has collect_only specified  
