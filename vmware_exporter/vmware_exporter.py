@@ -102,11 +102,11 @@ class VMWareMetricsResource(Resource):
                     'vmware_vm_power_state': GaugeMetricFamily(
                         'vmware_vm_power_state',
                         'VMWare VM Power state (On / Off)',
-                        labels=['vm_name']),
+                        labels=['vm_name', 'host_name']),
                     'vmware_vm_boot_timestamp_seconds': GaugeMetricFamily(
                         'vmware_vm_boot_timestamp_seconds',
                         'VMWare VM boot time in seconds',
-                        labels=['vm_name']),
+                        labels=['vm_name', 'host_name']),
                     'vmware_vm_snapshots': GaugeMetricFamily(
                         'vmware_vm_snapshots',
                         'VMWare current number of existing snapshots',
@@ -118,7 +118,7 @@ class VMWareMetricsResource(Resource):
                     'vmware_vm_num_cpu': GaugeMetricFamily(
                         'vmware_vm_num_cpu',
                         'VMWare Number of processors in the virtual machine',
-                        labels=['vm_name'])
+                        labels=['vm_name', 'host_name'])
                     }
         metric_list['datastores'] = {
                     'vmware_datastore_capacity_size': GaugeMetricFamily(
@@ -172,6 +172,13 @@ class VMWareMetricsResource(Resource):
                         'VMWare Host Memory Max availability in Mbytes',
                         labels=['host_name']),
                 }
+        collect_subsystems = self._collect_subsystems(section, metric_list.keys())
+
+
+        metrics = {}
+        for s in collect_subsystems:
+            metrics.update(metric_list[s])
+
 
         collect_subsystems = self._collect_subsystems(section, metric_list.keys())
 
@@ -192,6 +199,7 @@ class VMWareMetricsResource(Resource):
             # Get performance metrics counter information
             counter_info = self._vmware_perf_metrics(content)
 
+
             # Fill VM Informations
             self._vmware_get_vms(content, metrics, counter_info)
 
@@ -206,6 +214,7 @@ class VMWareMetricsResource(Resource):
                                             v['vm_snapshot_name']],
                                             v['vm_snapshot_timestamp_seconds'])
 
+
         # Fill Datastore
         if 'datastores' in collect_subsystems:
             self._vmware_get_datastores(content, metrics)
@@ -214,6 +223,7 @@ class VMWareMetricsResource(Resource):
         if 'hosts' in collect_subsystems:
             self._vmware_get_hosts(content, metrics)
 
+
         print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
         self._vmware_disconnect()
@@ -221,6 +231,27 @@ class VMWareMetricsResource(Resource):
         for metricname, metric in metrics.items():
             yield metric
 
+    def _collect_subsystems(self, section, valid_subsystems):
+        """
+          Return the list of subsystems to collect - everything by default, a
+          subset if the config section has collect_only specified
+        """
+        collect_subsystems = []
+
+        if not self.config[section].get('collect_only'):
+            collect_subsystems = valid_subsystems
+        else:
+            for subsystem in self.config[section].get('collect_only'):
+                if subsystem in valid_subsystems:
+                    collect_subsystems.append(subsystem)
+                else:
+                    print("invalid subsystem specified in collect_only: " + str(subsystem))
+
+            if not collect_subsystems:
+                print("no valid subystems specified in collect_only, collecting everything")
+                collect_subsystems = valid_subsystems
+
+        return collect_subsystems
 
 
     def _collect_subsystems(self, section, valid_subsystems):
@@ -394,20 +425,22 @@ class VMWareMetricsResource(Resource):
             vm_metrics[p_metric] = GaugeMetricFamily(
                                             p_metric,
                                             p_metric,
-                                            labels=['vm_name'])
+                                            labels=['vm_name', 'host_name'])
 
         for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
             summary = vm.summary
 
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             num_cpu = summary.config.numCpu
-            vm_metrics['vmware_vm_power_state'].add_metric([vm.name], power_state)
-            vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name], num_cpu)
+            vm_host = summary.runtime.host
+            vm_host_name = vm_host.name
+            vm_metrics['vmware_vm_power_state'].add_metric([vm.name, vm_host_name], power_state)
+            vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name, vm_host_name], num_cpu)
 
             # Get metrics for poweredOn vms only
             if power_state:
                 if summary.runtime.bootTime:
-                    vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name],
+                    vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name, vm_host_name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
 
                 for p in perf_list:
@@ -423,7 +456,7 @@ class VMWareMetricsResource(Resource):
                                                         intervalId=20)
                     result = content.perfManager.QueryStats(querySpec=[spec])
                     try:
-                        vm_metrics[p_metric].add_metric([vm.name],
+                        vm_metrics[p_metric].add_metric([vm.name, vm_host_name],
                                         float(sum(result[0].value[0].value)))
                     except:
                         print("Error, cannot get vm metrics {0} for {1}".format(p_metric, vm.name))
