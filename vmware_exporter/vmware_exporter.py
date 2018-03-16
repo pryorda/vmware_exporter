@@ -179,13 +179,6 @@ class VMWareMetricsResource(Resource):
         for s in collect_subsystems:
             metrics.update(metric_list[s])
 
-
-        collect_subsystems = self._collect_subsystems(section, metric_list.keys())
-
-        metrics = {}
-        for s in collect_subsystems:
-            metrics.update(metric_list[s])
-
         print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
 
         self.si = self._vmware_connect(target, section)
@@ -230,29 +223,6 @@ class VMWareMetricsResource(Resource):
 
         for metricname, metric in metrics.items():
             yield metric
-
-    def _collect_subsystems(self, section, valid_subsystems):
-        """
-          Return the list of subsystems to collect - everything by default, a
-          subset if the config section has collect_only specified
-        """
-        collect_subsystems = []
-
-        if not self.config[section].get('collect_only'):
-            collect_subsystems = valid_subsystems
-        else:
-            for subsystem in self.config[section].get('collect_only'):
-                if subsystem in valid_subsystems:
-                    collect_subsystems.append(subsystem)
-                else:
-                    print("invalid subsystem specified in collect_only: " + str(subsystem))
-
-            if not collect_subsystems:
-                print("no valid subystems specified in collect_only, collecting everything")
-                collect_subsystems = valid_subsystems
-
-        return collect_subsystems
-
 
     def _collect_subsystems(self, section, valid_subsystems):
         """
