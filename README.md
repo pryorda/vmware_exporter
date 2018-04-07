@@ -7,6 +7,10 @@ Get VMWare VCenter information:
 - Datastore size and other stuff
 - Basic VM and Host metrics
 
+## Unmaintained
+
+:warning: This projet needs maintainers! As I do not work anymore with Prometheus + VMWare actively, I cannot maintain this exporter on my free time. If you want to help, just fork and enhance it ;) :warning:
+
 ## Usage
 
 - install with `$ python setup.py install` or `$ pip install vmware_exporter`
