@@ -10,6 +10,8 @@ import pytz
 import ssl
 import sys
 import time
+import io
+import threading
 
 from datetime import datetime
 from yamlconfig import YamlConfig
@@ -39,7 +41,7 @@ class VMWareMetricsResource(Resource):
         try:
             self.config = YamlConfig(args.config_file)
             if 'default' not in self.config.keys():
-                print("Error, you must have a default section in config file")
+                log("Error, you must have a default section in config file")
                 exit(1)
         except:
             raise SystemExit("Error, cannot read configuration file")
@@ -51,6 +53,7 @@ class VMWareMetricsResource(Resource):
         if path == '/metrics':
             if not request.args.get('target', [None])[0]:
                 request.setResponseCode(404)
+                log("No target defined")
                 return 'No target defined\r\n'.encode()
             d = deferLater(reactor, 0, lambda: request)
             d.addCallback(self.generate_latest_target)
@@ -58,13 +61,16 @@ class VMWareMetricsResource(Resource):
             return NOT_DONE_YET
         elif path == '/healthz':
             request.setResponseCode(200)
+            log("Service is UP")
             return 'Server is UP'.encode()
         else:
+            log("Uri not found: " + request.uri)
             request.setResponseCode(404)
             return '404 Not Found'.encode()
 
     def errback(self, failure, request):
         failure.printTraceback()
+        log(failure)
         request.processingFailed(failure) # This will send a trace to the browser and close the request.
         return None
 
@@ -95,7 +101,7 @@ class VMWareMetricsResource(Resource):
 
     def collect(self, target=None, section='default'):
         if section not in self.config.keys():
-            print("{} is not a valid section, using default".format(section))
+            log("{} is not a valid section, using default".format(section))
             section='default'
         metric_list ={}
         metric_list['vms'] = {
@@ -179,11 +185,11 @@ class VMWareMetricsResource(Resource):
         for s in collect_subsystems:
             metrics.update(metric_list[s])
 
-        print("[{0}] Start collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
+        log("Start collecting vcenter metrics for {0}".format(target))
 
         self.si = self._vmware_connect(target, section)
         if not self.si:
-           print("Error, cannot connect to vmware")
+           log("Cannot connect to vmware")
            return
 
         content = self.si.RetrieveContent()
@@ -192,11 +198,14 @@ class VMWareMetricsResource(Resource):
             # Get performance metrics counter information
             counter_info = self._vmware_perf_metrics(content)
 
-
             # Fill VM Informations
+            log("Starting VM performance metric collection")
             self._vmware_get_vms(content, metrics, counter_info)
+            log("Finish starting vm performance vm collection")
+            
 
             # Fill Snapshots (count and age)
+            log("Starting VM snapshot metric collection")
             vm_counts, vm_ages = self._vmware_get_snapshots(content)
             for v in vm_counts:
                 metrics['vmware_vm_snapshots'].add_metric([v['vm_name']],
@@ -206,22 +215,23 @@ class VMWareMetricsResource(Resource):
                     metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'],
                                             v['vm_snapshot_name']],
                                             v['vm_snapshot_timestamp_seconds'])
+            log("Finished VM snapshot metric collection")
 
 
         # Fill Datastore
         if 'datastores' in collect_subsystems:
-            self._vmware_get_datastores(content, metrics)
-
+           self._vmware_get_datastores(content, metrics)
+ 
         # Fill Hosts Informations
         if 'hosts' in collect_subsystems:
             self._vmware_get_hosts(content, metrics)
 
 
-        print("[{0}] Stop collecting vcenter metrics for {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), target))
+        log("Stop collecting vcenter metrics for {0}".format(target))
 
         self._vmware_disconnect()
 
-        for metricname, metric in metrics.items():
+        for _, metric in metrics.items():
             yield metric
 
     def _collect_subsystems(self, section, valid_subsystems):
@@ -238,10 +248,10 @@ class VMWareMetricsResource(Resource):
                 if subsystem in valid_subsystems:
                     collect_subsystems.append(subsystem)
                 else:
-                    print("invalid subsystem specified in collect_only: " + str(subsystem))
+                    log("invalid subsystem specified in collect_only: " + str(subsystem))
 
             if not collect_subsystems:
-                print("no valid subystems specified in collect_only, collecting everything")
+                log("no valid subystems specified in collect_only, collecting everything")
                 collect_subsystems = valid_subsystems
 
         return collect_subsystems
@@ -285,7 +295,7 @@ class VMWareMetricsResource(Resource):
             return si
 
         except vmodl.MethodFault as error:
-            print("Caught vmodl fault: " + error.msg)
+            log("Caught vmodl fault: " + error.msg)
             return None
 
     def _vmware_disconnect(self):
@@ -301,7 +311,7 @@ class VMWareMetricsResource(Resource):
         counter_info = {}
         for c in content.perfManager.perfCounter:
             prefix = c.groupInfo.key
-            counter_full = "{}.{}.{}".format(c.groupInfo.key,
+            counter_full = "{}.{}.{}".format(prefix,
                                                     c.nameInfo.key,c.rollupType)
             counter_info[counter_full] = c.key
         return counter_info
@@ -323,6 +333,21 @@ class VMWareMetricsResource(Resource):
                                             snapshot.childSnapshotList)
         return snapshot_data
 
+    def _vmware_get_snapshot_details(self, content, snapshots_count_table, snapshots_age_table, vm):
+        """
+        Gathers snapshot details
+        """
+        snapshot_paths = self._vmware_list_snapshots_recursively(vm.snapshot.rootSnapshotList)
+        for sn in snapshot_paths:
+            sn['vm_name'] = vm.name
+        # Add Snapshot count per VM
+        snapshot_count = len(snapshot_paths)
+        snapshot_count_info = {
+            'vm_name': vm.name,
+            'snapshot_count': snapshot_count
+        }
+        snapshots_count_table.append(snapshot_count_info)
+        snapshots_age_table.append(snapshot_paths)
 
     def _vmware_get_snapshots(self, content):
         """
@@ -330,24 +355,12 @@ class VMWareMetricsResource(Resource):
         """
         snapshots_count_table = []
         snapshots_age_table = []
-        for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
-
+        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
+        for vm in virtual_machines:
             if not vm or vm.snapshot is None:
                 continue
-
             else:
-                snapshot_paths = self._vmware_list_snapshots_recursively(
-                                    vm.snapshot.rootSnapshotList)
-                for sn in snapshot_paths:
-                    sn['vm_name'] = vm.name
-                # Add Snapshot count per VM
-                snapshot_count = len(snapshot_paths)
-                snapshot_count_info = {
-                    'vm_name': vm.name,
-                    'snapshot_count': snapshot_count
-                }
-                snapshots_count_table.append(snapshot_count_info)
-            snapshots_age_table.append(snapshot_paths)
+                thread_it(self._vmware_get_snapshot_details, [content, snapshots_count_table, snapshots_age_table, vm])
         return snapshots_count_table, snapshots_age_table
 
 
@@ -355,20 +368,26 @@ class VMWareMetricsResource(Resource):
         """
         Get Datastore information
         """
-        for ds in self._vmware_get_obj(content, [vim.Datastore]):
+        log("Starting datastore metric collection")
+        datastores=self._vmware_get_obj(content, [vim.Datastore])
+        for ds in datastores:
             #ds.RefreshDatastoreStorageInfo()
             summary = ds.summary
-            ds_capacity = summary.capacity
-            ds_freespace = summary.freeSpace
-            ds_uncommitted = summary.uncommitted if summary.uncommitted else 0
-            ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
+            thread_it(self._vmware_get_datastore_metrics, [content, ds, ds_metrics, summary])
+        log("Finished datastore metric collection")
 
-            ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name], ds_capacity)
-            ds_metrics['vmware_datastore_freespace_size'].add_metric([summary.name], ds_freespace)
-            ds_metrics['vmware_datastore_uncommited_size'].add_metric([summary.name], ds_uncommitted)
-            ds_metrics['vmware_datastore_provisoned_size'].add_metric([summary.name], ds_provisioned)
-            ds_metrics['vmware_datastore_hosts'].add_metric([summary.name], len(ds.host))
-            ds_metrics['vmware_datastore_vms'].add_metric([summary.name], len(ds.vm))
+    def _vmware_get_datastore_metrics(self, content, ds, ds_metrics, summary):
+        ds_capacity = summary.capacity
+        ds_freespace = summary.freeSpace
+        ds_uncommitted = summary.uncommitted if summary.uncommitted else 0
+        ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
+
+        ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name], ds_capacity)
+        ds_metrics['vmware_datastore_freespace_size'].add_metric([summary.name], ds_freespace)
+        ds_metrics['vmware_datastore_uncommited_size'].add_metric([summary.name], ds_uncommitted)
+        ds_metrics['vmware_datastore_provisoned_size'].add_metric([summary.name], ds_provisioned)
+        ds_metrics['vmware_datastore_hosts'].add_metric([summary.name], len(ds.host))
+        ds_metrics['vmware_datastore_vms'].add_metric([summary.name], len(ds.vm))
 
 
     def _vmware_get_vms(self, content, vm_metrics, counter_info):
@@ -387,7 +406,7 @@ class VMWareMetricsResource(Resource):
             'mem.usage.average',
             'net.received.average',
             'net.transmitted.average',
-            ]
+        ]
 
         # Prepare gauges
         for p in perf_list:
@@ -397,73 +416,107 @@ class VMWareMetricsResource(Resource):
                                             p_metric,
                                             labels=['vm_name', 'host_name'])
 
-        for vm in self._vmware_get_obj(content, [vim.VirtualMachine]):
-            summary = vm.summary
+        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
+        log("Total Virtual Machines: {0}".format(len(virtual_machines)))
+        for vm in virtual_machines:
+            thread_it(self._vmware_get_vm_perf_metrics, [content, counter_info, perf_list, vm, vm_metrics])            
 
-            power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-            num_cpu = summary.config.numCpu
-            vm_host = summary.runtime.host
-            vm_host_name = vm_host.name
-            vm_metrics['vmware_vm_power_state'].add_metric([vm.name, vm_host_name], power_state)
-            vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name, vm_host_name], num_cpu)
+    
+    
+    def _vmware_get_vm_perf_metrics(self, content, counter_info, perf_list, vm, vm_metrics):
+        # DEBUG ME: log("Starting VM: " + vm.name)
+        summary = vm.summary
 
-            # Get metrics for poweredOn vms only
-            if power_state:
-                if summary.runtime.bootTime:
-                    vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name, vm_host_name],
-                            self._to_unix_timestamp(summary.runtime.bootTime))
+        power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
+        num_cpu = summary.config.numCpu
+        vm_host = summary.runtime.host
+        vm_host_name = vm_host.name
+        vm_metrics['vmware_vm_power_state'].add_metric([vm.name, vm_host_name], power_state)
+        vm_metrics['vmware_vm_num_cpu'].add_metric([vm.name, vm_host_name], num_cpu)
 
-                for p in perf_list:
-                    p_metric = 'vmware_vm_' + p.replace('.', '_')
-                    counter_key = counter_info[p]
-                    metric_id = vim.PerformanceManager.MetricId(
-                                                        counterId=counter_key,
-                                                        instance='')
-                    spec = vim.PerformanceManager.QuerySpec(
-                                                        maxSample=1,
-                                                        entity=vm,
-                                                        metricId=[metric_id],
-                                                        intervalId=20)
-                    result = content.perfManager.QueryStats(querySpec=[spec])
-                    try:
-                        vm_metrics[p_metric].add_metric([vm.name, vm_host_name],
-                                        float(sum(result[0].value[0].value)))
-                    except:
-                        print("Error, cannot get vm metrics {0} for {1}".format(p_metric, vm.name))
-                        pass
+        # Get metrics for poweredOn vms only
+        if power_state:
+            if summary.runtime.bootTime:
+                vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric([vm.name, vm_host_name],
+                        self._to_unix_timestamp(summary.runtime.bootTime))
 
+            for p in perf_list:
+                thread_it(self._vmware_get_vm_perf_metric, [content, counter_info, p, vm, vm_host_name, vm_metrics])
+
+        # Debug Me. log("Finished VM: " + vm.name)
+
+    def _vmware_get_vm_perf_metric(self, content, counter_info, perf_metric, vm, vm_host_name, vm_metrics):
+        perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
+        counter_key = counter_info[perf_metric]
+        metric_id = vim.PerformanceManager.MetricId(
+                                            counterId=counter_key,
+                                            instance='')
+        spec = vim.PerformanceManager.QuerySpec(
+                                            maxSample=1,
+                                            entity=vm,
+                                            metricId=[metric_id],
+                                            intervalId=20)
+        result = content.perfManager.QueryStats(querySpec=[spec])
+        # DEBUG ME: log("{0} {1}: {2}".format(vm.name, p, float(sum(result[0].value[0].value))))
+        try:
+            vm_metrics[perf_metric_name].add_metric([vm.name, vm_host_name],
+                            float(sum(result[0].value[0].value)))
+        except:
+            log("Error, cannot get vm metrics {0} for {1}".format(perf_metric_name, vm.name))
+            pass
 
 
     def _vmware_get_hosts(self, content, host_metrics):
         """
         Get Host (ESXi) information
         """
-        for host in self._vmware_get_obj(content, [vim.HostSystem]):
+        log("Starting host metric collection")
+        hosts = self._vmware_get_obj(content, [vim.HostSystem])
+        for host in hosts:
             summary = host.summary
-
             # Power state
             power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             host_metrics['vmware_host_power_state'].add_metric([host.name], power_state)
 
             if power_state:
-                # Uptime
-                if summary.runtime.bootTime:
-                    host_metrics['vmware_host_boot_timestamp_seconds'].add_metric([host.name],
+                thread_it(self._vmware_get_host_metrics, [content, host, host_metrics, summary])
+        log("Finished host metric collection")
+            
+
+    def _vmware_get_host_metrics(self, content, host, host_metrics, summary):
+        """
+        Get Host Metrics
+        """
+        # Uptime
+        if summary.runtime.bootTime:
+            host_metrics['vmware_host_boot_timestamp_seconds'].add_metric([host.name],
                             self._to_unix_timestamp(summary.runtime.bootTime))
+        # CPU Usage (in Mhz)
+        host_metrics['vmware_host_cpu_usage'].add_metric([host.name],
+                                summary.quickStats.overallCpuUsage)
+        cpu_core_num = summary.hardware.numCpuCores
+        cpu_total = summary.hardware.cpuMhz * cpu_core_num
+        host_metrics['vmware_host_cpu_max'].add_metric([host.name], cpu_total)
 
-                # CPU Usage (in Mhz)
-                host_metrics['vmware_host_cpu_usage'].add_metric([host.name],
-                                        summary.quickStats.overallCpuUsage)
-                cpu_core_num = summary.hardware.numCpuCores
-                cpu_total = summary.hardware.cpuMhz * cpu_core_num
-                host_metrics['vmware_host_cpu_max'].add_metric([host.name], cpu_total)
+        # Memory Usage (in MB)
+        host_metrics['vmware_host_memory_usage'].add_metric([host.name],
+                                summary.quickStats.overallMemoryUsage)
+        host_metrics['vmware_host_memory_max'].add_metric([host.name],
+                    float(summary.hardware.memorySize) / 1024 / 1024)
 
-                # Memory Usage (in Mhz)
-                host_metrics['vmware_host_memory_usage'].add_metric([host.name],
-                                        summary.quickStats.overallMemoryUsage)
-                host_metrics['vmware_host_memory_max'].add_metric([host.name],
-                            float(summary.hardware.memorySize) / 1024 / 1024)
 
+def log(data):
+    print("[{0}] {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), data))
+
+def thread_it(method, data):
+    t = threading.Thread(target=method, args=(data))
+    t.start()
+    if threading.active_count() >= 50:
+        # log("Attempting to join threads: {0}".format(threading.active_count())) # DEBUG ME
+        try: 
+            t.join()
+        except Exception as e:
+            log("Ran into an error: {0}.".format(e.message))
 
 def main():
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
@@ -480,7 +533,7 @@ def main():
     root.putChild(b'healthz', VMWareMetricsResource(args))
 
     factory = Site(root)
-    print("Starting web server on port {}".format(args.port))
+    log("Starting web server on port {}".format(args.port))
     reactor.listenTCP(args.port, factory)
     reactor.run()
 
