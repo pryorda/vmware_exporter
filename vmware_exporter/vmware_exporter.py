@@ -51,10 +51,6 @@ class VMWareMetricsResource(Resource):
         path = request.path.decode()
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
         if path == '/metrics':
-            if not request.args.get('target', [None])[0]:
-                request.setResponseCode(404)
-                log("No target defined")
-                return 'No target defined\r\n'.encode()
             d = deferLater(reactor, 0, lambda: request)
             d.addCallback(self.generate_latest_target)
             d.addErrback(self.errback, request)
@@ -75,8 +71,17 @@ class VMWareMetricsResource(Resource):
         return None
 
     def generate_latest_target(self, request):
-        target = request.args.get('target', [None])[0]
         section = request.args.get('section', ['default'])[0]
+        if self.config[section].get('target'):
+            target = self.config[section].get('target')
+        else:
+            if not request.args.get('target', [None])[0]:
+                request.setResponseCode(500)
+                log("No target defined")
+                request.write('No target defined!\n')
+                request.finish()
+                sys.exit(1)
+            target = request.args.get('target', [None])[0]
         output = []
         for metric in self.collect(target, section):
             output.append('# HELP {0} {1}'.format(
