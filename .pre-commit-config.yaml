@@ -33,6 +33,11 @@ repos:
       - --autofix
   - id: flake8
     stages: [commit]
+-   repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
+    rev: v1.1.0
+    hooks:
+    - id: dockerfile_lint
+    stages: [commit]
 - repo: https://github.com/mattlqx/pre-commit-sign
   rev: v1.1.1
   hooks:
