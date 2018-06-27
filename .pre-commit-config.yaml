@@ -1,0 +1,39 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v1.3.0
+  hooks:
+  # Git state
+  - id: check-merge-conflict
+    stages: [commit]
+  - id: check-added-large-files
+    stages: [commit]
+  # Sensitive information
+  - id: detect-private-key
+    stages: [commit]
+  - id: detect-aws-credentials
+    stages: [commit]
+  # Generic file state
+  - id: trailing-whitespace
+    stages: [commit]
+  - id: mixed-line-ending
+    stages: [commit]
+  - id: end-of-file-fixer
+    stages: [commit]
+    exclude: .*\.tfvars$ # terraform fmt separates everything with blank lines leaving a trailing line at the end
+  - id: check-executables-have-shebangs
+    stages: [commit]
+  # Language syntax/formatting
+  - id: check-yaml
+    stages: [commit]
+  - id: check-json
+    stages: [commit]
+  - id: pretty-format-json
+    stages: [commit]
+    args:
+      - --autofix
+  - id: flake8
+    stages: [commit]
+- repo: https://github.com/mattlqx/pre-commit-sign
+  rev: v1.1.1
+  hooks:
+  - id: sign-commit

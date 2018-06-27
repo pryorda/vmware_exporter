@@ -7,32 +7,76 @@ Get VMWare VCenter information:
 - Datastore size and other stuff
 - Basic VM and Host metrics
 
-## Unmaintained
-
-:warning: This projet needs maintainers! As I do not work anymore with Prometheus + VMWare actively, I cannot maintain this exporter on my free time. If you want to help, just fork and enhance it ;) :warning:
-
 ## Usage
 
-- install with `$ python setup.py install` or `$ pip install vmware_exporter`
-- Create a `config.yml` file based on the `config.yml.sample` with at least a `default` section.
+- install with `$ python setup.py install` or `$ pip install vmware_exporter` (Installing from pip will install an old version. This is likely something I wont persue)
+- Create a `config.yml` file based on the configuration section. Some variables can be passed in as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
-- Go to http://localhost:9272/metrics?target=vcenter.company.com to see metrics
+- Go to http://localhost:9272/metrics?vsphere_host=vcenter.company.com to see metrics
 
-Alternatively, if you don't wish to install the package, run using `$ vmware_exporter/vmware_exporter.py`
+Alternatively, if you don't wish to install the package, run using `$ vmware_exporter/vmware_exporter.py` or you can use the following docker command:
 
-### Limiting data collection
+```
+docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True --name vmware_exporter pryorda/vmware_exporter
+```
 
-Large installations may have trouble collecting all of the data in a timely fashion,
-so you can limit which subsystems are collected by adding a
-`collect_only` argument the config section, e.g. under `default`:
+### Configuration amd limiting data collection
+
+You do not need to provide a configuration file unless you are not going to use Environment variables. If you do plan to use a configuration file be sure to override the container entrypoint or add -c config.yml to the command args.
+
+If you want to limit the scope of the metrics gather you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
 
     collect_only:
-    #   - vms
-      - datastores
-      - hosts
+        vms: False
+        datastores: True
+        hosts: True
 
-would skip collecting information on the VMs. If there is no `collect_only`
-argument, everything will be collected as normal.
+This would only connect datastores and hosts.
+
+You can have multiple sections for different hosts and the configuration would look like:
+```
+default:
+    vsphere_host: "vcenter"
+    vsphere_user: "user"
+    vsphere_password: "password"
+    ignore_ssl: False
+    collect_only:
+        vms: True
+        datastores: True
+        hosts: True
+
+esx:
+    vsphere_host: vc.example2.com
+    vsphere_user: 'root'
+    vsphere_password: 'password'
+    ignore_ssl: True
+    collect_only:
+        vms: False
+        datastores: False
+        hosts: True
+
+limited:
+    vsphere_host: slowvc.example.com
+    vsphere_user: 'administrator@vsphere.local'
+    vsphere_password: 'password'
+    ignore_ssl: True
+    collect_only:
+        vms: False
+        datastores: True
+        hosts: False
+```
+ Switching sections can be done by adding ?section=limited to the url.
+
+#### Environment Variables
+| Varible                      | Precedence             | Defaults | Description                                      |
+| ---------------------------- | ---------------------- | -------- | --------------------------------------- |
+| `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
+| `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
+| `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
+| `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
+| `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collect of hosts |
+| `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collect of datastores |
+| `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collect of virtual machines |
 
 ### Prometheus configuration
 
@@ -128,6 +172,10 @@ The initial code is mainly inspired from:
 - https://www.robustperception.io/writing-a-jenkins-exporter-in-python/
 - https://github.com/vmware/pyvmomi-community-samples
 - https://github.com/jbidinger/pyvmomi-tools
+
+#### Maintainer
+
+Daniel Pryor [pryorda](https://github.com/pryorda)
 
 ## License
 
