@@ -11,10 +11,9 @@ RUN pip install flake8 && \
 RUN flake8 vmware_exporter
 RUN dockerfilelint Dockerfile
 
-
 FROM python:2.7-alpine
 
-LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
+LABEL MAINTAINER Daniel Pryor <daniel@pryorda.net>
 LABEL NAME=vmware_exporter
 LABEL VERSION=0.2.0
 
