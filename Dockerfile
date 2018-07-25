@@ -5,7 +5,7 @@ WORKDIR /opt/vmware_exporter/
 COPY . /opt/vmware_exporter/
 
 RUN pip install flake8 && \
-  apk add --no-cache --update nodejs && \
+  apk add --no-cache --update nodejs npm && \
   npm install -g dockerfilelint
 
 RUN flake8 vmware_exporter
@@ -15,7 +15,7 @@ FROM python:2.7-alpine
 
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter
-LABEL VERSION=0.2.0
+LABEL VERSION=0.2.1
 
 WORKDIR /opt/vmware_exporter/
 

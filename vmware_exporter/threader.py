@@ -13,7 +13,7 @@ class Threader(object):
         """
         self._thread = threading.Thread(target=method, args=(data))
         self._thread.start()
-        if threading.active_count() >= 50:
+        if threading.active_count() >= 10:
             self.join()
 
     def join(self):
