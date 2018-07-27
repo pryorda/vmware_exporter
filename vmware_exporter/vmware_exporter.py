@@ -126,7 +126,10 @@ class VMWareMetricsResource(Resource):
                          for k, v in sorted(labels.items())]))
                 else:
                     labelstr = ''
-                output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
+                if isinstance(value, int):
+                    value = float(value)
+                if isinstance(value, float):
+                    output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
         if output != []:
             request.write(''.join(output).encode('utf-8'))
             request.finish()
@@ -390,9 +393,9 @@ class VMWareMetricsResource(Resource):
         """
         Get datastore metrics
         """
-        ds_capacity = summary.capacity
-        ds_freespace = summary.freeSpace
-        ds_uncommitted = summary.uncommitted if summary.uncommitted else 0
+        ds_capacity = float(summary.capacity)
+        ds_freespace = float(summary.freeSpace)
+        ds_uncommitted = float(summary.uncommitted) if summary.uncommitted else 0
         ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
         ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name], ds_capacity)
