@@ -1,0 +1,13 @@
+kind: ConfigMap
+metadata:
+  labels:
+    app: vmware-exporter
+  name: vmware-exporter-config
+apiVersion: v1
+data:
+  VSPHERE_USER: "<USER>"
+  VSPHERE_HOST: "<HOST>"
+  VSPHERE_IGNORE_SSL: "True"
+  VSPHERE_COLLECT_HOSTS: "True"
+  VSPHERE_COLLECT_DATASTORES: "True"
+  VSPHERE_COLLECT_VMS: "True"
