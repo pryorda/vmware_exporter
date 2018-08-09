@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vmware-exporter
+spec:
+  selector:
+    matchLabels:
+      app: vmware-exporter
+  template:
+    metadata:
+      labels:
+        app: vmware-exporter
+        release: vmware-exporter
+      annotations:
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "9272"
+        prometheus.io/scrape: "true"
+    spec:
+      containers:
+      - name: vmware-exporter
+        image: "pryorda/vmware_exporter:latest"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9272
+          name: http
+        envFrom:
+        - configMapRef:
+            name: vmware-exporter-config
+        - secretRef:
+            name: vmware-exporter-password
