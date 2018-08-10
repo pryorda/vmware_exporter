@@ -458,7 +458,9 @@ class VMWareMetricsResource(Resource):
 
         # We gather disk metrics
         if len(virtual_machine.guest.disk) > 0:
-            [ vm_metrics['vmware_vm_guest_disk'].add_metric([virtual_machine.name, vm_host_name, disk.diskPath], disk.freeSpace) for disk in virtual_machine.guest.disk ]
+            [vm_metrics['vmware_vm_guest_disk'].add_metric(
+             [virtual_machine.name, vm_host_name, disk.diskPath], disk.freeSpace)
+             for disk in virtual_machine.guest.disk]
 
         vm_metrics['vmware_vm_power_state'].add_metric([virtual_machine.name, vm_host_name], power_state)
         vm_metrics['vmware_vm_num_cpu'].add_metric([virtual_machine.name, vm_host_name], num_cpu)
