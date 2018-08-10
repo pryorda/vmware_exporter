@@ -167,10 +167,14 @@ class VMWareMetricsResource(Resource):
                 'vmware_vm_num_cpu',
                 'VMWare Number of processors in the virtual machine',
                 labels=['vm_name', 'host_name']),
-            'vmware_vm_guest_disk': GaugeMetricFamily(
+            'vmware_vm_guest_disk_free': GaugeMetricFamily(
                 'vmware_vm_guest_disk_free',
                 'Disk metric per partition',
-                labels=['vm_name', 'host_name', "partition"])
+                labels=['vm_name', 'host_name', "partition"]),
+            'vmware_vm_guest_disk_capacity': GaugeMetricFamily(
+                'vmware_vm_guest_disk_capacity',
+                'Disk capacity metric per partition',
+                labels=['vm_name', 'host_name', "partition"]),
             }
         metric_list['datastores'] = {
             'vmware_datastore_capacity_size': GaugeMetricFamily(
@@ -458,8 +462,12 @@ class VMWareMetricsResource(Resource):
 
         # We gather disk metrics
         if len(virtual_machine.guest.disk) > 0:
-            [vm_metrics['vmware_vm_guest_disk'].add_metric(
+            [vm_metrics['vmware_vm_guest_disk_free'].add_metric(
              [virtual_machine.name, vm_host_name, disk.diskPath], disk.freeSpace)
+             for disk in virtual_machine.guest.disk]
+
+            [vm_metrics['vmware_vm_guest_disk_capacity'].add_metric(
+             [virtual_machine.name, vm_host_name, disk.diskPath], disk.capacity)
              for disk in virtual_machine.guest.disk]
 
         vm_metrics['vmware_vm_power_state'].add_metric([virtual_machine.name, vm_host_name], power_state)
