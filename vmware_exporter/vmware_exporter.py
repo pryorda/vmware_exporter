@@ -168,7 +168,7 @@ class VMWareMetricsResource(Resource):
                 'VMWare Number of processors in the virtual machine',
                 labels=['vm_name', 'host_name']),
             'vmware_vm_guest_disk': GaugeMetricFamily(
-                'vmware_vm_guest_disk',
+                'vmware_vm_guest_disk_free',
                 'Disk metric per partition',
                 labels=['vm_name', 'host_name', "partition"])
             }
