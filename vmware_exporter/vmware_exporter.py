@@ -449,15 +449,17 @@ class VMWareMetricsResource(Resource):
         """
         # DEBUG ME: log("Starting VM: " + vm.name)
 
-        # We gather disk metrics
         summary = virtual_machine.summary
 
         power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
         num_cpu = summary.config.numCpu
         vm_host = summary.runtime.host
         vm_host_name = vm_host.name
+
+        # We gather disk metrics
         if len(virtual_machine.guest.disk) > 0:
             [ vm_metrics['vmware_vm_guest_disk'].add_metric([virtual_machine.name, vm_host_name, disk.diskPath], disk.freeSpace) for disk in virtual_machine.guest.disk ]
+
         vm_metrics['vmware_vm_power_state'].add_metric([virtual_machine.name, vm_host_name], power_state)
         vm_metrics['vmware_vm_num_cpu'].add_metric([virtual_machine.name, vm_host_name], num_cpu)
 
