@@ -128,6 +128,8 @@ class VMWareMetricsResource(Resource):
                     labelstr = ''
                 if isinstance(value, int):
                     value = float(value)
+                if isinstance(value, long):
+                    value = float(value)
                 if isinstance(value, float):
                     output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
         if output != []:
@@ -164,7 +166,15 @@ class VMWareMetricsResource(Resource):
             'vmware_vm_num_cpu': GaugeMetricFamily(
                 'vmware_vm_num_cpu',
                 'VMWare Number of processors in the virtual machine',
-                labels=['vm_name', 'host_name'])
+                labels=['vm_name', 'host_name']),
+            'vmware_vm_guest_disk_free': GaugeMetricFamily(
+                'vmware_vm_guest_disk_free',
+                'Disk metric per partition',
+                labels=['vm_name', 'host_name', "partition"]),
+            'vmware_vm_guest_disk_capacity': GaugeMetricFamily(
+                'vmware_vm_guest_disk_capacity',
+                'Disk capacity metric per partition',
+                labels=['vm_name', 'host_name', "partition"]),
             }
         metric_list['datastores'] = {
             'vmware_datastore_capacity_size': GaugeMetricFamily(
@@ -442,12 +452,24 @@ class VMWareMetricsResource(Resource):
         Loops over metrics in perf_list on vm
         """
         # DEBUG ME: log("Starting VM: " + vm.name)
+
         summary = virtual_machine.summary
 
         power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
         num_cpu = summary.config.numCpu
         vm_host = summary.runtime.host
         vm_host_name = vm_host.name
+
+        # We gather disk metrics
+        if len(virtual_machine.guest.disk) > 0:
+            [vm_metrics['vmware_vm_guest_disk_free'].add_metric(
+             [virtual_machine.name, vm_host_name, disk.diskPath], disk.freeSpace)
+             for disk in virtual_machine.guest.disk]
+
+            [vm_metrics['vmware_vm_guest_disk_capacity'].add_metric(
+             [virtual_machine.name, vm_host_name, disk.diskPath], disk.capacity)
+             for disk in virtual_machine.guest.disk]
+
         vm_metrics['vmware_vm_power_state'].add_metric([virtual_machine.name, vm_host_name], power_state)
         vm_metrics['vmware_vm_num_cpu'].add_metric([virtual_machine.name, vm_host_name], num_cpu)
 
