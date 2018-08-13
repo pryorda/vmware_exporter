@@ -104,15 +104,18 @@ class VMWareMetricsResource(Resource):
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
         section = request.args.get('section', ['default'])[0]
-        if not request.args.get('vsphere_host', [None])[0] and not self.config[section].get('vsphere_host'):
-            request.setResponseCode(500)
-            log("No vsphere_host defined")
-            request.write('No vsphere_host defined!\n')
-            request.finish()
-        if self.config[section].get('vsphere_host'):
+        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
             vsphere_host = self.config[section].get('vsphere_host')
-        else:
+        elif request.args.get('target', [None])[0]:
+            vsphere_host = request.args.get('target', [None])[0]
+        elif request.args.get('vsphere_host', [None])[0]:
             vsphere_host = request.args.get('vsphere_host')[0]
+        else:
+            request.setResponseCode(500)
+            log("No vsphere_host or target defined")
+            request.write('No vsphere_host or target defined!\n')
+            request.finish()
+
         output = []
         for metric in self.collect(vsphere_host, section):
             output.append('# HELP {0} {1}'.format(
@@ -128,7 +131,7 @@ class VMWareMetricsResource(Resource):
                     labelstr = ''
                 if isinstance(value, int):
                     value = float(value)
-                if isinstance(value, long):
+                if isinstance(value, long):  # noqa: F821
                     value = float(value)
                 if isinstance(value, float):
                     output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
