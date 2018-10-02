@@ -30,6 +30,7 @@ If you want to limit the scope of the metrics gather you can update the subsyste
         vms: False
         datastores: True
         hosts: True
+        snapshots: True
 
 This would only connect datastores and hosts.
 
@@ -44,6 +45,7 @@ default:
         vms: True
         datastores: True
         hosts: True
+        snapshots: True
 
 esx:
     vsphere_host: vc.example2.com
@@ -54,6 +56,7 @@ esx:
         vms: False
         datastores: False
         hosts: True
+        snapshots: True
 
 limited:
     vsphere_host: slowvc.example.com
@@ -64,6 +67,7 @@ limited:
         vms: False
         datastores: True
         hosts: False
+        snapshots: False
         
         
 # Example of Multiple Vcenter usage per #23
@@ -93,9 +97,10 @@ limited:
 | `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
 | `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
 | `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
-| `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collect of hosts |
-| `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collect of datastores |
-| `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collect of virtual machines |
+| `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
+| `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
+| `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
+| `VSPHERE_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
 
 ### Prometheus configuration
 
