@@ -68,24 +68,6 @@ limited:
         datastores: True
         hosts: False
         snapshots: False
-        
-        
-# Example of Multiple Vcenter usage per #23
-
-- job_name: vmware_export
-    metrics_path: /metrics
-    static_configs:
-    - targets:
-      - vcenter01
-      - vcenter02
-      - vcenter03
-    relabel_configs:
-    - source_labels: [__address__]
-      target_label: __param_target
-    - source_labels: [__param_target]
-      target_label: instance
-    - target_label: __address__
-      replacement: exporter_ip:9272
 
 ```
  Switching sections can be done by adding ?section=limited to the url.
@@ -134,6 +116,23 @@ You can use the following parameters in prometheus configuration file. The `para
         target_label: instance
       - target_label: __address__
         replacement: localhost:9272
+
+# Example of Multiple Vcenter usage per #23
+
+- job_name: vmware_export
+    metrics_path: /metrics
+    static_configs:
+    - targets:
+      - vcenter01
+      - vcenter02
+      - vcenter03
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: exporter_ip:9272
 ```
 
 ## Current Status
