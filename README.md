@@ -7,6 +7,13 @@ Get VMWare VCenter information:
 - Datastore size and other stuff
 - Basic VM and Host metrics
 
+## Badges
+![Docker Stars](https://img.shields.io/docker/stars/pryorda/vmware_exporter.svg)
+![Docker Pulls](https://img.shields.io/docker/pulls/pryorda/vmware_exporter.svg)
+![Docker Automated](https://img.shields.io/docker/automated/pryorda/vmware_exporter.svg)
+![Docker Build](https://img.shields.io/docker/build/pryorda/vmware_exporter.svg)
+
+
 ## Usage
 
 - install with `$ python setup.py install` or `$ pip install vmware_exporter` (Installing from pip will install an old version. This is likely something I wont persue)
