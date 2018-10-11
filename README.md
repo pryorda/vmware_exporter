@@ -35,6 +35,7 @@ If you want to limit the scope of the metrics gather you can update the subsyste
 
     collect_only:
         vms: False
+        vmguests: True
         datastores: True
         hosts: True
         snapshots: True
@@ -50,6 +51,7 @@ default:
     ignore_ssl: False
     collect_only:
         vms: True
+        vmguests: True
         datastores: True
         hosts: True
         snapshots: True
@@ -61,6 +63,7 @@ esx:
     ignore_ssl: True
     collect_only:
         vms: False
+        vmguests: True
         datastores: False
         hosts: True
         snapshots: True
@@ -72,6 +75,7 @@ limited:
     ignore_ssl: True
     collect_only:
         vms: False
+        vmguests: False
         datastores: True
         hosts: False
         snapshots: False
@@ -89,6 +93,7 @@ limited:
 | `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
 | `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
+| `VSPHERE_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
 | `VSPHERE_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
 
 ### Prometheus configuration
