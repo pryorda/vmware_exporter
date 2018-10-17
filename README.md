@@ -16,7 +16,8 @@ Get VMWare VCenter information:
 
 ## Usage
 
-- install with `$ python setup.py install` or `$ pip install vmware_exporter` (Installing from pip will install an old version. This is likely something I wont persue)
+- install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont persue)
+-- TODO: update pip `$ pip install vmware_exporter`
 - Create a `config.yml` file based on the configuration section. Some variables can be passed in as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
 - Go to http://localhost:9272/metrics?vsphere_host=vcenter.company.com to see metrics
