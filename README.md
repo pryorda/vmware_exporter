@@ -16,7 +16,7 @@ Get VMWare VCenter information:
 
 ## Usage
 
-- install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont persue)
+- Install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont persue)
 -- TODO: update pip `$ pip install vmware_exporter`
 - Create a `config.yml` file based on the configuration section. Some variables can be passed in as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
@@ -28,11 +28,11 @@ Alternatively, if you don't wish to install the package, run using `$ vmware_exp
 docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True --name vmware_exporter pryorda/vmware_exporter
 ```
 
-### Configuration amd limiting data collection
+### Configuration and limiting data collection
 
-You do not need to provide a configuration file unless you are not going to use Environment variables. If you do plan to use a configuration file be sure to override the container entrypoint or add -c config.yml to the command args.
+You do not need to provide a configuration file if you use environment variables. If you prefer to use a configuration file, be sure to override the container entrypoint or add `-c config.yml` to the command args.
 
-If you want to limit the scope of the metrics gather you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
+If you want to limit the scope of the metrics gathered you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
 
     collect_only:
         vms: False
@@ -82,7 +82,7 @@ limited:
         snapshots: False
 
 ```
- Switching sections can be done by adding ?section=limited to the url.
+Switching sections can be done by adding ?section=limited to the url.
 
 #### Environment Variables
 | Varible                      | Precedence             | Defaults | Description                                      |
@@ -130,7 +130,7 @@ You can use the following parameters in prometheus configuration file. The `para
       - target_label: __address__
         replacement: localhost:9272
 
-# Example of Multiple Vcenter usage per #23
+# Example of Multiple VCenter usage per #23
 
 - job_name: vmware_export
     metrics_path: /metrics
@@ -150,7 +150,7 @@ You can use the following parameters in prometheus configuration file. The `para
 
 ## Current Status
 
-- VCenter and ESXi 6 and 6.5 have been tested.
+- VCenter and ESXi 6/6.5 have been tested.
 - VM information, Snapshot, Host and Datastore basic information is exported, i.e:
 ```
 # HELP vmware_snapshots VMWare current number of existing snapshots
