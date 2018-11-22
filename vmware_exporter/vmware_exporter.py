@@ -129,7 +129,7 @@ class VMWareMetricsResource(Resource):
                 if labels:
                     labelstr = '{{{0}}}'.format(','.join(
                         ['{0}="{1}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"'))
+                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"').encode('utf-8'))
                          for k, v in sorted(labels.items())]))
                 else:
                     labelstr = ''
@@ -140,7 +140,7 @@ class VMWareMetricsResource(Resource):
                 if isinstance(value, float):
                     output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
         if output != []:
-            request.write(''.join(output).encode('utf-8'))
+            request.write(''.join(output))
             request.finish()
         else:
             request.setResponseCode(500, message=('cannot connect to vmware'))
