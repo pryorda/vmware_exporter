@@ -125,7 +125,7 @@ class VMWareMetricsResource(Resource):
             output.append('# HELP {0} {1}'.format(
                 metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
-            for name, labels, value in metric.samples[:3]:
+            for name, labels, value in metric.samples:
                 if labels:
                     labels = {k: v for k, v in labels.items() if v is not None}
                     labelstr = '{{{0}}}'.format(','.join(
