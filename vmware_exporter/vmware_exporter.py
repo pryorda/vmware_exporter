@@ -125,20 +125,22 @@ class VMWareMetricsResource(Resource):
             output.append('# HELP {0} {1}'.format(
                 metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
             output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
-            for name, labels, value in metric.samples:
-                if labels:
-                    labelstr = '{{{0}}}'.format(','.join(
-                        ['{0}="{1}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"').encode('utf-8'))
-                         for k, v in sorted(labels.items())]))
+
+            for s in metric.samples:
+                if s.labels:
+                    labels = {k: v for k, v in s.labels.items() if v is not None}
+                    labelstr = '{{{0}}}'.format(','.join(['{0}="{1}"'.format(k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"').encode('utf-8')) for k, v in sorted(labels.items())]))
                 else:
                     labelstr = ''
+
+                value = s.value
                 if isinstance(value, int):
                     value = float(value)
-                if isinstance(value, long):  # noqa: F821
+                if isinstance(s.value, long):  # noqa: F821
                     value = float(value)
                 if isinstance(value, float):
-                    output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
+                    output.append('{0}{1} {2}\n'.format(s.name, labelstr, _floatToGoString(s.value)))
+
         if output != []:
             request.write(''.join(output))
             request.finish()
