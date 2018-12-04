@@ -209,6 +209,8 @@ The initial code is mainly inspired from:
 - https://github.com/vmware/pyvmomi-community-samples
 - https://github.com/jbidinger/pyvmomi-tools
 
+Forked from https://github.com/rverchere/vmware_exporter. I removed the fork so that I could do searching and everything.
+
 ## Maintainer
 
 Daniel Pryor [pryorda](https://github.com/pryorda)
