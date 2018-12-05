@@ -95,7 +95,7 @@ class VMWareMetricsResource(Resource):
             log("Service is UP")
             return 'Server is UP'.encode()
         else:
-            log("Uri not found: " + request.uri)
+            log(b"Uri not found: " + request.uri)
             request.setResponseCode(404)
             return '404 Not Found'.encode()
 
@@ -111,10 +111,10 @@ class VMWareMetricsResource(Resource):
         section = request.args.get('section', ['default'])[0]
         if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
             vsphere_host = self.config[section].get('vsphere_host')
-        elif request.args.get('target', [None])[0]:
-            vsphere_host = request.args.get('target', [None])[0]
-        elif request.args.get('vsphere_host', [None])[0]:
-            vsphere_host = request.args.get('vsphere_host')[0]
+        elif request.args.get(b'target', [None])[0]:
+            vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
+        elif request.args.get(b'vsphere_host', [None])[0]:
+            vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
         else:
             request.setResponseCode(500)
             log("No vsphere_host or target defined")
@@ -260,7 +260,7 @@ class VMWareMetricsResource(Resource):
 
         self.vmware_connection = self._vmware_connect(vsphere_host, section)
         if not self.vmware_connection:
-            log("Cannot connect to vmware")
+            log(b"Cannot connect to vmware")
             return
 
         content = self.vmware_connection.RetrieveContent()
