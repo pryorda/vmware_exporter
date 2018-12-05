@@ -528,39 +528,31 @@ class VMWareMetricsResource(Resource):
                     vm_metadata,
                     self._to_epoch(summary.runtime.bootTime))
 
-            for p in perf_list:
-                self.threader.thread_it(self._vmware_get_vm_perf_metric,
-                                        [content, counter_info, p, virtual_machine,
-                                         vm_metrics, vm_metadata])
+            metrics = []
+            metric_names = {}
+            for perf_metric in perf_list:
+                perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
+                counter_key = counter_info[perf_metric]
+                metrics.append(vim.PerformanceManager.MetricId(
+                    counterId=counter_key,
+                    instance=''
+                ))
+                metric_names[counter_key] = perf_metric_name
 
-        # Debug Me. log("Finished VM: " + vm.name)
-
-    def _vmware_get_vm_perf_metric(self, content, counter_info, perf_metric,
-                                   virtual_machine, vm_metrics, vm_metadata):
-        """
-        Get vm perf metric
-        """
-
-        perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
-        counter_key = counter_info[perf_metric]
-        metric_id = vim.PerformanceManager.MetricId(
-            counterId=counter_key,
-            instance=''
+            spec = vim.PerformanceManager.QuerySpec(
+                maxSample=1,
+                entity=virtual_machine,
+                metricId=metrics,
+                intervalId=20
             )
-        spec = vim.PerformanceManager.QuerySpec(
-            maxSample=1,
-            entity=virtual_machine,
-            metricId=[metric_id],
-            intervalId=20
-            )
-        result = content.perfManager.QueryStats(querySpec=[spec])
-        # DEBUG ME: log("{0} {1}: {2}".format(vm.name, p, float(sum(result[0].value[0].value))))
-        try:
-            vm_metrics[perf_metric_name].add_metric(vm_metadata,
-                                                    float(sum(result[0].value[0].value)))
-        except:  # noqa: E722
-            log("Error, cannot get vm metric {0} for {1}".format(perf_metric_name,
-                                                                 vm_metadata))
+            result = content.perfManager.QueryStats(querySpec=[spec])
+
+            for ent in result:
+                for metric in ent.value:
+                    vm_metrics[metric_names[metric.id.counterId]].add_metric(
+                        vm_metadata,
+                        float(sum(metric.value)),
+                    )
 
     def _vmware_get_vmguests(self, content, vmguest_metrics, inventory):
         """
