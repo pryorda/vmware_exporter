@@ -30,6 +30,7 @@ from pyVim import connect
 
 # Prometheus specific imports
 from prometheus_client.core import GaugeMetricFamily, _floatToGoString
+from prometheus_client import CollectorRegistry, generate_latest
 
 
 class VMWareMetricsResource(Resource):
@@ -117,35 +118,23 @@ class VMWareMetricsResource(Resource):
         else:
             request.setResponseCode(500)
             log("No vsphere_host or target defined")
-            request.write('No vsphere_host or target defined!\n')
-            request.finish()
-
-        output = []
-        for metric in self.collect(vsphere_host, section):
-            output.append('# HELP {0} {1}'.format(
-                metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
-            for name, labels, value in metric.samples:
-                if labels:
-                    labelstr = '{{{0}}}'.format(','.join(
-                        ['{0}="{1}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"').encode('utf-8'))
-                         for k, v in sorted(labels.items())]))
-                else:
-                    labelstr = ''
-                if isinstance(value, int):
-                    value = float(value)
-                if isinstance(value, long):  # noqa: F821
-                    value = float(value)
-                if isinstance(value, float):
-                    output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
-        if output != []:
-            request.write(''.join(output))
-            request.finish()
-        else:
-            request.setResponseCode(500, message=('cannot connect to vmware'))
+            request.write(b'No vsphere_host or target defined!\n')
             request.finish()
             return
+
+        
+        class Collector(object):
+            def __init__(self, collected):
+                self._collected = list(collected)
+            def collect(self):
+                return self._collected
+
+        registry = CollectorRegistry()
+        registry.register(Collector(self.collect(vsphere_host, section)))
+        output = generate_latest(registry)
+
+        request.write(output)
+        request.finish()
 
     def collect(self, vsphere_host, section='default'):
         """ collects metrics """
