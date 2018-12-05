@@ -464,9 +464,9 @@ class VMWareMetricsResource(Resource):
         ds_metrics['vmware_datastore_hosts'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.host))
         ds_metrics['vmware_datastore_vms'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.vm))
         ds_metrics['vmware_datastore_maintenance_mode'].add_metric([summary.name, dc_name,
-                                                                   ds_cluster, summary.maintenanceMode],
+                                                                   ds_cluster, summary.maintenanceMode or 'normal'],
                                                                    1)
-        ds_metrics['vmware_datastore_type'].add_metric([summary.name, dc_name, ds_cluster, summary.type], 1)
+        ds_metrics['vmware_datastore_type'].add_metric([summary.name, dc_name, ds_cluster, summary.type or 'normal'], 1)
         ds_metrics['vmware_datastore_accessible'].add_metric([summary.name, dc_name, ds_cluster], summary.accessible*1)
 
     def _vmware_get_vms(self, content, vm_metrics, counter_info, inventory):
