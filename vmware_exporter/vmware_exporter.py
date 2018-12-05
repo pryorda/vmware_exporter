@@ -662,12 +662,12 @@ class VMWareMetricsResource(Resource):
                 if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
                     hosts = folder.host
                     for host in hosts:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name
+                        host_name = host.summary.config.name.rstrip('.')
                         host_inventory[host_name] = {}
                         host_inventory[host_name]['dc'] = dc.name
                         host_inventory[host_name]['cluster'] = folder.name
                 else:  # Unclustered host
-                    host_name = folder.name
+                    host_name = folder.name.rstrip('.')
                     host_inventory[host_name] = {}
                     host_inventory[host_name]['dc'] = dc.name
                     host_inventory[host_name]['cluster'] = ''
