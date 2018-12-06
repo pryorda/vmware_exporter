@@ -1,29 +1,15 @@
-import threading
+from concurrent.futures import ThreadPoolExecutor
+
+THREAD_LIMIT = 25
 
 
 class Threader(object):
-    """
-    Takes method and data and threads it
-    """
-    _thread = ''
+
+    def __init__(self):
+        self._workers = ThreadPoolExecutor(max_workers=THREAD_LIMIT)
 
     def thread_it(self, method, data):
-        """
-        Thread any method and data will be used as args
-        """
-        self._thread = threading.Thread(target=method, args=(data))
-        self._thread.start()
-        if threading.active_count() >= 10:
-            self.join()
+        self._workers.submit(method, *data)
 
     def join(self):
-        """
-        join all threads and complete them
-        """
-        try:
-            self._thread.join()
-        except RuntimeError:
-            # Thread terminated.
-            pass
-        except ReferenceError:
-            pass
+        self._workers.shutdown(wait=True)

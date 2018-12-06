@@ -311,9 +311,9 @@ class VMWareMetricsResource(Resource):
             self._vmware_get_hosts(content, metrics, host_inventory)
             log("Finished host metrics collection")
 
-        log("Finished collecting metrics from {0}".format(vsphere_host))
         self.threader.join()
         self._vmware_disconnect()
+        log("Finished collecting metrics from {0}".format(vsphere_host))
 
         for _key, metric in metrics.items():
             yield metric
@@ -473,7 +473,21 @@ class VMWareMetricsResource(Resource):
         """
         Get VM information
         """
+        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
 
+        self.threader.thread_it(
+            self._vmware_get_vm_perf_manager_metrics,
+            [content, counter_info, virtual_machines, vm_metrics, inventory]
+        )
+
+        log("Total Virtual Machines: {0}".format(len(virtual_machines)))
+
+        for virtual_machine in virtual_machines:
+            self.threader.thread_it(self._vmware_get_vm_perf_metrics,
+                                    [content, counter_info, virtual_machine, vm_metrics, inventory])
+
+    def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
+        log('START: _vmware_get_vm_perf_manager_metrics')
         # List of performance counter we want
         perf_list = [
             'cpu.ready.summation',
@@ -495,13 +509,44 @@ class VMWareMetricsResource(Resource):
                 p_metric,
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name'])
 
-        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
-        log("Total Virtual Machines: {0}".format(len(virtual_machines)))
-        for virtual_machine in virtual_machines:
-            self.threader.thread_it(self._vmware_get_vm_perf_metrics,
-                                    [content, counter_info, perf_list, virtual_machine, vm_metrics, inventory])
+        metrics = []
+        metric_names = {}
+        for perf_metric in perf_list:
+            perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
+            counter_key = counter_info[perf_metric]
+            metrics.append(vim.PerformanceManager.MetricId(
+                counterId=counter_key,
+                instance=''
+            ))
+            metric_names[counter_key] = perf_metric_name
 
-    def _vmware_get_vm_perf_metrics(self, content, counter_info, perf_list, virtual_machine, vm_metrics, inventory):
+        labels = {}
+        specs = []
+        for vm in virtual_machines:
+            summary = vm.summary
+            if summary.runtime.powerState != 'poweredOn':
+                continue
+            specs.append(vim.PerformanceManager.QuerySpec(
+                maxSample=1,
+                entity=vm,
+                metricId=metrics,
+                intervalId=20
+            ))
+            labels[vm._moId] = self._vmware_vm_metadata(inventory, vm, summary)
+
+        log('START: _vmware_get_vm_perf_manager_metrics: QUERY')
+        result = content.perfManager.QueryStats(querySpec=specs)
+        log('FIN: _vmware_get_vm_perf_manager_metrics: QUERY')
+
+        for ent in result:
+            for metric in ent.value:
+                vm_metrics[metric_names[metric.id.counterId]].add_metric(
+                    labels[ent.entity._moId],
+                    float(sum(metric.value)),
+                )
+        log('FIN: _vmware_get_vm_perf_manager_metrics')
+
+    def _vmware_get_vm_perf_metrics(self, content, counter_info, virtual_machine, vm_metrics, inventory):
         """
         Loops over metrics in perf_list on vm
         """
@@ -527,32 +572,6 @@ class VMWareMetricsResource(Resource):
                 vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
                     vm_metadata,
                     self._to_epoch(summary.runtime.bootTime))
-
-            metrics = []
-            metric_names = {}
-            for perf_metric in perf_list:
-                perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
-                counter_key = counter_info[perf_metric]
-                metrics.append(vim.PerformanceManager.MetricId(
-                    counterId=counter_key,
-                    instance=''
-                ))
-                metric_names[counter_key] = perf_metric_name
-
-            spec = vim.PerformanceManager.QuerySpec(
-                maxSample=1,
-                entity=virtual_machine,
-                metricId=metrics,
-                intervalId=20
-            )
-            result = content.perfManager.QueryStats(querySpec=[spec])
-
-            for ent in result:
-                for metric in ent.value:
-                    vm_metrics[metric_names[metric.id.counterId]].add_metric(
-                        vm_metadata,
-                        float(sum(metric.value)),
-                    )
 
     def _vmware_get_vmguests(self, content, vmguest_metrics, inventory):
         """
@@ -683,7 +702,7 @@ class VMWareMetricsResource(Resource):
         """
         Get VM metadata from inventory
         """
-        if summary is None:
+        if not summary:
             summary = vm.summary
         vm_name = vm.name
         vm_host = summary.runtime.host
