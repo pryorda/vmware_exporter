@@ -187,39 +187,25 @@ class VmwareCollector():
 
         collect_only = self.collect_only
 
-        # Collect VMs metrics
-        if collect_only['vmguests'] is True or collect_only['vms'] is True:
-            log("Starting VM Guests metrics collection")
-            virtual_machines = self._vmware_get_vmguests(content, metrics, host_inventory)
-            log("Finished VM Guests metrics collection")
-
-        # Collect Snapshots (count and age)
-        if collect_only['snapshots'] is True:
-            log("Starting VM snapshot metric collection")
-            vm_snap_counts, vm_snap_ages = self._vmware_get_snapshots(content, host_inventory)
-            for v in vm_snap_counts:
-                metrics['vmware_vm_snapshots'].add_metric([v['vm_name'], v['vm_host_name'],
-                                                          v['vm_dc_name'], v['vm_cluster_name']],
-                                                          v['vm_snapshot_count'])
-            for vm_snap_age in vm_snap_ages:
-                for v in vm_snap_age:
-                    metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'], v['vm_host_name'],
-                                                                               v['vm_dc_name'], v['vm_cluster_name'],
-                                                                               v['vm_snapshot_name']],
-                                                                               v['vm_snapshot_timestamp_seconds'])
-            log("Finished VM snapshot metric collection")
-
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            log("Starting datastore metrics collection")
-            self._vmware_get_datastores(content, metrics, ds_inventory)
-            log("Finished datastore metrics collection")
+            self.threader.submit(
+                self._vmware_get_datastores,
+                content, metrics, ds_inventory,
+            )
 
         # Collect Hosts metrics
         if collect_only['hosts'] is True:
-            log("Starting host metrics collection")
-            self._vmware_get_hosts(content, metrics, host_inventory)
-            log("Finished host metrics collection")
+            self.threader.submit(
+                self._vmware_get_hosts,
+                content, metrics, ds_inventory,
+            )
+
+        # Collect VMs metrics
+        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
+            log("Starting VM Guests metrics collection")
+            virtual_machines = self._vmware_get_vmguests(content, metrics, host_inventory)
+            log("Finished VM Guests metrics collection")
 
         self.threader.shutdown(wait=True)
 
@@ -301,58 +287,17 @@ class VmwareCollector():
         snapshot_data = []
         for snapshot in snapshots:
             snap_timestamp = self._to_epoch(snapshot.createTime)
-            snap_info = {'vm_snapshot_name': snapshot.name, 'vm_snapshot_timestamp_seconds': snap_timestamp}
+            snap_info = {'name': snapshot.name, 'timestamp_seconds': snap_timestamp}
             snapshot_data.append(snap_info)
             snapshot_data = snapshot_data + self._vmware_full_snapshots_list(
                 snapshot.childSnapshotList)
         return snapshot_data
 
-    def _vmware_get_snapshot_details(self, snapshots_count_table, snapshots_age_table, virtual_machine, inventory):
-        """
-        Gathers snapshot details
-        """
-        snapshot_paths = self._vmware_full_snapshots_list(virtual_machine.snapshot.rootSnapshotList)
-
-        _, host_name, dc_name, cluster_name = self._vmware_vm_metadata(inventory, virtual_machine)
-
-        for snapshot_path in snapshot_paths:
-            snapshot_path['vm_name'] = virtual_machine.name
-            snapshot_path['vm_host_name'] = host_name
-            snapshot_path['vm_dc_name'] = dc_name
-            snapshot_path['vm_cluster_name'] = cluster_name
-
-        # Add Snapshot count per VM
-        snapshot_count = len(snapshot_paths)
-        snapshot_count_info = {
-            'vm_name': virtual_machine.name,
-            'vm_host_name': host_name,
-            'vm_dc_name': dc_name,
-            'vm_cluster_name': cluster_name,
-            'vm_snapshot_count': snapshot_count
-        }
-        snapshots_count_table.append(snapshot_count_info)
-        snapshots_age_table.append(snapshot_paths)
-
-    def _vmware_get_snapshots(self, content, inventory):
-        """
-        Get snapshots from all VM
-        """
-        snapshots_count_table = []
-        snapshots_age_table = []
-        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
-        for virtual_machine in virtual_machines:
-            if not virtual_machine or virtual_machine.snapshot is None:
-                continue
-            self.thread_it(
-                self._vmware_get_snapshot_details,
-                [snapshots_count_table, snapshots_age_table, virtual_machine, inventory]
-            )
-        return snapshots_count_table, snapshots_age_table
-
     def _vmware_get_datastores(self, content, ds_metrics, inventory):
         """
         Get Datastore information
         """
+        log("Starting datastore metrics collection")
         datastores = self._vmware_get_obj(content, [vim.Datastore])
         for datastore in datastores:
             # ds.RefreshDatastoreStorageInfo()
@@ -365,27 +310,30 @@ class VmwareCollector():
                 self._vmware_get_datastore_metrics,
                 [datastore, dc_name, ds_cluster, ds_metrics, summary]
             )
+        log("Finished datastore metrics collection")
 
     def _vmware_get_datastore_metrics(self, datastore, dc_name, ds_cluster, ds_metrics, summary):
         """
         Get datastore metrics
         """
+        metadata = [summary.name, dc_name, ds_cluster]
+
         ds_capacity = float(summary.capacity)
         ds_freespace = float(summary.freeSpace)
         ds_uncommitted = float(summary.uncommitted) if summary.uncommitted else 0
         ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
-        ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name, dc_name, ds_cluster], ds_capacity)
-        ds_metrics['vmware_datastore_freespace_size'].add_metric([summary.name, dc_name, ds_cluster], ds_freespace)
-        ds_metrics['vmware_datastore_uncommited_size'].add_metric([summary.name, dc_name, ds_cluster], ds_uncommitted)
-        ds_metrics['vmware_datastore_provisoned_size'].add_metric([summary.name, dc_name, ds_cluster], ds_provisioned)
-        ds_metrics['vmware_datastore_hosts'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.host))
-        ds_metrics['vmware_datastore_vms'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.vm))
-        ds_metrics['vmware_datastore_maintenance_mode'].add_metric([summary.name, dc_name,
-                                                                   ds_cluster, summary.maintenanceMode or 'normal'],
-                                                                   1)
-        ds_metrics['vmware_datastore_type'].add_metric([summary.name, dc_name, ds_cluster, summary.type or 'normal'], 1)
-        ds_metrics['vmware_datastore_accessible'].add_metric([summary.name, dc_name, ds_cluster], summary.accessible*1)
+        ds_metrics['vmware_datastore_capacity_size'].add_metric(metadata, ds_capacity)
+        ds_metrics['vmware_datastore_freespace_size'].add_metric(metadata, ds_freespace)
+        ds_metrics['vmware_datastore_uncommited_size'].add_metric(metadata, ds_uncommitted)
+        ds_metrics['vmware_datastore_provisoned_size'].add_metric(metadata, ds_provisioned)
+        ds_metrics['vmware_datastore_hosts'].add_metric(metadata, len(datastore.host))
+        ds_metrics['vmware_datastore_vms'].add_metric(metadata, len(datastore.vm))
+        ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
+            metadata + [summary.maintenanceMode or 'normal'],
+            1)
+        ds_metrics['vmware_datastore_type'].add_metric(metadata + [summary.type or 'normal'], 1)
+        ds_metrics['vmware_datastore_accessible'].add_metric(metadata, summary.accessible*1)
 
     def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
         log('START: _vmware_get_vm_perf_manager_metrics')
@@ -493,10 +441,25 @@ class VmwareCollector():
                     metrics['vmware_vm_guest_disk_capacity'].add_metric(
                         vm_metadata + [disk.diskPath], disk.capacity)
 
+        if self.collect_only['snapshots'] is True and virtual_machine.snapshot is not None:
+            snapshots = self._vmware_full_snapshots_list(virtual_machine.snapshot.rootSnapshotList)
+
+            metrics['vmware_vm_snapshots'].add_metric(
+                vm_metadata,
+                len(snapshots),
+            )
+
+            for snapshot in snapshots:
+                metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric(
+                    vm_metadata + [snapshot['name']],
+                    snapshot['timestamp_seconds'],
+                )
+
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
         Get Host (ESXi) information
         """
+        log("Starting host metrics collection")
         hosts = self._vmware_get_obj(content, [vim.HostSystem])
         for host in hosts:
             summary = host.summary
@@ -513,6 +476,7 @@ class VmwareCollector():
                     self._vmware_get_host_metrics,
                     [host_name, host_dc_name, host_cluster_name, host_metrics, summary]
                 )
+        log("Finished host metrics collection")
 
     def _vmware_get_host_metrics(self, host_name, host_dc_name, host_cluster_name, host_metrics, summary):
         """
