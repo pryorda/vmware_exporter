@@ -29,7 +29,7 @@ from pyVmomi import vim, vmodl
 from pyVim import connect
 
 # Prometheus specific imports
-from prometheus_client.core import GaugeMetricFamily, _floatToGoString
+from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
 
@@ -343,9 +343,10 @@ class VmwareCollector():
         for virtual_machine in virtual_machines:
             if not virtual_machine or virtual_machine.snapshot is None:
                 continue
-            else:
-                self.thread_it(self._vmware_get_snapshot_details,
-                                        [snapshots_count_table, snapshots_age_table, virtual_machine, inventory])
+            self.thread_it(
+                self._vmware_get_snapshot_details,
+                [snapshots_count_table, snapshots_age_table, virtual_machine, inventory]
+            )
         return snapshots_count_table, snapshots_age_table
 
     def _vmware_get_datastores(self, content, ds_metrics, inventory):
@@ -360,8 +361,10 @@ class VmwareCollector():
             dc_name = inventory[ds_name]['dc']
             ds_cluster = inventory[ds_name]['ds_cluster']
 
-            self.thread_it(self._vmware_get_datastore_metrics,
-                                    [datastore, dc_name, ds_cluster, ds_metrics, summary])
+            self.thread_it(
+                self._vmware_get_datastore_metrics,
+                [datastore, dc_name, ds_cluster, ds_metrics, summary]
+            )
 
     def _vmware_get_datastore_metrics(self, datastore, dc_name, ds_cluster, ds_metrics, summary):
         """
@@ -420,9 +423,9 @@ class VmwareCollector():
 
         specs = []
         for vm in virtual_machines:
-            #summary = vm.summary
-            #if summary.runtime.powerState != 'poweredOn':
-            #    continue
+            # summary = vm.summary
+            # if summary.runtime.powerState != 'poweredOn':
+            #     continue
             specs.append(vim.PerformanceManager.QuerySpec(
                 maxSample=1,
                 entity=vm,
@@ -455,10 +458,9 @@ class VmwareCollector():
                 self._vmware_get_vm_metrics,
                 [content, virtual_machine, vmguest_metrics, inventory]
             )
-            
         return virtual_machines
 
-    def _vmware_get_vm_metrics(self, content, virtual_machine, vmguest_metrics, inventory):
+    def _vmware_get_vm_metrics(self, content, virtual_machine, metrics, inventory):
         """
         Get VM Guest Metrics
         """
@@ -467,29 +469,29 @@ class VmwareCollector():
         vm_metadata = self._vmware_vm_metadata(inventory, virtual_machine, summary)
         self._labels[virtual_machine._moId] = vm_metadata
 
-        if collect_only['vms'] is True:
+        if self.collect_only['vms'] is True:
             vm_power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             vm_num_cpu = summary.config.numCpu
 
-            vm_metrics['vmware_vm_power_state'].add_metric(vm_metadata, vm_power_state)
-            vm_metrics['vmware_vm_num_cpu'].add_metric(vm_metadata, vm_num_cpu)
+            metrics['vmware_vm_power_state'].add_metric(vm_metadata, vm_power_state)
+            metrics['vmware_vm_num_cpu'].add_metric(vm_metadata, vm_num_cpu)
 
             # Get metrics for poweredOn vms only
             if vm_power_state:
                 if summary.runtime.bootTime:
-                    vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
+                    metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
                         vm_metadata,
                         self._to_epoch(summary.runtime.bootTime)
                     )
 
-        if collect_only['vmguests'] is True:
+        if self.collect_only['vmguests'] is True:
             # gather disk metrics
             if len(virtual_machine.guest.disk) > 0:
                 for disk in virtual_machine.guest.disk:
-                    vmguest_metrics['vmware_vm_guest_disk_free'].add_metric(
-                        [vm_name, vm_host_name, vm_dc_name, vm_cluster_name, disk.diskPath], disk.freeSpace)
-                    vmguest_metrics['vmware_vm_guest_disk_capacity'].add_metric(
-                        [vm_name, vm_host_name, vm_dc_name, vm_cluster_name, disk.diskPath], disk.capacity)
+                    metrics['vmware_vm_guest_disk_free'].add_metric(
+                        vm_metadata + [disk.diskPath], disk.freeSpace)
+                    metrics['vmware_vm_guest_disk_capacity'].add_metric(
+                        vm_metadata + [disk.diskPath], disk.capacity)
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
@@ -507,8 +509,10 @@ class VmwareCollector():
                                                                power_state)
 
             if power_state:
-                self.thread_it(self._vmware_get_host_metrics,
-                                        [host_name, host_dc_name, host_cluster_name, host_metrics, summary])
+                self.thread_it(
+                    self._vmware_get_host_metrics,
+                    [host_name, host_dc_name, host_cluster_name, host_metrics, summary]
+                )
 
     def _vmware_get_host_metrics(self, host_name, host_dc_name, host_cluster_name, host_metrics, summary):
         """
