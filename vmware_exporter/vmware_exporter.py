@@ -33,114 +33,20 @@ from prometheus_client.core import GaugeMetricFamily, _floatToGoString
 from prometheus_client import CollectorRegistry, generate_latest
 
 
-class VMWareMetricsResource(Resource):
-    """
-    VMWare twisted ``Resource`` handling multi endpoints
-    Only handle /metrics and /healthz path
-    """
-    isLeaf = True
+class VmwareCollector():
 
-    def __init__(self):
-        """
-        Init Metric Resource
-        """
-        Resource.__init__(self)
+    def __init__(self, host, username, password, collect_only, ignore_ssl=False):
         self.threader = Threader()
+        self.host = host
+        self.username = username
+        self.password = password
+        self.ignore_ssl = ignore_ssl
+        self.collect_only = collect_only
 
-    def configure(self, args):
-        if args.config_file:
-            try:
-                self.config = YamlConfig(args.config_file)
-                if 'default' not in self.config.keys():
-                    log("Error, you must have a default section in config file (for now)")
-                    exit(1)
-            except Exception as exception:
-                raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
-        else:
-            config_data = """
-            default:
-                vsphere_host: "{0}"
-                vsphere_user: "{1}"
-                vsphere_password: "{2}"
-                ignore_ssl: {3}
-                collect_only:
-                    vms: True
-                    vmguests: True
-                    datastores: True
-                    hosts: True
-                    snapshots: True
-            """.format(os.environ.get('VSPHERE_HOST'),
-                       os.environ.get('VSPHERE_USER'),
-                       os.environ.get('VSPHERE_PASSWORD'),
-                       os.environ.get('VSPHERE_IGNORE_SSL', False)
-                       )
-            self.config = yaml.load(config_data)
-            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
-            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
-            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
-            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
-            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
-
-    def render_GET(self, request):
-        """ handles get requests for metrics, health, and everything else """
-        path = request.path.decode()
-        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
-        if path == '/metrics':
-            deferred_request = deferLater(reactor, 0, lambda: request)
-            deferred_request.addCallback(self.generate_latest_metrics)
-            deferred_request.addErrback(self.errback, request)
-            return NOT_DONE_YET
-        elif path == '/healthz':
-            request.setResponseCode(200)
-            log("Service is UP")
-            return 'Server is UP'.encode()
-        else:
-            log(b"Uri not found: " + request.uri)
-            request.setResponseCode(404)
-            return '404 Not Found'.encode()
-
-    def errback(self, failure, request):
-        """ handles failures from requests """
-        failure.printTraceback()
-        log(failure)
-        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
-        return None
-
-    def generate_latest_metrics(self, request):
-        """ gets the latest metrics """
-        section = request.args.get('section', ['default'])[0]
-        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
-            vsphere_host = self.config[section].get('vsphere_host')
-        elif request.args.get(b'target', [None])[0]:
-            vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
-        elif request.args.get(b'vsphere_host', [None])[0]:
-            vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
-        else:
-            request.setResponseCode(500)
-            log("No vsphere_host or target defined")
-            request.write(b'No vsphere_host or target defined!\n')
-            request.finish()
-            return
-
-        
-        class Collector(object):
-            def __init__(self, collected):
-                self._collected = list(collected)
-            def collect(self):
-                return self._collected
-
-        registry = CollectorRegistry()
-        registry.register(Collector(self.collect(vsphere_host, section)))
-        output = generate_latest(registry)
-
-        request.write(output)
-        request.finish()
-
-    def collect(self, vsphere_host, section='default'):
+    def collect(self):
         """ collects metrics """
-        if section not in self.config.keys():
-            log("{} is not a valid section, using default".format(section))
-            section = 'default'
+        vsphere_host = self.host
+
         host_inventory = {}
         ds_inventory = {}
         metric_list = {}
@@ -252,13 +158,13 @@ class VMWareMetricsResource(Resource):
             }
 
         metrics = {}
-        for key, value in self.config[section]['collect_only'].items():
+        for key, value in self.collect_only.items():
             if value is True:
                 metrics.update(metric_list[key])
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
-        self.vmware_connection = self._vmware_connect(vsphere_host, section)
+        self.vmware_connection = self._vmware_connect()
         if not self.vmware_connection:
             log(b"Cannot connect to vmware")
             return
@@ -272,7 +178,7 @@ class VMWareMetricsResource(Resource):
 
         self._labels = {}
 
-        collect_only = self.config[section]['collect_only']
+        collect_only = self.collect_only
 
         # Collect VMs metrics
         if collect_only['vmguests'] is True or collect_only['vms'] is True:
@@ -281,7 +187,7 @@ class VMWareMetricsResource(Resource):
             log("Finished VM Guests metrics collection")
 
         # Collect Snapshots (count and age)
-        if self.config[section]['collect_only']['snapshots'] is True:
+        if collect_only['snapshots'] is True:
             log("Starting VM snapshot metric collection")
             vm_snap_counts, vm_snap_ages = self._vmware_get_snapshots(content, host_inventory)
             for v in vm_snap_counts:
@@ -297,20 +203,20 @@ class VMWareMetricsResource(Resource):
             log("Finished VM snapshot metric collection")
 
         # Collect Datastore metrics
-        if self.config[section]['collect_only']['datastores'] is True:
+        if collect_only['datastores'] is True:
             log("Starting datastore metrics collection")
             self._vmware_get_datastores(content, metrics, ds_inventory)
             log("Finished datastore metrics collection")
 
         # Collect Hosts metrics
-        if self.config[section]['collect_only']['hosts'] is True:
+        if collect_only['hosts'] is True:
             log("Starting host metrics collection")
             self._vmware_get_hosts(content, metrics, host_inventory)
             log("Finished host metrics collection")
 
         self.threader.join()
 
-        if self.config[section]['collect_only']['vms'] is True:
+        if collect_only['vms'] is True:
             counter_info = self._vmware_perf_metrics(content)
             self._vmware_get_vm_perf_manager_metrics(
                 content, counter_info, virtual_machines, metrics, host_inventory
@@ -341,23 +247,21 @@ class VMWareMetricsResource(Resource):
         else:
             return container.view
 
-    def _vmware_connect(self, vsphere_host, section):
+    def _vmware_connect(self):
         """
         Connect to Vcenter and get connection
         """
-        vsphere_user = self.config[section].get('vsphere_user')
-        vsphere_password = self.config[section].get('vsphere_password')
-
         context = None
-        if self.config[section].get('ignore_ssl') and \
-                hasattr(ssl, "_create_unverified_context"):
+        if self.ignore_ssl:
             context = ssl._create_unverified_context()
 
         try:
-            vmware_connect = connect.SmartConnect(host=vsphere_host,
-                                                  user=vsphere_user,
-                                                  pwd=vsphere_password,
-                                                  sslContext=context)
+            vmware_connect = connect.SmartConnect(
+                host=self.host,
+                user=self.username,
+                pwd=self.password,
+                sslContext=context,
+            )
             return vmware_connect
 
         except vmodl.MethodFault as error:
@@ -531,7 +435,6 @@ class VMWareMetricsResource(Resource):
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
-
     def _vmware_get_vmguests(self, content, vmguest_metrics, inventory):
         """
         Get VM Guest information
@@ -700,6 +603,113 @@ class VMWareMetricsResource(Resource):
         host_cluster_name = inventory[host_name]['cluster']
 
         return host_name, host_dc_name, host_cluster_name
+
+
+class VMWareMetricsResource(Resource):
+    """
+    VMWare twisted ``Resource`` handling multi endpoints
+    Only handle /metrics and /healthz path
+    """
+    isLeaf = True
+
+    def __init__(self):
+        """
+        Init Metric Resource
+        """
+        Resource.__init__(self)
+        self.threader = Threader()
+
+    def configure(self, args):
+        if args.config_file:
+            try:
+                self.config = YamlConfig(args.config_file)
+                if 'default' not in self.config.keys():
+                    log("Error, you must have a default section in config file (for now)")
+                    exit(1)
+            except Exception as exception:
+                raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
+        else:
+            config_data = """
+            default:
+                vsphere_host: "{0}"
+                vsphere_user: "{1}"
+                vsphere_password: "{2}"
+                ignore_ssl: {3}
+                collect_only:
+                    vms: True
+                    vmguests: True
+                    datastores: True
+                    hosts: True
+                    snapshots: True
+            """.format(os.environ.get('VSPHERE_HOST'),
+                       os.environ.get('VSPHERE_USER'),
+                       os.environ.get('VSPHERE_PASSWORD'),
+                       os.environ.get('VSPHERE_IGNORE_SSL', False)
+                       )
+            self.config = yaml.load(config_data)
+            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
+            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
+            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
+            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
+            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+
+    def render_GET(self, request):
+        """ handles get requests for metrics, health, and everything else """
+        path = request.path.decode()
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        if path == '/metrics':
+            deferred_request = deferLater(reactor, 0, lambda: request)
+            deferred_request.addCallback(self.generate_latest_metrics)
+            deferred_request.addErrback(self.errback, request)
+            return NOT_DONE_YET
+        elif path == '/healthz':
+            request.setResponseCode(200)
+            log("Service is UP")
+            return 'Server is UP'.encode()
+        else:
+            log(b"Uri not found: " + request.uri)
+            request.setResponseCode(404)
+            return '404 Not Found'.encode()
+
+    def errback(self, failure, request):
+        """ handles failures from requests """
+        failure.printTraceback()
+        log(failure)
+        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
+        return None
+
+    def generate_latest_metrics(self, request):
+        """ gets the latest metrics """
+        section = request.args.get('section', ['default'])[0]
+        if section not in self.config.keys():
+            log("{} is not a valid section, using default".format(section))
+            section = 'default'
+
+        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
+            vsphere_host = self.config[section].get('vsphere_host')
+        elif request.args.get(b'target', [None])[0]:
+            vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
+        elif request.args.get(b'vsphere_host', [None])[0]:
+            vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
+        else:
+            request.setResponseCode(500)
+            log("No vsphere_host or target defined")
+            request.write(b'No vsphere_host or target defined!\n')
+            request.finish()
+            return
+
+        registry = CollectorRegistry()
+        registry.register(VmwareCollector(
+            vsphere_host,
+            self.config[section]['vsphere_user'],
+            self.config[section]['vsphere_password'],
+            self.config[section]['collect_only'],
+            self.config[section]['ignore_ssl'],
+        ))
+        output = generate_latest(registry)
+
+        request.write(output)
+        request.finish()
 
 
 def log(data):
