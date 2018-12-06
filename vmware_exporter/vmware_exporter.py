@@ -10,9 +10,9 @@ from datetime import datetime
 
 # Generic imports
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import os
 import ssl
-from threader import Threader
 import pytz
 import yaml
 
@@ -35,13 +35,20 @@ from prometheus_client import CollectorRegistry, generate_latest
 
 class VmwareCollector():
 
+    THREAD_LIMIT = 25
+
     def __init__(self, host, username, password, collect_only, ignore_ssl=False):
-        self.threader = Threader()
+        self.threader = ThreadPoolExecutor(max_workers=self.THREAD_LIMIT)
+
         self.host = host
         self.username = username
         self.password = password
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
+
+    def thread_it(self, method, data):
+        # FIXME: Just call submit directly
+        self.threader.submit(method, *data)
 
     def collect(self):
         """ collects metrics """
@@ -214,7 +221,7 @@ class VmwareCollector():
             self._vmware_get_hosts(content, metrics, host_inventory)
             log("Finished host metrics collection")
 
-        self.threader.join()
+        self.threader.shutdown(wait=True)
 
         if collect_only['vms'] is True:
             counter_info = self._vmware_perf_metrics(content)
@@ -337,7 +344,7 @@ class VmwareCollector():
             if not virtual_machine or virtual_machine.snapshot is None:
                 continue
             else:
-                self.threader.thread_it(self._vmware_get_snapshot_details,
+                self.thread_it(self._vmware_get_snapshot_details,
                                         [snapshots_count_table, snapshots_age_table, virtual_machine, inventory])
         return snapshots_count_table, snapshots_age_table
 
@@ -353,7 +360,7 @@ class VmwareCollector():
             dc_name = inventory[ds_name]['dc']
             ds_cluster = inventory[ds_name]['ds_cluster']
 
-            self.threader.thread_it(self._vmware_get_datastore_metrics,
+            self.thread_it(self._vmware_get_datastore_metrics,
                                     [datastore, dc_name, ds_cluster, ds_metrics, summary])
 
     def _vmware_get_datastore_metrics(self, datastore, dc_name, ds_cluster, ds_metrics, summary):
@@ -444,7 +451,7 @@ class VmwareCollector():
 
         log("Total Virtual Machines: {0}".format(len(virtual_machines)))
         for virtual_machine in virtual_machines:
-            self.threader.thread_it(
+            self.thread_it(
                 self._vmware_get_vm_metrics,
                 [content, virtual_machine, vmguest_metrics, inventory]
             )
@@ -500,7 +507,7 @@ class VmwareCollector():
                                                                power_state)
 
             if power_state:
-                self.threader.thread_it(self._vmware_get_host_metrics,
+                self.thread_it(self._vmware_get_host_metrics,
                                         [host_name, host_dc_name, host_cluster_name, host_metrics, summary])
 
     def _vmware_get_host_metrics(self, host_name, host_dc_name, host_cluster_name, host_metrics, summary):
@@ -617,7 +624,6 @@ class VMWareMetricsResource(Resource):
         Init Metric Resource
         """
         Resource.__init__(self)
-        self.threader = Threader()
 
     def configure(self, args):
         if args.config_file:
