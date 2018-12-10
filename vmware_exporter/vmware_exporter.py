@@ -414,7 +414,7 @@ class VmwareCollector():
         """
         summary = virtual_machine.summary
 
-        vm_metadata = self._vmware_vm_metadata(inventory, virtual_machine, summary)
+        vm_metadata = list(self._vmware_vm_metadata(inventory, virtual_machine, summary))
         self._labels[virtual_machine._moId] = vm_metadata
 
         if self.collect_only['vms'] is True:
