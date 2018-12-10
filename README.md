@@ -1,11 +1,11 @@
 # vmware_exporter
-VMWare VCenter Exporter for Prometheus.
+VMware vCenter Exporter for Prometheus.
 
-Get VMWare VCenter information:
-- Current number of active snapshots
-- Snapshot Unix timestamp creation date
-- Datastore size and other stuff
+Get VMware vCenter information:
 - Basic VM and Host metrics
+- Current number of active snapshots
+- Datastore size and other stuff
+- Snapshot Unix timestamp creation date
 
 ## Badges
 ![Docker Stars](https://img.shields.io/docker/stars/pryorda/vmware_exporter.svg)
@@ -16,23 +16,23 @@ Get VMWare VCenter information:
 
 ## Usage
 
-- install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont persue)
+- Install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont pursue)
 -- TODO: update pip `$ pip install vmware_exporter`
-- Create a `config.yml` file based on the configuration section. Some variables can be passed in as environment variables
+- Create `config.yml` based on the configuration section. Some variables can be passed as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
 - Go to http://localhost:9272/metrics?vsphere_host=vcenter.company.com to see metrics
 
-Alternatively, if you don't wish to install the package, run using `$ vmware_exporter/vmware_exporter.py` or you can use the following docker command:
+Alternatively, if you don't wish to install the package, run it using `$ vmware_exporter/vmware_exporter.py` or use the following docker command:
 
 ```
 docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True --name vmware_exporter pryorda/vmware_exporter
 ```
 
-### Configuration amd limiting data collection
+### Configuration and limiting data collection
 
-You do not need to provide a configuration file unless you are not going to use Environment variables. If you do plan to use a configuration file be sure to override the container entrypoint or add -c config.yml to the command args.
+Only provide a configuration file if enviroment variables are not used. If you do plan to use a configuration file, be sure to override the container entrypoint or add -c config.yml to the command arguments.
 
-If you want to limit the scope of the metrics gather you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
+If you want to limit the scope of the metrics gathered, you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
 
     collect_only:
         vms: False
@@ -82,10 +82,10 @@ limited:
         snapshots: False
 
 ```
- Switching sections can be done by adding ?section=limited to the url.
+Switching sections can be done by adding ?section=limited to the URL.
 
 #### Environment Variables
-| Varible                      | Precedence             | Defaults | Description                                      |
+| Variable                      | Precedence             | Defaults | Description                                      |
 | ---------------------------- | ---------------------- | -------- | --------------------------------------- |
 | `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
@@ -99,7 +99,7 @@ limited:
 
 ### Prometheus configuration
 
-You can use the following parameters in prometheus configuration file. The `params` section is used to manage multiple login/passwords.
+You can use the following parameters in the Prometheus configuration file. The `params` section is used to manage multiple login/passwords.
 
 ```
   - job_name: 'vmware_vcenter'
@@ -130,7 +130,7 @@ You can use the following parameters in prometheus configuration file. The `para
       - target_label: __address__
         replacement: localhost:9272
 
-# Example of Multiple Vcenter usage per #23
+# Example of Multiple vCenter usage per #23
 
 - job_name: vmware_export
     metrics_path: /metrics
@@ -150,61 +150,61 @@ You can use the following parameters in prometheus configuration file. The `para
 
 ## Current Status
 
-- VCenter and ESXi 6 and 6.5 have been tested.
+- vCenter and vSphere 6.0/6.5 have been tested.
 - VM information, Snapshot, Host and Datastore basic information is exported, i.e:
 ```
-# HELP vmware_snapshots VMWare current number of existing snapshots
+# HELP vmware_snapshots VMware current number of existing snapshots
 # TYPE vmware_snapshot_count gauge
 vmware_snapshot_timestamp_seconds{vm_name="My Super Virtual Machine"} 2.0
-# HELP vmware_snapshot_timestamp_seconds VMWare Snapshot creation time in seconds
+# HELP vmware_snapshot_timestamp_seconds VMware Snapshot creation time in seconds
 # TYPE vmware_snapshot_timestamp_seconds gauge
 vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Very old snaphot"} 1478146956.96092
 vmware_snapshot_age{vm_name="My Super Virtual Machine",vm_snapshot_name="Old snapshot"} 1478470046.975632
 
-# HELP vmware_datastore_capacity_size VMWare Datasore capacity in bytes
+# HELP vmware_datastore_capacity_size VMware Datastore capacity in bytes
 # TYPE vmware_datastore_capacity_size gauge
 vmware_datastore_capacity_size{ds_name="ESX1-LOCAL"} 67377299456.0
-# HELP vmware_datastore_freespace_size VMWare Datastore freespace in bytes
+# HELP vmware_datastore_freespace_size VMware Datastore freespace in bytes
 # TYPE vmware_datastore_freespace_size gauge
 vmware_datastore_freespace_size{ds_name="ESX1-LOCAL"} 66349694976.0
-# HELP vmware_datastore_uncommited_size VMWare Datastore uncommitted in bytes
+# HELP vmware_datastore_uncommited_size VMware Datastore uncommitted in bytes
 # TYPE vmware_datastore_uncommited_size gauge
 vmware_datastore_uncommited_size{ds_name="ESX1-LOCAL"} 0.0
-# HELP vmware_datastore_provisoned_size VMWare Datastore provisoned in bytes
+# HELP vmware_datastore_provisoned_size VMware Datastore provisoned in bytes
 # TYPE vmware_datastore_provisoned_size gauge
 vmware_datastore_provisoned_size{ds_name="ESX1-LOCAL"} 1027604480.0
-# HELP vmware_datastore_hosts VMWare Hosts number using this datastore
+# HELP vmware_datastore_hosts VMware Hosts number using this datastore
 # TYPE vmware_datastore_hosts gauge
 vmware_datastore_hosts{ds_name="ESX1-LOCAL"} 1.0
-# HELP vmware_datastore_vms VMWare Virtual Machines number using this datastore
+# HELP vmware_datastore_vms VMware Virtual Machines number using this datastore
 # TYPE vmware_datastore_vms gauge
 vmware_datastore_vms{ds_name="ESX1-LOCAL"} 0.0
 
-# HELP vmware_host_power_state VMWare Host Power state (On / Off)
+# HELP vmware_host_power_state VMware Host Power state (On / Off)
 # TYPE vmware_host_power_state gauge
 vmware_host_power_state{host_name="esx1.company.com"} 1.0
-# HELP vmware_host_cpu_usage VMWare Host CPU usage in Mhz
+# HELP vmware_host_cpu_usage VMware Host CPU usage in MHz
 # TYPE vmware_host_cpu_usage gauge
 vmware_host_cpu_usage{host_name="esx1.company.com"} 2959.0
-# HELP vmware_host_cpu_max VMWare Host CPU max availability in Mhz
+# HELP vmware_host_cpu_max VMware Host CPU max availability in MHz
 # TYPE vmware_host_cpu_max gauge
 vmware_host_cpu_max{host_name="esx1.company.com"} 28728.0
-# HELP vmware_host_memory_usage VMWare Host Memory usage in Mbytes
+# HELP vmware_host_memory_usage VMware Host Memory usage in Mbytes
 # TYPE vmware_host_memory_usage gauge
 vmware_host_memory_usage{host_name="esx1.company.com"} 107164.0
-# HELP vmware_host_memory_max VMWare Host Memory Max availability in Mbytes
+# HELP vmware_host_memory_max VMware Host Memory Max availability in Mbytes
 # TYPE vmware_host_memory_max gauge
 vmware_host_memory_max{host_name="esx1.company.com"} 131059.01953125
 ```
 
 ## References
 
-The VMWare exporter uses theses libraries:
-- [pyVmomi](https://github.com/vmware/pyvmomi) for VMWare connection
+The VMware exporter uses theses libraries:
+- [pyVmomi](https://github.com/vmware/pyvmomi) for VMware connection
 - Prometheus [client_python](https://github.com/prometheus/client_python) for Prometheus supervision
-- [Twisted](http://twistedmatrix.com/trac/) for http server
+- [Twisted](http://twistedmatrix.com/trac/) for HTTP server
 
-The initial code is mainly inspired from:
+The initial code is mainly inspired by:
 - https://www.robustperception.io/writing-a-jenkins-exporter-in-python/
 - https://github.com/vmware/pyvmomi-community-samples
 - https://github.com/jbidinger/pyvmomi-tools
