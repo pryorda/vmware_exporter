@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 ## [0.3.0] - 2018-12-09
 ### Changed
 - [#35](https://github.com/pryorda/vmware_exporter/pull/35) Refactor threading @Jc2k
+- [#34](https://github.com/pryorda/vmware_exporter/pull/34) README Updates @Rosiak
 ### Fixed
 - [#33](https://github.com/pryorda/vmware_exporter/pull/33) Drop None values in lables @akrauza
 
