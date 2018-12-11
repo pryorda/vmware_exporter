@@ -15,7 +15,7 @@ FROM python:3.6-alpine
 
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter
-LABEL VERSION=0.2.6
+LABEL VERSION=0.3.0
 
 WORKDIR /opt/vmware_exporter/
 
