@@ -198,7 +198,7 @@ class VmwareCollector():
         if collect_only['hosts'] is True:
             self.threader.submit(
                 self._vmware_get_hosts,
-                content, metrics, ds_inventory,
+                content, metrics, host_inventory,
             )
 
         # Collect VMs metrics
