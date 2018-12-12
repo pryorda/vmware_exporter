@@ -1,4 +1,4 @@
-FROM python:2.7-alpine as linter
+FROM python:3.6-alpine as linter
 # Runs required lints so automated builds are a little more fluid
 
 WORKDIR /opt/vmware_exporter/
@@ -11,11 +11,11 @@ RUN pip install flake8 && \
 RUN flake8 vmware_exporter
 RUN dockerfilelint Dockerfile
 
-FROM python:2.7-alpine
+FROM python:3.6-alpine
 
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter
-LABEL VERSION=0.2.6
+LABEL VERSION=0.3.0
 
 WORKDIR /opt/vmware_exporter/
 

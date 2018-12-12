@@ -10,9 +10,9 @@ from datetime import datetime
 
 # Generic imports
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import os
 import ssl
-from threader import Threader
 import pytz
 import yaml
 
@@ -29,129 +29,31 @@ from pyVmomi import vim, vmodl
 from pyVim import connect
 
 # Prometheus specific imports
-from prometheus_client.core import GaugeMetricFamily, _floatToGoString
+from prometheus_client.core import GaugeMetricFamily
+from prometheus_client import CollectorRegistry, generate_latest
 
 
-class VMWareMetricsResource(Resource):
-    """
-    VMWare twisted ``Resource`` handling multi endpoints
-    Only handle /metrics and /healthz path
-    """
-    isLeaf = True
+class VmwareCollector():
 
-    def __init__(self):
-        """
-        Init Metric Resource
-        """
-        Resource.__init__(self)
-        self.threader = Threader()
+    THREAD_LIMIT = 25
 
-    def configure(self, args):
-        if args.config_file:
-            try:
-                self.config = YamlConfig(args.config_file)
-                if 'default' not in self.config.keys():
-                    log("Error, you must have a default section in config file (for now)")
-                    exit(1)
-            except Exception as exception:
-                raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
-        else:
-            config_data = """
-            default:
-                vsphere_host: "{0}"
-                vsphere_user: "{1}"
-                vsphere_password: "{2}"
-                ignore_ssl: {3}
-                collect_only:
-                    vms: True
-                    vmguests: True
-                    datastores: True
-                    hosts: True
-                    snapshots: True
-            """.format(os.environ.get('VSPHERE_HOST'),
-                       os.environ.get('VSPHERE_USER'),
-                       os.environ.get('VSPHERE_PASSWORD'),
-                       os.environ.get('VSPHERE_IGNORE_SSL', False)
-                       )
-            self.config = yaml.load(config_data)
-            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
-            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
-            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
-            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
-            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+    def __init__(self, host, username, password, collect_only, ignore_ssl=False):
+        self.threader = ThreadPoolExecutor(max_workers=self.THREAD_LIMIT)
 
-    def render_GET(self, request):
-        """ handles get requests for metrics, health, and everything else """
-        path = request.path.decode()
-        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
-        if path == '/metrics':
-            deferred_request = deferLater(reactor, 0, lambda: request)
-            deferred_request.addCallback(self.generate_latest_metrics)
-            deferred_request.addErrback(self.errback, request)
-            return NOT_DONE_YET
-        elif path == '/healthz':
-            request.setResponseCode(200)
-            log("Service is UP")
-            return 'Server is UP'.encode()
-        else:
-            log("Uri not found: " + request.uri)
-            request.setResponseCode(404)
-            return '404 Not Found'.encode()
+        self.host = host
+        self.username = username
+        self.password = password
+        self.ignore_ssl = ignore_ssl
+        self.collect_only = collect_only
 
-    def errback(self, failure, request):
-        """ handles failures from requests """
-        failure.printTraceback()
-        log(failure)
-        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
-        return None
+    def thread_it(self, method, data):
+        # FIXME: Just call submit directly
+        self.threader.submit(method, *data)
 
-    def generate_latest_metrics(self, request):
-        """ gets the latest metrics """
-        section = request.args.get('section', ['default'])[0]
-        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
-            vsphere_host = self.config[section].get('vsphere_host')
-        elif request.args.get('target', [None])[0]:
-            vsphere_host = request.args.get('target', [None])[0]
-        elif request.args.get('vsphere_host', [None])[0]:
-            vsphere_host = request.args.get('vsphere_host')[0]
-        else:
-            request.setResponseCode(500)
-            log("No vsphere_host or target defined")
-            request.write('No vsphere_host or target defined!\n')
-            request.finish()
-
-        output = []
-        for metric in self.collect(vsphere_host, section):
-            output.append('# HELP {0} {1}'.format(
-                metric.name, metric.documentation.replace('\\', r'\\').replace('\n', r'\n')))
-            output.append('\n# TYPE {0} {1}\n'.format(metric.name, metric.type))
-            for name, labels, value in metric.samples:
-                if labels:
-                    labelstr = '{{{0}}}'.format(','.join(
-                        ['{0}="{1}"'.format(
-                            k, v.replace('\\', r'\\').replace('\n', r'\n').replace('"', r'\"').encode('utf-8'))
-                         for k, v in sorted(labels.items())]))
-                else:
-                    labelstr = ''
-                if isinstance(value, int):
-                    value = float(value)
-                if isinstance(value, long):  # noqa: F821
-                    value = float(value)
-                if isinstance(value, float):
-                    output.append('{0}{1} {2}\n'.format(name, labelstr, _floatToGoString(value)))
-        if output != []:
-            request.write(''.join(output))
-            request.finish()
-        else:
-            request.setResponseCode(500, message=('cannot connect to vmware'))
-            request.finish()
-            return
-
-    def collect(self, vsphere_host, section='default'):
+    def collect(self):
         """ collects metrics """
-        if section not in self.config.keys():
-            log("{} is not a valid section, using default".format(section))
-            section = 'default'
+        vsphere_host = self.host
+
         host_inventory = {}
         ds_inventory = {}
         metric_list = {}
@@ -263,15 +165,15 @@ class VMWareMetricsResource(Resource):
             }
 
         metrics = {}
-        for key, value in self.config[section]['collect_only'].items():
+        for key, value in self.collect_only.items():
             if value is True:
                 metrics.update(metric_list[key])
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
-        self.vmware_connection = self._vmware_connect(vsphere_host, section)
+        self.vmware_connection = self._vmware_connect()
         if not self.vmware_connection:
-            log("Cannot connect to vmware")
+            log(b"Cannot connect to vmware")
             return
 
         content = self.vmware_connection.RetrieveContent()
@@ -281,50 +183,40 @@ class VMWareMetricsResource(Resource):
         host_inventory, ds_inventory = self._vmware_get_inventory(content)
         log("Finished inventory collection")
 
-        # Collect VMs metrics
-        if self.config[section]['collect_only']['vms'] is True:
-            log("Starting VM performance metrics collection")
-            counter_info = self._vmware_perf_metrics(content)
-            self._vmware_get_vms(content, metrics, counter_info, host_inventory)
-            log("Finished VM performance metrics collection")
+        self._labels = {}
 
-        # Collect VMs metrics
-        if self.config[section]['collect_only']['vmguests'] is True:
-            log("Starting VM Guests metrics collection")
-            self._vmware_get_vmguests(content, metrics, host_inventory)
-            log("Finished VM Guests metrics collection")
-
-        # Collect Snapshots (count and age)
-        if self.config[section]['collect_only']['snapshots'] is True:
-            log("Starting VM snapshot metric collection")
-            vm_snap_counts, vm_snap_ages = self._vmware_get_snapshots(content, host_inventory)
-            for v in vm_snap_counts:
-                metrics['vmware_vm_snapshots'].add_metric([v['vm_name'], v['vm_host_name'],
-                                                          v['vm_dc_name'], v['vm_cluster_name']],
-                                                          v['vm_snapshot_count'])
-            for vm_snap_age in vm_snap_ages:
-                for v in vm_snap_age:
-                    metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric([v['vm_name'], v['vm_host_name'],
-                                                                               v['vm_dc_name'], v['vm_cluster_name'],
-                                                                               v['vm_snapshot_name']],
-                                                                               v['vm_snapshot_timestamp_seconds'])
-            log("Finished VM snapshot metric collection")
+        collect_only = self.collect_only
 
         # Collect Datastore metrics
-        if self.config[section]['collect_only']['datastores'] is True:
-            log("Starting datastore metrics collection")
-            self._vmware_get_datastores(content, metrics, ds_inventory)
-            log("Finished datastore metrics collection")
+        if collect_only['datastores'] is True:
+            self.threader.submit(
+                self._vmware_get_datastores,
+                content, metrics, ds_inventory,
+            )
 
         # Collect Hosts metrics
-        if self.config[section]['collect_only']['hosts'] is True:
-            log("Starting host metrics collection")
-            self._vmware_get_hosts(content, metrics, host_inventory)
-            log("Finished host metrics collection")
+        if collect_only['hosts'] is True:
+            self.threader.submit(
+                self._vmware_get_hosts,
+                content, metrics, host_inventory,
+            )
 
-        log("Finished collecting metrics from {0}".format(vsphere_host))
-        self.threader.join()
+        # Collect VMs metrics
+        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
+            log("Starting VM Guests metrics collection")
+            virtual_machines = self._vmware_get_vmguests(content, metrics, host_inventory)
+            log("Finished VM Guests metrics collection")
+
+        self.threader.shutdown(wait=True)
+
+        if collect_only['vms'] is True:
+            counter_info = self._vmware_perf_metrics(content)
+            self._vmware_get_vm_perf_manager_metrics(
+                content, counter_info, virtual_machines, metrics, host_inventory
+            )
+
         self._vmware_disconnect()
+        log("Finished collecting metrics from {0}".format(vsphere_host))
 
         for _key, metric in metrics.items():
             yield metric
@@ -348,23 +240,21 @@ class VMWareMetricsResource(Resource):
         else:
             return container.view
 
-    def _vmware_connect(self, vsphere_host, section):
+    def _vmware_connect(self):
         """
         Connect to Vcenter and get connection
         """
-        vsphere_user = self.config[section].get('vsphere_user')
-        vsphere_password = self.config[section].get('vsphere_password')
-
         context = None
-        if self.config[section].get('ignore_ssl') and \
-                hasattr(ssl, "_create_unverified_context"):
+        if self.ignore_ssl:
             context = ssl._create_unverified_context()
 
         try:
-            vmware_connect = connect.SmartConnect(host=vsphere_host,
-                                                  user=vsphere_user,
-                                                  pwd=vsphere_password,
-                                                  sslContext=context)
+            vmware_connect = connect.SmartConnect(
+                host=self.host,
+                user=self.username,
+                pwd=self.password,
+                sslContext=context,
+            )
             return vmware_connect
 
         except vmodl.MethodFault as error:
@@ -397,57 +287,17 @@ class VMWareMetricsResource(Resource):
         snapshot_data = []
         for snapshot in snapshots:
             snap_timestamp = self._to_epoch(snapshot.createTime)
-            snap_info = {'vm_snapshot_name': snapshot.name, 'vm_snapshot_timestamp_seconds': snap_timestamp}
+            snap_info = {'name': snapshot.name, 'timestamp_seconds': snap_timestamp}
             snapshot_data.append(snap_info)
             snapshot_data = snapshot_data + self._vmware_full_snapshots_list(
                 snapshot.childSnapshotList)
         return snapshot_data
 
-    def _vmware_get_snapshot_details(self, snapshots_count_table, snapshots_age_table, virtual_machine, inventory):
-        """
-        Gathers snapshot details
-        """
-        snapshot_paths = self._vmware_full_snapshots_list(virtual_machine.snapshot.rootSnapshotList)
-
-        _, host_name, dc_name, cluster_name = self._vmware_vm_metadata(inventory, virtual_machine)
-
-        for snapshot_path in snapshot_paths:
-            snapshot_path['vm_name'] = virtual_machine.name
-            snapshot_path['vm_host_name'] = host_name
-            snapshot_path['vm_dc_name'] = dc_name
-            snapshot_path['vm_cluster_name'] = cluster_name
-
-        # Add Snapshot count per VM
-        snapshot_count = len(snapshot_paths)
-        snapshot_count_info = {
-            'vm_name': virtual_machine.name,
-            'vm_host_name': host_name,
-            'vm_dc_name': dc_name,
-            'vm_cluster_name': cluster_name,
-            'vm_snapshot_count': snapshot_count
-        }
-        snapshots_count_table.append(snapshot_count_info)
-        snapshots_age_table.append(snapshot_paths)
-
-    def _vmware_get_snapshots(self, content, inventory):
-        """
-        Get snapshots from all VM
-        """
-        snapshots_count_table = []
-        snapshots_age_table = []
-        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
-        for virtual_machine in virtual_machines:
-            if not virtual_machine or virtual_machine.snapshot is None:
-                continue
-            else:
-                self.threader.thread_it(self._vmware_get_snapshot_details,
-                                        [snapshots_count_table, snapshots_age_table, virtual_machine, inventory])
-        return snapshots_count_table, snapshots_age_table
-
     def _vmware_get_datastores(self, content, ds_metrics, inventory):
         """
         Get Datastore information
         """
+        log("Starting datastore metrics collection")
         datastores = self._vmware_get_obj(content, [vim.Datastore])
         for datastore in datastores:
             # ds.RefreshDatastoreStorageInfo()
@@ -456,35 +306,37 @@ class VMWareMetricsResource(Resource):
             dc_name = inventory[ds_name]['dc']
             ds_cluster = inventory[ds_name]['ds_cluster']
 
-            self.threader.thread_it(self._vmware_get_datastore_metrics,
-                                    [datastore, dc_name, ds_cluster, ds_metrics, summary])
+            self.thread_it(
+                self._vmware_get_datastore_metrics,
+                [datastore, dc_name, ds_cluster, ds_metrics, summary]
+            )
+        log("Finished datastore metrics collection")
 
     def _vmware_get_datastore_metrics(self, datastore, dc_name, ds_cluster, ds_metrics, summary):
         """
         Get datastore metrics
         """
+        metadata = [summary.name, dc_name, ds_cluster]
+
         ds_capacity = float(summary.capacity)
         ds_freespace = float(summary.freeSpace)
         ds_uncommitted = float(summary.uncommitted) if summary.uncommitted else 0
         ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
-        ds_metrics['vmware_datastore_capacity_size'].add_metric([summary.name, dc_name, ds_cluster], ds_capacity)
-        ds_metrics['vmware_datastore_freespace_size'].add_metric([summary.name, dc_name, ds_cluster], ds_freespace)
-        ds_metrics['vmware_datastore_uncommited_size'].add_metric([summary.name, dc_name, ds_cluster], ds_uncommitted)
-        ds_metrics['vmware_datastore_provisoned_size'].add_metric([summary.name, dc_name, ds_cluster], ds_provisioned)
-        ds_metrics['vmware_datastore_hosts'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.host))
-        ds_metrics['vmware_datastore_vms'].add_metric([summary.name, dc_name, ds_cluster], len(datastore.vm))
-        ds_metrics['vmware_datastore_maintenance_mode'].add_metric([summary.name, dc_name,
-                                                                   ds_cluster, summary.maintenanceMode],
-                                                                   1)
-        ds_metrics['vmware_datastore_type'].add_metric([summary.name, dc_name, ds_cluster, summary.type], 1)
-        ds_metrics['vmware_datastore_accessible'].add_metric([summary.name, dc_name, ds_cluster], summary.accessible*1)
+        ds_metrics['vmware_datastore_capacity_size'].add_metric(metadata, ds_capacity)
+        ds_metrics['vmware_datastore_freespace_size'].add_metric(metadata, ds_freespace)
+        ds_metrics['vmware_datastore_uncommited_size'].add_metric(metadata, ds_uncommitted)
+        ds_metrics['vmware_datastore_provisoned_size'].add_metric(metadata, ds_provisioned)
+        ds_metrics['vmware_datastore_hosts'].add_metric(metadata, len(datastore.host))
+        ds_metrics['vmware_datastore_vms'].add_metric(metadata, len(datastore.vm))
+        ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
+            metadata + [summary.maintenanceMode or 'normal'],
+            1)
+        ds_metrics['vmware_datastore_type'].add_metric(metadata + [summary.type or 'normal'], 1)
+        ds_metrics['vmware_datastore_accessible'].add_metric(metadata, summary.accessible*1)
 
-    def _vmware_get_vms(self, content, vm_metrics, counter_info, inventory):
-        """
-        Get VM information
-        """
-
+    def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
+        log('START: _vmware_get_vm_perf_manager_metrics')
         # List of performance counter we want
         perf_list = [
             'cpu.ready.summation',
@@ -506,72 +358,40 @@ class VMWareMetricsResource(Resource):
                 p_metric,
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name'])
 
-        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
-        log("Total Virtual Machines: {0}".format(len(virtual_machines)))
-        for virtual_machine in virtual_machines:
-            self.threader.thread_it(self._vmware_get_vm_perf_metrics,
-                                    [content, counter_info, perf_list, virtual_machine, vm_metrics, inventory])
+        metrics = []
+        metric_names = {}
+        for perf_metric in perf_list:
+            perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
+            counter_key = counter_info[perf_metric]
+            metrics.append(vim.PerformanceManager.MetricId(
+                counterId=counter_key,
+                instance=''
+            ))
+            metric_names[counter_key] = perf_metric_name
 
-    def _vmware_get_vm_perf_metrics(self, content, counter_info, perf_list, virtual_machine, vm_metrics, inventory):
-        """
-        Loops over metrics in perf_list on vm
-        """
-        # DEBUG ME: log("Starting VM: " + vm.name)
+        specs = []
+        for vm in virtual_machines:
+            # summary = vm.summary
+            # if summary.runtime.powerState != 'poweredOn':
+            #     continue
+            specs.append(vim.PerformanceManager.QuerySpec(
+                maxSample=1,
+                entity=vm,
+                metricId=metrics,
+                intervalId=20
+            ))
 
-        summary = virtual_machine.summary
+        log('START: _vmware_get_vm_perf_manager_metrics: QUERY')
+        result = content.perfManager.QueryStats(querySpec=specs)
+        log('FIN: _vmware_get_vm_perf_manager_metrics: QUERY')
 
-        vm_power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-        vm_num_cpu = summary.config.numCpu
-
-        vm_name, vm_host_name, vm_dc_name, vm_cluster_name = self._vmware_vm_metadata(inventory, virtual_machine,
-                                                                                      summary)
-        vm_metadata = [vm_name, vm_host_name, vm_dc_name, vm_cluster_name]
-
-        vm_metrics['vmware_vm_power_state'].add_metric(vm_metadata,
-                                                       vm_power_state)
-        vm_metrics['vmware_vm_num_cpu'].add_metric(vm_metadata,
-                                                   vm_num_cpu)
-
-        # Get metrics for poweredOn vms only
-        if vm_power_state:
-            if summary.runtime.bootTime:
-                vm_metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
-                    vm_metadata,
-                    self._to_epoch(summary.runtime.bootTime))
-
-            for p in perf_list:
-                self.threader.thread_it(self._vmware_get_vm_perf_metric,
-                                        [content, counter_info, p, virtual_machine,
-                                         vm_metrics, vm_metadata])
-
-        # Debug Me. log("Finished VM: " + vm.name)
-
-    def _vmware_get_vm_perf_metric(self, content, counter_info, perf_metric,
-                                   virtual_machine, vm_metrics, vm_metadata):
-        """
-        Get vm perf metric
-        """
-
-        perf_metric_name = 'vmware_vm_' + perf_metric.replace('.', '_')
-        counter_key = counter_info[perf_metric]
-        metric_id = vim.PerformanceManager.MetricId(
-            counterId=counter_key,
-            instance=''
-            )
-        spec = vim.PerformanceManager.QuerySpec(
-            maxSample=1,
-            entity=virtual_machine,
-            metricId=[metric_id],
-            intervalId=20
-            )
-        result = content.perfManager.QueryStats(querySpec=[spec])
-        # DEBUG ME: log("{0} {1}: {2}".format(vm.name, p, float(sum(result[0].value[0].value))))
-        try:
-            vm_metrics[perf_metric_name].add_metric(vm_metadata,
-                                                    float(sum(result[0].value[0].value)))
-        except:  # noqa: E722
-            log("Error, cannot get vm metric {0} for {1}".format(perf_metric_name,
-                                                                 vm_metadata))
+        for ent in result:
+            for metric in ent.value:
+                vm_metrics[metric_names[metric.id.counterId]].add_metric(
+                    self._labels[ent.entity._moId],
+                    float(sum(metric.value)),
+                )
+        log('FIN: _vmware_get_vm_perf_manager_metrics')
 
     def _vmware_get_vmguests(self, content, vmguest_metrics, inventory):
         """
@@ -579,33 +399,67 @@ class VMWareMetricsResource(Resource):
         """
 
         virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
+
         log("Total Virtual Machines: {0}".format(len(virtual_machines)))
         for virtual_machine in virtual_machines:
-            self.threader.thread_it(self._vmware_get_vmguests_metrics,
-                                    [content, virtual_machine, vmguest_metrics, inventory])
+            self.thread_it(
+                self._vmware_get_vm_metrics,
+                [content, virtual_machine, vmguest_metrics, inventory]
+            )
+        return virtual_machines
 
-    def _vmware_get_vmguests_metrics(self, content, virtual_machine, vmguest_metrics, inventory):
+    def _vmware_get_vm_metrics(self, content, virtual_machine, metrics, inventory):
         """
         Get VM Guest Metrics
         """
-
         summary = virtual_machine.summary
 
-        vm_name, vm_host_name, vm_dc_name, vm_cluster_name = self._vmware_vm_metadata(inventory, virtual_machine,
-                                                                                      summary)
+        vm_metadata = list(self._vmware_vm_metadata(inventory, virtual_machine, summary))
+        self._labels[virtual_machine._moId] = vm_metadata
 
-        # gather disk metrics
-        if len(virtual_machine.guest.disk) > 0:
-            for disk in virtual_machine.guest.disk:
-                vmguest_metrics['vmware_vm_guest_disk_free'].add_metric(
-                    [vm_name, vm_host_name, vm_dc_name, vm_cluster_name, disk.diskPath], disk.freeSpace)
-                vmguest_metrics['vmware_vm_guest_disk_capacity'].add_metric(
-                    [vm_name, vm_host_name, vm_dc_name, vm_cluster_name, disk.diskPath], disk.capacity)
+        if self.collect_only['vms'] is True:
+            vm_power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
+            vm_num_cpu = summary.config.numCpu
+
+            metrics['vmware_vm_power_state'].add_metric(vm_metadata, vm_power_state)
+            metrics['vmware_vm_num_cpu'].add_metric(vm_metadata, vm_num_cpu)
+
+            # Get metrics for poweredOn vms only
+            if vm_power_state:
+                if summary.runtime.bootTime:
+                    metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
+                        vm_metadata,
+                        self._to_epoch(summary.runtime.bootTime)
+                    )
+
+        if self.collect_only['vmguests'] is True:
+            # gather disk metrics
+            if len(virtual_machine.guest.disk) > 0:
+                for disk in virtual_machine.guest.disk:
+                    metrics['vmware_vm_guest_disk_free'].add_metric(
+                        vm_metadata + [disk.diskPath], disk.freeSpace)
+                    metrics['vmware_vm_guest_disk_capacity'].add_metric(
+                        vm_metadata + [disk.diskPath], disk.capacity)
+
+        if self.collect_only['snapshots'] is True and virtual_machine.snapshot is not None:
+            snapshots = self._vmware_full_snapshots_list(virtual_machine.snapshot.rootSnapshotList)
+
+            metrics['vmware_vm_snapshots'].add_metric(
+                vm_metadata,
+                len(snapshots),
+            )
+
+            for snapshot in snapshots:
+                metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric(
+                    vm_metadata + [snapshot['name']],
+                    snapshot['timestamp_seconds'],
+                )
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
         Get Host (ESXi) information
         """
+        log("Starting host metrics collection")
         hosts = self._vmware_get_obj(content, [vim.HostSystem])
         for host in hosts:
             summary = host.summary
@@ -618,8 +472,11 @@ class VMWareMetricsResource(Resource):
                                                                power_state)
 
             if power_state:
-                self.threader.thread_it(self._vmware_get_host_metrics,
-                                        [host_name, host_dc_name, host_cluster_name, host_metrics, summary])
+                self.thread_it(
+                    self._vmware_get_host_metrics,
+                    [host_name, host_dc_name, host_cluster_name, host_metrics, summary]
+                )
+        log("Finished host metrics collection")
 
     def _vmware_get_host_metrics(self, host_name, host_dc_name, host_cluster_name, host_metrics, summary):
         """
@@ -673,12 +530,12 @@ class VMWareMetricsResource(Resource):
                 if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
                     hosts = folder.host
                     for host in hosts:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name
+                        host_name = host.summary.config.name.rstrip('.')
                         host_inventory[host_name] = {}
                         host_inventory[host_name]['dc'] = dc.name
                         host_inventory[host_name]['cluster'] = folder.name
                 else:  # Unclustered host
-                    host_name = folder.name
+                    host_name = folder.name.rstrip('.')
                     host_inventory[host_name] = {}
                     host_inventory[host_name]['dc'] = dc.name
                     host_inventory[host_name]['cluster'] = ''
@@ -702,7 +559,7 @@ class VMWareMetricsResource(Resource):
         """
         Get VM metadata from inventory
         """
-        if summary is None:
+        if not summary:
             summary = vm.summary
         vm_name = vm.name
         vm_host = summary.runtime.host
@@ -721,6 +578,112 @@ class VMWareMetricsResource(Resource):
         host_cluster_name = inventory[host_name]['cluster']
 
         return host_name, host_dc_name, host_cluster_name
+
+
+class VMWareMetricsResource(Resource):
+    """
+    VMWare twisted ``Resource`` handling multi endpoints
+    Only handle /metrics and /healthz path
+    """
+    isLeaf = True
+
+    def __init__(self):
+        """
+        Init Metric Resource
+        """
+        Resource.__init__(self)
+
+    def configure(self, args):
+        if args.config_file:
+            try:
+                self.config = YamlConfig(args.config_file)
+                if 'default' not in self.config.keys():
+                    log("Error, you must have a default section in config file (for now)")
+                    exit(1)
+            except Exception as exception:
+                raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
+        else:
+            config_data = """
+            default:
+                vsphere_host: "{0}"
+                vsphere_user: "{1}"
+                vsphere_password: "{2}"
+                ignore_ssl: {3}
+                collect_only:
+                    vms: True
+                    vmguests: True
+                    datastores: True
+                    hosts: True
+                    snapshots: True
+            """.format(os.environ.get('VSPHERE_HOST'),
+                       os.environ.get('VSPHERE_USER'),
+                       os.environ.get('VSPHERE_PASSWORD'),
+                       os.environ.get('VSPHERE_IGNORE_SSL', False)
+                       )
+            self.config = yaml.load(config_data)
+            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
+            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
+            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
+            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
+            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+
+    def render_GET(self, request):
+        """ handles get requests for metrics, health, and everything else """
+        path = request.path.decode()
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        if path == '/metrics':
+            deferred_request = deferLater(reactor, 0, lambda: request)
+            deferred_request.addCallback(self.generate_latest_metrics)
+            deferred_request.addErrback(self.errback, request)
+            return NOT_DONE_YET
+        elif path == '/healthz':
+            request.setResponseCode(200)
+            log("Service is UP")
+            return 'Server is UP'.encode()
+        else:
+            log(b"Uri not found: " + request.uri)
+            request.setResponseCode(404)
+            return '404 Not Found'.encode()
+
+    def errback(self, failure, request):
+        """ handles failures from requests """
+        failure.printTraceback()
+        log(failure)
+        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
+        return None
+
+    def generate_latest_metrics(self, request):
+        """ gets the latest metrics """
+        section = request.args.get('section', ['default'])[0]
+        if section not in self.config.keys():
+            log("{} is not a valid section, using default".format(section))
+            section = 'default'
+
+        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
+            vsphere_host = self.config[section].get('vsphere_host')
+        elif request.args.get(b'target', [None])[0]:
+            vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
+        elif request.args.get(b'vsphere_host', [None])[0]:
+            vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
+        else:
+            request.setResponseCode(500)
+            log("No vsphere_host or target defined")
+            request.write(b'No vsphere_host or target defined!\n')
+            request.finish()
+            return
+
+        registry = CollectorRegistry()
+        registry.register(VmwareCollector(
+            vsphere_host,
+            self.config[section]['vsphere_user'],
+            self.config[section]['vsphere_password'],
+            self.config[section]['collect_only'],
+            self.config[section]['ignore_ssl'],
+        ))
+        output = generate_latest(registry)
+
+        request.write(output)
+        request.finish()
 
 
 def log(data):
