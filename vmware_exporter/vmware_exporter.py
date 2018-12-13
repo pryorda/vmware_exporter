@@ -32,6 +32,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
+from .helpers import batch_fetch_properties
+
 
 class VmwareCollector():
 
@@ -370,13 +372,13 @@ class VmwareCollector():
             metric_names[counter_key] = perf_metric_name
 
         specs = []
-        for vm in virtual_machines:
+        for vm in virtual_machines.values():
             # summary = vm.summary
             # if summary.runtime.powerState != 'poweredOn':
             #     continue
             specs.append(vim.PerformanceManager.QuerySpec(
                 maxSample=1,
-                entity=vm,
+                entity=vm['obj'],
                 metricId=metrics,
                 intervalId=20
             ))
@@ -393,67 +395,72 @@ class VmwareCollector():
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
-    def _vmware_get_vmguests(self, content, vmguest_metrics, inventory):
+    def _vmware_get_vmguests(self, content, metrics, inventory):
         """
         Get VM Guest information
         """
-
-        virtual_machines = self._vmware_get_obj(content, [vim.VirtualMachine])
-
-        log("Total Virtual Machines: {0}".format(len(virtual_machines)))
-        for virtual_machine in virtual_machines:
-            self.thread_it(
-                self._vmware_get_vm_metrics,
-                [content, virtual_machine, vmguest_metrics, inventory]
-            )
-        return virtual_machines
-
-    def _vmware_get_vm_metrics(self, content, virtual_machine, metrics, inventory):
-        """
-        Get VM Guest Metrics
-        """
-        summary = virtual_machine.summary
-
-        vm_metadata = list(self._vmware_vm_metadata(inventory, virtual_machine, summary))
-        self._labels[virtual_machine._moId] = vm_metadata
-
-        if self.collect_only['vms'] is True:
-            vm_power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-            vm_num_cpu = summary.config.numCpu
-
-            metrics['vmware_vm_power_state'].add_metric(vm_metadata, vm_power_state)
-            metrics['vmware_vm_num_cpu'].add_metric(vm_metadata, vm_num_cpu)
-
-            # Get metrics for poweredOn vms only
-            if vm_power_state:
-                if summary.runtime.bootTime:
-                    metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
-                        vm_metadata,
-                        self._to_epoch(summary.runtime.bootTime)
-                    )
+        properties = [
+            'name',
+            'runtime.powerState',
+            'runtime.bootTime',
+            'runtime.host',
+            'summary.config.numCpu',
+        ]
 
         if self.collect_only['vmguests'] is True:
-            # gather disk metrics
-            if len(virtual_machine.guest.disk) > 0:
-                for disk in virtual_machine.guest.disk:
+            properties.append('guest.disk')
+
+        if self.collect_only['snapshots'] is True:
+            properties.append('snapshot')
+
+        result = batch_fetch_properties(content, vim.VirtualMachine, properties)
+
+        for moid, row in result.items():
+            host_moid = row['runtime.host']._moId
+
+            labels = self._labels[moid] = [
+                row['name'],
+                inventory[host_moid]['name'],
+                inventory[host_moid]['dc'],
+                inventory[host_moid]['cluster'],
+            ]
+
+            if self.collect_only['vms'] is True:
+                vm_power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
+                metrics['vmware_vm_power_state'].add_metric(labels, vm_power_state)
+
+                if vm_power_state and row.get('runtime.bootTime', None):
+                    metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
+                        labels,
+                        self._to_epoch(row['runtime.bootTime'])
+                    )
+
+                metrics['vmware_vm_num_cpu'].add_metric(labels, row['summary.config.numCpu'])
+
+            if 'guest.disk' in row and len(row['guest.disk']) > 0:
+                for disk in row['guest.disk']:
                     metrics['vmware_vm_guest_disk_free'].add_metric(
-                        vm_metadata + [disk.diskPath], disk.freeSpace)
+                        labels + [disk.diskPath], disk.freeSpace
+                    )
                     metrics['vmware_vm_guest_disk_capacity'].add_metric(
-                        vm_metadata + [disk.diskPath], disk.capacity)
+                        labels + [disk.diskPath], disk.capacity
+                    )
 
-        if self.collect_only['snapshots'] is True and virtual_machine.snapshot is not None:
-            snapshots = self._vmware_full_snapshots_list(virtual_machine.snapshot.rootSnapshotList)
+            if 'snapshot' in row:
+                snapshots = self._vmware_full_snapshots_list(row['snapshot'].rootSnapshotList)
 
-            metrics['vmware_vm_snapshots'].add_metric(
-                vm_metadata,
-                len(snapshots),
-            )
-
-            for snapshot in snapshots:
-                metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric(
-                    vm_metadata + [snapshot['name']],
-                    snapshot['timestamp_seconds'],
+                metrics['vmware_vm_snapshots'].add_metric(
+                    labels,
+                    len(snapshots),
                 )
+
+                for snapshot in snapshots:
+                    metrics['vmware_vm_snapshot_timestamp_seconds'].add_metric(
+                        labels + [snapshot['name']],
+                        snapshot['timestamp_seconds'],
+                    )
+
+        return result
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
@@ -531,14 +538,17 @@ class VmwareCollector():
                     hosts = folder.host
                     for host in hosts:  # Iterate through Hosts in the Cluster
                         host_name = host.summary.config.name.rstrip('.')
-                        host_inventory[host_name] = {}
-                        host_inventory[host_name]['dc'] = dc.name
-                        host_inventory[host_name]['cluster'] = folder.name
+                        row = host_inventory[host._moId] = {}
+                        row['name'] = host_name
+                        row['dc'] = dc.name
+                        row['cluster'] = folder.name
                 else:  # Unclustered host
-                    host_name = folder.name.rstrip('.')
-                    host_inventory[host_name] = {}
-                    host_inventory[host_name]['dc'] = dc.name
-                    host_inventory[host_name]['cluster'] = ''
+                    for host in folder.host:
+                        row = host_inventory[host._moId] = {}
+                        host_name = host.name.rstrip('.')
+                        row['name'] = host_name
+                        row['dc'] = dc.name
+                        row['cluster'] = ''
 
             dsFolders = dc.datastoreFolder.childEntity
             for folder in dsFolders:  # Iterate through datastore folders
@@ -554,20 +564,6 @@ class VmwareCollector():
                         ds_inventory[datastore.name]['ds_cluster'] = folder.name
 
         return host_inventory, ds_inventory
-
-    def _vmware_vm_metadata(self, inventory, vm, summary=None):
-        """
-        Get VM metadata from inventory
-        """
-        if not summary:
-            summary = vm.summary
-        vm_name = vm.name
-        vm_host = summary.runtime.host
-        vm_host_name = vm_host.name
-        vm_dc_name = inventory[vm_host_name]['dc']
-        vm_cluster_name = inventory[vm_host_name]['cluster']
-
-        return vm_name, vm_host_name, vm_dc_name, vm_cluster_name
 
     def _vmware_host_metadata(self, inventory, host):
         """
