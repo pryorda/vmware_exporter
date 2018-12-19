@@ -34,7 +34,6 @@ from prometheus_client import CollectorRegistry, generate_latest
 
 
 class VmwareCollector():
-
     THREAD_LIMIT = 25
 
     def __init__(self, host, username, password, collect_only, ignore_ssl=False):
@@ -70,7 +69,16 @@ class VmwareCollector():
                 'vmware_vm_num_cpu',
                 'VMWare Number of processors in the virtual machine',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
-            }
+        }
+        # Add custom metrics for vms
+        if self.collect_only['vms_custom'] is not None:
+            for custom_metric in self.collect_only['vms_custom']:
+                if custom_metric['metric_name'] not in metric_list['vms'].keys():
+                    metric_list['vms'][custom_metric['metric_name']] = GaugeMetricFamily(
+                        custom_metric['metric_name'],
+                        custom_metric['metric_description'],
+                        labels=['vm_name', 'host_name', 'dc_name', 'cluster_name'])
+
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
                 'vmware_vm_guest_disk_free',
@@ -80,7 +88,7 @@ class VmwareCollector():
                 'vmware_vm_guest_disk_capacity',
                 'Disk capacity metric per partition',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'partition', ]),
-            }
+        }
         metric_list['snapshots'] = {
             'vmware_vm_snapshots': GaugeMetricFamily(
                 'vmware_vm_snapshots',
@@ -90,7 +98,7 @@ class VmwareCollector():
                 'vmware_vm_snapshot_timestamp_seconds',
                 'VMWare Snapshot creation time in seconds',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'vm_snapshot_name']),
-            }
+        }
         metric_list['datastores'] = {
             'vmware_datastore_capacity_size': GaugeMetricFamily(
                 'vmware_datastore_capacity_size',
@@ -128,7 +136,7 @@ class VmwareCollector():
                 'vmware_datastore_accessible',
                 'VMWare datastore accessible (true / false)',
                 labels=['ds_name', 'dc_name', 'ds_cluster'])
-            }
+        }
         metric_list['hosts'] = {
             'vmware_host_power_state': GaugeMetricFamily(
                 'vmware_host_power_state',
@@ -162,7 +170,7 @@ class VmwareCollector():
                 'vmware_host_memory_max',
                 'VMWare Host Memory Max availability in Mbytes',
                 labels=['host_name', 'dc_name', 'cluster_name']),
-            }
+        }
 
         metrics = {}
         for key, value in self.collect_only.items():
@@ -333,7 +341,7 @@ class VmwareCollector():
             metadata + [summary.maintenanceMode or 'normal'],
             1)
         ds_metrics['vmware_datastore_type'].add_metric(metadata + [summary.type or 'normal'], 1)
-        ds_metrics['vmware_datastore_accessible'].add_metric(metadata, summary.accessible*1)
+        ds_metrics['vmware_datastore_accessible'].add_metric(metadata, summary.accessible * 1)
 
     def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
         log('START: _vmware_get_vm_perf_manager_metrics')
@@ -417,6 +425,11 @@ class VmwareCollector():
         vm_metadata = list(self._vmware_vm_metadata(inventory, virtual_machine, summary))
         self._labels[virtual_machine._moId] = vm_metadata
 
+        # Collect metrics from the user input
+        if self.collect_only['vms_custom'] is not None:
+            for custom_metric in self.collect_only['vms_custom']:
+                metrics[custom_metric['metric_name']].add_metric(vm_metadata, eval(custom_metric['vmware_identifier']))
+
         if self.collect_only['vms'] is True:
             vm_power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
             vm_num_cpu = summary.config.numCpu
@@ -499,7 +512,7 @@ class VmwareCollector():
 
             # Host in maintenance mode?
             host_metrics['vmware_host_maintenance_mode'].add_metric(labels,
-                                                                    summary.runtime.inMaintenanceMode*1)
+                                                                    summary.runtime.inMaintenanceMode * 1)
 
         # CPU Usage (in Mhz)
         host_metrics['vmware_host_cpu_usage'].add_metric(labels,
@@ -624,8 +637,33 @@ class VMWareMetricsResource(Resource):
             self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
             self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
             self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
+            self.config['default']['collect_only']['vms_custom'] = os.environ.get('VSPHERE_COLLECT_VMS_CUSTOM', "")
             self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
             self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+
+        def parse_custom_metrics(config):
+            if config.strip() == "":
+                return None
+            yaml_config = yaml.load(config)
+            if type(yaml_config) is not list:
+                log("Error, if a custom metric is used it has to be a list of dict")
+                exit(1)
+            for metric in yaml_config:
+                if type(metric) is not dict:
+                    log(
+                        "Error, if a custom metric is used it has to be a list of dict. This one is not: {}".format(
+                            metric)
+                    )
+                    exit(1)
+                for key in ['vmware_identifier', 'metric_name', 'metric_description']:
+                    if key not in metric:
+                        log("Error, if a custom metric is used the key '{}' is required for every metric".format(key))
+                        exit(1)
+            return yaml_config
+
+        self.config['default']['collect_only']['vms_custom'] = parse_custom_metrics(
+            self.config['default']['collect_only']['vms_custom']
+        )
 
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
@@ -649,7 +687,7 @@ class VMWareMetricsResource(Resource):
         """ handles failures from requests """
         failure.printTraceback()
         log(failure)
-        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
+        request.processingFailed(failure)  # This will send a trace to the browser and close the request.
         return None
 
     def generate_latest_metrics(self, request):
