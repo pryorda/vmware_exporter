@@ -85,7 +85,7 @@ limited:
 Switching sections can be done by adding ?section=limited to the URL.
 
 #### Environment Variables
-| Variable                      | Precedence             | Defaults | Description                                      |
+| Variable                     | Precedence             | Defaults | Description                             |
 | ---------------------------- | ---------------------- | -------- | --------------------------------------- |
 | `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
@@ -96,6 +96,25 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
 | `VSPHERE_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
 | `VSPHERE_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
+
+#### Extended Variables
+
+Caution: those variables are special and you have to know how the exporter works internally to use them properly.
+
+| Variable                     | Precedence             | Defaults | Description                             |
+| ---------------------------- | ---------------------- | -------- | --------------------------------------- |
+| `VSPHERE_COLLECT_VMS_CUSTOM` | config, env            | ""       | Allows you to define a set of custom metrics to be exported. It requires per metric three keys: *vmware_identifier*: a python expression to access python objects within the code,  *metric_name*: the name of the Prometheus metric, *metric_description*: the description of the metric in a human readable way.|
+
+##### Examples
+
+- VSPHERE_COLLECT_VMS_CUSTOM
+    - Expose the reserved memory per VM:
+```
+- vmware_identifier: 'summary.config.memorySizeMB'
+  metric_name: 'memorySizeMB'
+  metric_description: 'Memory size in MB'
+```
+
 
 ### Prometheus configuration
 
