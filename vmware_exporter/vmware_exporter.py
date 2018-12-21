@@ -13,6 +13,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor
 import os
 import ssl
+import traceback
 import pytz
 import yaml
 
@@ -52,7 +53,7 @@ class VmwareCollector():
         try:
             future.result()
         except Exception as e:
-            log(str(e))
+            log(traceback.format_exc())
 
     def thread_it(self, method, data):
         future = self.threader.submit(method, *data)
@@ -552,6 +553,8 @@ class VmwareCollector():
                 labels,
                 float(host['summary.hardware.memorySize']) / 1024 / 1024
             )
+
+            raise RuntimeError('Foo')
 
         log("Finished host metrics collection")
 
