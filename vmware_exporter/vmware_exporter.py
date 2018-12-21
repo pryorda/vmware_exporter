@@ -539,8 +539,6 @@ class VmwareCollector():
                 float(host['summary.hardware.memorySize']) / 1024 / 1024
             )
 
-            raise RuntimeError('Foo')
-
         log("Finished host metrics collection")
 
     def _vmware_get_inventory(self, content):
