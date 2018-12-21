@@ -234,21 +234,6 @@ class VmwareCollector():
         """ convert to epoch time """
         return (my_date - datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds()
 
-    def _vmware_get_obj(self, content, vimtype, name=None):
-        """
-         Get the vsphere object associated with a given text name
-        """
-        obj = None
-        container = content.viewManager.CreateContainerView(
-            content.rootFolder, vimtype, True)
-        if name:
-            for view in container.view:
-                if view.name == name:
-                    obj = view
-                    return [obj]
-        else:
-            return container.view
-
     def _vmware_connect(self):
         """
         Connect to Vcenter and get connection
