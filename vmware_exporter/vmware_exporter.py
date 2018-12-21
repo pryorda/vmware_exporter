@@ -207,14 +207,13 @@ class VmwareCollector():
             virtual_machines = self._vmware_get_vmguests(content, metrics, host_inventory)
             log("Finished VM Guests metrics collection")
 
-        self.threader.shutdown(wait=True)
-
         if collect_only['vms'] is True:
             counter_info = self._vmware_perf_metrics(content)
             self._vmware_get_vm_perf_manager_metrics(
                 content, counter_info, virtual_machines, metrics, host_inventory
             )
 
+        self.threader.shutdown(wait=True)
         self._vmware_disconnect()
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
