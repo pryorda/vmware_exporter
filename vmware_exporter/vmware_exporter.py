@@ -316,7 +316,6 @@ class VmwareCollector():
 
         results = batch_fetch_properties(content, vim.Datastore, properties)
         for datastore_id, datastore in results.items():
-            print(datastore)
             name = datastore['name']
             labels = [name, inventory[name]['dc'], inventory[name]['ds_cluster']]
 
@@ -480,60 +479,75 @@ class VmwareCollector():
         Get Host (ESXi) information
         """
         log("Starting host metrics collection")
-        hosts = self._vmware_get_obj(content, [vim.HostSystem])
-        for host in hosts:
-            summary = host.summary
-            host_name, host_dc_name, host_cluster_name = self._vmware_host_metadata(inventory, host)
-            host_metadata = [host_name, host_dc_name, host_cluster_name]
+
+        properties = [
+            'name',
+            'summary.hardware.numCpuCores',
+            'summary.hardware.cpuMhz',
+            'summary.hardware.memorySize',
+            'runtime.powerState',
+            'runtime.bootTime',
+            'runtime.connectionState',
+            'runtime.inMaintenanceMode',
+            'summary.quickStats.overallCpuUsage',
+            'summary.quickStats.overallMemoryUsage',
+        ]
+
+        results = batch_fetch_properties(content, vim.HostSystem, properties)
+        for host_id, host in results.items():
+            name = host['name']
+            labels = [name, inventory[host['id']]['dc'], inventory[host['id']]['cluster']]
 
             # Power state
-            power_state = 1 if summary.runtime.powerState == 'poweredOn' else 0
-            host_metrics['vmware_host_power_state'].add_metric(host_metadata,
-                                                               power_state)
+            power_state = 1 if host['runtime.powerState'] == 'poweredOn' else 0
+            host_metrics['vmware_host_power_state'].add_metric(labels, power_state)
 
-            if power_state:
-                self.thread_it(
-                    self._vmware_get_host_metrics,
-                    [host_name, host_dc_name, host_cluster_name, host_metrics, summary]
+            if not power_state:
+                continue
+
+            if host.get('runtime.bootTime'):
+
+                # Host uptime
+                host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(
+                    labels,
+                    self._to_epoch(host['runtime.bootTime'])
                 )
-        log("Finished host metrics collection")
 
-    def _vmware_get_host_metrics(self, host_name, host_dc_name, host_cluster_name, host_metrics, summary):
-        """
-        Get Host Metrics
-        """
-
-        labels = [host_name, host_dc_name, host_cluster_name]
-
-        if summary.runtime.bootTime:
-            # Host uptime
-            host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(labels,
-                                                                          self._to_epoch(
-                                                                              summary.runtime.bootTime)
-                                                                          )
 
             # Host connection state (connected, disconnected, notResponding)
-            metric_labels = labels
-            metric_labels.append(summary.runtime.connectionState)
-            host_metrics['vmware_host_connection_state'].add_metric(metric_labels, 1)
+            host_metrics['vmware_host_connection_state'].add_metric(
+                labels + [host['runtime.connectionState']],
+                1
+            )
 
             # Host in maintenance mode?
-            host_metrics['vmware_host_maintenance_mode'].add_metric(labels,
-                                                                    summary.runtime.inMaintenanceMode*1)
+            host_metrics['vmware_host_maintenance_mode'].add_metric(
+                labels,
+                host['runtime.inMaintenanceMode'] * 1,
+            )
 
-        # CPU Usage (in Mhz)
-        host_metrics['vmware_host_cpu_usage'].add_metric(labels,
-                                                         summary.quickStats.overallCpuUsage)
-        cpu_core_num = summary.hardware.numCpuCores
-        cpu_total = summary.hardware.cpuMhz * cpu_core_num
-        host_metrics['vmware_host_cpu_max'].add_metric(labels,
-                                                       cpu_total)
+            # CPU Usage (in Mhz)
+            host_metrics['vmware_host_cpu_usage'].add_metric(
+                labels,
+                host['summary.quickStats.overallCpuUsage'],
+            )
 
-        # Memory Usage (in MB)
-        host_metrics['vmware_host_memory_usage'].add_metric(labels,
-                                                            summary.quickStats.overallMemoryUsage)
-        host_metrics['vmware_host_memory_max'].add_metric(labels,
-                                                          float(summary.hardware.memorySize) / 1024 / 1024)
+            cpu_core_num = host['summary.hardware.numCpuCores']
+            cpu_total = host['summary.hardware.cpuMhz'] * cpu_core_num
+            host_metrics['vmware_host_cpu_max'].add_metric(labels, cpu_total)
+
+            # Memory Usage (in MB)
+            host_metrics['vmware_host_memory_usage'].add_metric(
+                labels,
+                host['summary.quickStats.overallMemoryUsage']
+            )
+
+            host_metrics['vmware_host_memory_max'].add_metric(
+                labels,
+                float(host['summary.hardware.memorySize']) / 1024 / 1024
+            )
+
+        log("Finished host metrics collection")
 
     def _vmware_get_inventory(self, content):
         """
@@ -577,16 +591,6 @@ class VmwareCollector():
                         ds_inventory[datastore.name]['ds_cluster'] = folder.name
 
         return host_inventory, ds_inventory
-
-    def _vmware_host_metadata(self, inventory, host):
-        """
-        Get Host metadata from inventory
-        """
-        host_name = host.name
-        host_dc_name = inventory[host_name]['dc']
-        host_cluster_name = inventory[host_name]['cluster']
-
-        return host_name, host_dc_name, host_cluster_name
 
 
 class VMWareMetricsResource(Resource):

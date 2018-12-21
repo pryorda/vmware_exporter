@@ -37,6 +37,7 @@ def batch_fetch_properties(content, obj_type, properties):
     for obj in props:
         properties = {}
         properties['obj'] = obj.obj
+        properties['id'] = obj.obj._moId
 
         for prop in obj.propSet:
             properties[prop.name] = prop.val
