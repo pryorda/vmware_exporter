@@ -299,43 +299,56 @@ class VmwareCollector():
         """
         Get Datastore information
         """
+
         log("Starting datastore metrics collection")
-        datastores = self._vmware_get_obj(content, [vim.Datastore])
-        for datastore in datastores:
-            # ds.RefreshDatastoreStorageInfo()
-            summary = datastore.summary
-            ds_name = summary.name
-            dc_name = inventory[ds_name]['dc']
-            ds_cluster = inventory[ds_name]['ds_cluster']
 
-            self.thread_it(
-                self._vmware_get_datastore_metrics,
-                [datastore, dc_name, ds_cluster, ds_metrics, summary]
+        properties = [
+            'name',
+            'summary.capacity',
+            'summary.freeSpace',
+            'summary.uncommitted',
+            'summary.maintenanceMode',
+            'summary.type',
+            'summary.accessible',
+            'host',
+            'vm',
+        ]
+
+        results = batch_fetch_properties(content, vim.Datastore, properties)
+        for datastore_id, datastore in results.items():
+            print(datastore)
+            name = datastore['name']
+            labels = [name, inventory[name]['dc'], inventory[name]['ds_cluster']]
+
+            ds_capacity = float(datastore['summary.capacity'])
+            ds_freespace = float(datastore['summary.freeSpace'])
+            ds_uncommitted = float(datastore['summary.uncommitted']) if datastore['summary.uncommitted'] else 0
+            ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
+
+            ds_metrics['vmware_datastore_capacity_size'].add_metric(labels, ds_capacity)
+            ds_metrics['vmware_datastore_freespace_size'].add_metric(labels, ds_freespace)
+            ds_metrics['vmware_datastore_uncommited_size'].add_metric(labels, ds_uncommitted)
+            ds_metrics['vmware_datastore_provisoned_size'].add_metric(labels, ds_provisioned)
+
+            ds_metrics['vmware_datastore_hosts'].add_metric(labels, len(datastore['host']))
+            ds_metrics['vmware_datastore_vms'].add_metric(labels, len(datastore['vm']))
+
+            ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
+                labels + [datastore.get('summary.maintenanceMode', 'normal')],
+                1
             )
+
+            ds_metrics['vmware_datastore_type'].add_metric(
+                labels + [datastore.get('summary.type', 'normal')],
+                1
+            )
+
+            ds_metrics['vmware_datastore_accessible'].add_metric(
+                labels,
+                datastore['summary.accessible'] * 1,
+            )
+
         log("Finished datastore metrics collection")
-
-    def _vmware_get_datastore_metrics(self, datastore, dc_name, ds_cluster, ds_metrics, summary):
-        """
-        Get datastore metrics
-        """
-        metadata = [summary.name, dc_name, ds_cluster]
-
-        ds_capacity = float(summary.capacity)
-        ds_freespace = float(summary.freeSpace)
-        ds_uncommitted = float(summary.uncommitted) if summary.uncommitted else 0
-        ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
-
-        ds_metrics['vmware_datastore_capacity_size'].add_metric(metadata, ds_capacity)
-        ds_metrics['vmware_datastore_freespace_size'].add_metric(metadata, ds_freespace)
-        ds_metrics['vmware_datastore_uncommited_size'].add_metric(metadata, ds_uncommitted)
-        ds_metrics['vmware_datastore_provisoned_size'].add_metric(metadata, ds_provisioned)
-        ds_metrics['vmware_datastore_hosts'].add_metric(metadata, len(datastore.host))
-        ds_metrics['vmware_datastore_vms'].add_metric(metadata, len(datastore.vm))
-        ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
-            metadata + [summary.maintenanceMode or 'normal'],
-            1)
-        ds_metrics['vmware_datastore_type'].add_metric(metadata + [summary.type or 'normal'], 1)
-        ds_metrics['vmware_datastore_accessible'].add_metric(metadata, summary.accessible*1)
 
     def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
         log('START: _vmware_get_vm_perf_manager_metrics')
