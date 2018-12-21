@@ -46,9 +46,15 @@ class VmwareCollector():
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
 
+    def _future_done(self, future):
+        try:
+            future.result()
+        except Exception as e:
+            log(str(e))
+
     def thread_it(self, method, data):
-        # FIXME: Just call submit directly
-        self.threader.submit(method, *data)
+        future = self.threader.submit(method, *data)
+        future.add_done_callback(self._future_done)
 
     def collect(self):
         """ collects metrics """
@@ -189,16 +195,16 @@ class VmwareCollector():
 
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            self.threader.submit(
+            self.thread_it(
                 self._vmware_get_datastores,
-                content, metrics, ds_inventory,
+                [content, metrics, ds_inventory],
             )
 
         # Collect Hosts metrics
         if collect_only['hosts'] is True:
-            self.threader.submit(
+            self.thread_it(
                 self._vmware_get_hosts,
-                content, metrics, host_inventory,
+                [content, metrics, host_inventory],
             )
 
         # Collect VMs metrics
