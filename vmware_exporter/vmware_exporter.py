@@ -14,7 +14,6 @@ import os
 import ssl
 import traceback
 import pytz
-import yaml
 
 from yamlconfig import YamlConfig
 
@@ -22,7 +21,6 @@ from yamlconfig import YamlConfig
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import Resource
 from twisted.internet import reactor, endpoints, defer, threads
-from twisted.internet.task import deferLater
 
 # VMWare specific imports
 from pyVmomi import vim, vmodl
