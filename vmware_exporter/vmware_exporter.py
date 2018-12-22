@@ -403,6 +403,8 @@ class VmwareCollector():
         """
         Get VM information
         """
+        log("Starting vm metrics collection")
+
         properties = [
             'name',
             'runtime.powerState',
@@ -475,6 +477,7 @@ class VmwareCollector():
                     )
 
         yield d
+        log("Finished vm metrics collection")
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
