@@ -52,7 +52,7 @@ class VmwareCollector():
     def _future_done(self, future):
         try:
             future.result()
-        except Exception as e:
+        except Exception:
             log(traceback.format_exc())
 
     def thread_it(self, method, data):
@@ -313,7 +313,7 @@ class VmwareCollector():
 
             ds_capacity = float(datastore['summary.capacity'])
             ds_freespace = float(datastore['summary.freeSpace'])
-            ds_uncommitted = float(datastore['summary.uncommitted']) if datastore['summary.uncommitted'] else 0
+            ds_uncommitted = float(datastore.get('summary.uncommitted', 0))
             ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
             ds_metrics['vmware_datastore_capacity_size'].add_metric(labels, ds_capacity)
@@ -504,7 +504,6 @@ class VmwareCollector():
                     labels,
                     self._to_epoch(host['runtime.bootTime'])
                 )
-
 
             # Host connection state (connected, disconnected, notResponding)
             host_metrics['vmware_host_connection_state'].add_metric(
