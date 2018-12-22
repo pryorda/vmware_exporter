@@ -195,6 +195,10 @@ class VmwareCollector():
 
         tasks = []
 
+        # Collect vm / snahpshot / vmguest metrics
+        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
+            tasks.append(self._vmware_get_vms(content, metrics, host_inventory))
+
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
             tasks.append(threads.deferToThread(
@@ -212,10 +216,6 @@ class VmwareCollector():
                 metrics,
                 host_inventory,
             ))
-
-        # Collect vm / snahpshot / vmguest metrics
-        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
-           tasks.append(self._vmware_get_vms(content, metrics, host_inventory))
 
         # Waits for these to finish
         yield defer.DeferredList(tasks)
