@@ -10,7 +10,6 @@ from datetime import datetime
 
 # Generic imports
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import os
 import ssl
 import traceback
@@ -22,7 +21,7 @@ from yamlconfig import YamlConfig
 # Twisted
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import Resource
-from twisted.internet import reactor, endpoints
+from twisted.internet import reactor, endpoints, defer, threads
 from twisted.internet.task import deferLater
 
 # VMWare specific imports
@@ -41,8 +40,6 @@ class VmwareCollector():
     THREAD_LIMIT = 25
 
     def __init__(self, host, username, password, collect_only, ignore_ssl=False):
-        self.threader = ThreadPoolExecutor(max_workers=self.THREAD_LIMIT)
-
         self.host = host
         self.username = username
         self.password = password
@@ -55,10 +52,7 @@ class VmwareCollector():
         except Exception:
             log(traceback.format_exc())
 
-    def thread_it(self, method, data):
-        future = self.threader.submit(method, *data)
-        future.add_done_callback(self._future_done)
-
+    @defer.inlineCallbacks
     def collect(self):
         """ collects metrics """
         vsphere_host = self.host
@@ -196,19 +190,25 @@ class VmwareCollector():
 
         collect_only = self.collect_only
 
+        tasks = []
+
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            self.thread_it(
+            tasks.append(threads.deferToThread(
                 self._vmware_get_datastores,
-                [content, metrics, ds_inventory],
-            )
+                content,
+                metrics,
+                ds_inventory,
+            ))
 
         # Collect Hosts metrics
         if collect_only['hosts'] is True:
-            self.thread_it(
+            tasks.append(threads.deferToThread(
                 self._vmware_get_hosts,
-                [content, metrics, host_inventory],
-            )
+                content,
+                metrics,
+                host_inventory,
+            ))
 
         # Collect VMs metrics
         if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
@@ -222,13 +222,13 @@ class VmwareCollector():
                 content, counter_info, virtual_machines, metrics, host_inventory
             )
 
-        self.threader.shutdown(wait=True)
+        # Waits for these to finish
+        yield defer.DeferredList(tasks)
 
         self._vmware_disconnect()
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
-        for _key, metric in metrics.items():
-            yield metric
+        return list(metrics.values())
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
@@ -584,6 +584,15 @@ class VmwareCollector():
         return host_inventory, ds_inventory
 
 
+class ListCollector(object):
+
+    def __init__(self, metrics):
+        self.metrics = list(metrics)
+
+    def collect(self):
+        return self.metrics
+
+
 class VMWareMetricsResource(Resource):
     """
     VMWare twisted ``Resource`` handling multi endpoints
@@ -656,6 +665,7 @@ class VMWareMetricsResource(Resource):
         request.processingFailed(failure)   # This will send a trace to the browser and close the request.
         return None
 
+    @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
         section = request.args.get('section', ['default'])[0]
@@ -676,14 +686,17 @@ class VMWareMetricsResource(Resource):
             request.finish()
             return
 
-        registry = CollectorRegistry()
-        registry.register(VmwareCollector(
+        collector = VmwareCollector(
             vsphere_host,
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
             self.config[section]['ignore_ssl'],
-        ))
+        )
+        metrics = yield collector.collect()
+
+        registry = CollectorRegistry()
+        registry.register(ListCollector(metrics))
         output = generate_latest(registry)
 
         request.write(output)
