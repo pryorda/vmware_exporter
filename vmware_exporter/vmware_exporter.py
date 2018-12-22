@@ -212,9 +212,9 @@ class VmwareCollector():
 
         # Collect VMs metrics
         if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
-            log("Starting VM Guests metrics collection")
-            virtual_machines = self._vmware_get_vmguests(content, metrics, host_inventory)
-            log("Finished VM Guests metrics collection")
+            log("Starting VM metrics collection")
+            virtual_machines = self._vmware_get_vms(content, metrics, host_inventory)
+            log("Finished VM metrics collection")
 
         if collect_only['vms'] is True:
             counter_info = self._vmware_perf_metrics(content)
@@ -399,9 +399,9 @@ class VmwareCollector():
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
-    def _vmware_get_vmguests(self, content, metrics, inventory):
+    def _vmware_get_vms(self, content, metrics, inventory):
         """
-        Get VM Guest information
+        Get VM information
         """
         properties = [
             'name',
