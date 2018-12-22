@@ -643,18 +643,22 @@ class VMWareMetricsResource(Resource):
 
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
-        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
-        deferred_request = deferLater(reactor, 0, lambda: request)
-        deferred_request.addCallback(self.generate_latest_metrics)
-        deferred_request.addErrback(self.errback, request)
+        self._async_render_GET(request)
         return NOT_DONE_YET
 
-    def errback(self, failure, request):
-        """ handles failures from requests """
-        failure.printTraceback()
-        log(failure)
-        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
-        return None
+    @defer.inlineCallbacks
+    def _async_render_GET(self, request):
+        try:
+            yield self.generate_latest_metrics(request)
+        except Exception:
+            log(traceback.format_exc())
+            request.setResponseCode(500)
+            request.write(b'# Collection failed')
+            request.finish()
+
+        # We used to call request.processingFailed to send a traceback to browser
+        # This can make sense in debug mode for a HTML site - but we don't want
+        # prometheus trying to parse a python traceback
 
     @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
@@ -690,6 +694,8 @@ class VMWareMetricsResource(Resource):
         registry.register(ListCollector(metrics))
         output = generate_latest(registry)
 
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        request.setResponseCode(200)
         request.write(output)
         request.finish()
 
