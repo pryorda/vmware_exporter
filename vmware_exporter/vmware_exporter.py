@@ -621,32 +621,25 @@ class VMWareMetricsResource(Resource):
                 if 'default' not in self.config.keys():
                     log("Error, you must have a default section in config file (for now)")
                     exit(1)
+                return
             except Exception as exception:
                 raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
-        else:
-            config_data = """
-            default:
-                vsphere_host: "{0}"
-                vsphere_user: "{1}"
-                vsphere_password: "{2}"
-                ignore_ssl: {3}
-                collect_only:
-                    vms: True
-                    vmguests: True
-                    datastores: True
-                    hosts: True
-                    snapshots: True
-            """.format(os.environ.get('VSPHERE_HOST'),
-                       os.environ.get('VSPHERE_USER'),
-                       os.environ.get('VSPHERE_PASSWORD'),
-                       os.environ.get('VSPHERE_IGNORE_SSL', False)
-                       )
-            self.config = yaml.load(config_data)
-            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
-            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
-            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
-            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
-            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+
+        self.config = {
+            'default': {
+                'vsphere_host': os.environ.get('VSPHERE_HOST'),
+                'vsphere_user': os.environ.get('VSPHERE_USER'),
+                'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
+                'ignore_ssl': os.environ.get('VSPHERE_IGNORE_SSL', False),
+                'collect_only': {
+                    'vms': os.environ.get('VSPHERE_COLLECT_VMS', True),
+                    'vmguests': os.environ.get('VSPHERE_COLLECT_VMGUESTS', True),
+                    'datastores': os.environ.get('VSPHERE_COLLECT_DATASTORES', True),
+                    'hosts': os.environ.get('VSPHERE_COLLECT_HOSTS', True),
+                    'snapshots': os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True),
+                }
+            }
+        }
 
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
