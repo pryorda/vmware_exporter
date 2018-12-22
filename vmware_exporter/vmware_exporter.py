@@ -174,16 +174,19 @@ class VmwareCollector():
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
-        self.vmware_connection = self._vmware_connect()
+        self.vmware_connection = yield threads.deferToThread(self._vmware_connect)
         if not self.vmware_connection:
             log(b"Cannot connect to vmware")
             return
 
-        content = self.vmware_connection.RetrieveContent()
+        content = yield threads.deferToThread(self.vmware_connection.RetrieveContent)
 
         # Generate inventory dict
         log("Starting inventory collection")
-        host_inventory, ds_inventory = self._vmware_get_inventory(content)
+        host_inventory, ds_inventory = yield threads.deferToThread(
+            self._vmware_get_inventory,
+            content,
+        )
         log("Finished inventory collection")
 
         self._labels = {}
@@ -210,22 +213,14 @@ class VmwareCollector():
                 host_inventory,
             ))
 
-        # Collect VMs metrics
+        # Collect vm / snahpshot / vmguest metrics
         if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
-            log("Starting VM metrics collection")
-            virtual_machines = self._vmware_get_vms(content, metrics, host_inventory)
-            log("Finished VM metrics collection")
-
-        if collect_only['vms'] is True:
-            counter_info = self._vmware_perf_metrics(content)
-            self._vmware_get_vm_perf_manager_metrics(
-                content, counter_info, virtual_machines, metrics, host_inventory
-            )
+           tasks.append(self._vmware_get_vms(content, metrics, host_inventory))
 
         # Waits for these to finish
         yield defer.DeferredList(tasks)
 
-        self._vmware_disconnect()
+        yield threads.deferToThread(self._vmware_disconnect)
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
         return list(metrics.values())
@@ -399,10 +394,13 @@ class VmwareCollector():
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
+    @defer.inlineCallbacks
     def _vmware_get_vms(self, content, metrics, inventory):
         """
         Get VM information
         """
+        counter_info = yield threads.deferToThread(self._vmware_perf_metrics, content)
+
         properties = [
             'name',
             'runtime.powerState',
@@ -417,7 +415,12 @@ class VmwareCollector():
         if self.collect_only['snapshots'] is True:
             properties.append('snapshot')
 
-        result = batch_fetch_properties(content, vim.VirtualMachine, properties)
+        result = yield threads.deferToThread(
+            batch_fetch_properties,
+            content,
+            vim.VirtualMachine,
+            properties,
+        )
 
         for moid, row in result.items():
             host_moid = row['runtime.host']._moId
@@ -463,6 +466,11 @@ class VmwareCollector():
                         labels + [snapshot['name']],
                         snapshot['timestamp_seconds'],
                     )
+
+        if self.collect_only['vms'] is True:
+            self._vmware_get_vm_perf_manager_metrics(
+                content, counter_info, result, metrics, inventory
+            )
 
         return result
 
