@@ -376,9 +376,8 @@ class VmwareCollector():
 
         specs = []
         for vm in virtual_machines.values():
-            # summary = vm.summary
-            # if summary.runtime.powerState != 'poweredOn':
-            #     continue
+            if vm.get('runtime.powerState') != 'poweredOn':
+                continue
             specs.append(vim.PerformanceManager.QuerySpec(
                 maxSample=1,
                 entity=vm['obj'],
