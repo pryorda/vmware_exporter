@@ -604,17 +604,15 @@ class ListCollector(object):
 
 
 class VMWareMetricsResource(Resource):
-    """
-    VMWare twisted ``Resource`` handling multi endpoints
-    Only handle /metrics and /healthz path
-    """
+
     isLeaf = True
 
-    def __init__(self):
+    def __init__(self, args):
         """
         Init Metric Resource
         """
         Resource.__init__(self)
+        self.configure(args)
 
     def configure(self, args):
         if args.config_file:
@@ -652,21 +650,11 @@ class VMWareMetricsResource(Resource):
 
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
-        path = request.path.decode()
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
-        if path == '/metrics':
-            deferred_request = deferLater(reactor, 0, lambda: request)
-            deferred_request.addCallback(self.generate_latest_metrics)
-            deferred_request.addErrback(self.errback, request)
-            return NOT_DONE_YET
-        elif path == '/healthz':
-            request.setResponseCode(200)
-            log("Service is UP")
-            return 'Server is UP'.encode()
-        else:
-            log(b"Uri not found: " + request.uri)
-            request.setResponseCode(404)
-            return '404 Not Found'.encode()
+        deferred_request = deferLater(reactor, 0, lambda: request)
+        deferred_request.addCallback(self.generate_latest_metrics)
+        deferred_request.addErrback(self.errback, request)
+        return NOT_DONE_YET
 
     def errback(self, failure, request):
         """ handles failures from requests """
@@ -713,6 +701,17 @@ class VMWareMetricsResource(Resource):
         request.finish()
 
 
+class HealthzResource(Resource):
+
+    isLeaf = True
+
+    def render_GET(self, request):
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        request.setResponseCode(200)
+        log("Service is UP")
+        return 'Server is UP'.encode()
+
+
 def log(data):
     """
     Log any message in a uniform format
@@ -731,10 +730,9 @@ def main():
     args = parser.parse_args()
 
     # Start up the server to expose the metrics.
-    root = VMWareMetricsResource()
-    root.configure(args)
-    root.putChild(b'metrics', VMWareMetricsResource())
-    root.putChild(b'healthz', VMWareMetricsResource())
+    root = Resource()
+    root.putChild(b'metrics', VMWareMetricsResource(args))
+    root.putChild(b'healthz', HealthzResource())
 
     factory = Site(root)
     log("Starting web server on port {}".format(args.port))
