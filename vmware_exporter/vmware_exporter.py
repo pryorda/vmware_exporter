@@ -336,8 +336,12 @@ class VmwareCollector():
 
         log("Finished datastore metrics collection")
 
-    def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
+    @defer.inlineCallbacks
+    def _vmware_get_vm_perf_manager_metrics(self, content, virtual_machines, vm_metrics, inventory):
         log('START: _vmware_get_vm_perf_manager_metrics')
+
+        counter_info = yield threads.deferToThread(self._vmware_perf_metrics, content)
+
         # List of performance counter we want
         perf_list = [
             'cpu.ready.summation',
@@ -383,7 +387,7 @@ class VmwareCollector():
             ))
 
         log('START: _vmware_get_vm_perf_manager_metrics: QUERY')
-        result = content.perfManager.QueryStats(querySpec=specs)
+        result = yield threads.deferToThread(content.perfManager.QueryStats, querySpec=specs)
         log('FIN: _vmware_get_vm_perf_manager_metrics: QUERY')
 
         for ent in result:
@@ -399,8 +403,6 @@ class VmwareCollector():
         """
         Get VM information
         """
-        counter_info = yield threads.deferToThread(self._vmware_perf_metrics, content)
-
         properties = [
             'name',
             'runtime.powerState',
@@ -415,14 +417,19 @@ class VmwareCollector():
         if self.collect_only['snapshots'] is True:
             properties.append('snapshot')
 
-        result = yield threads.deferToThread(
+        virtual_machines = yield threads.deferToThread(
             batch_fetch_properties,
             content,
             vim.VirtualMachine,
             properties,
         )
 
-        for moid, row in result.items():
+        if self.collect_only['vms'] is True:
+            d = self._vmware_get_vm_perf_manager_metrics(
+                content, virtual_machines, metrics, inventory
+            )
+
+        for moid, row in virtual_machines.items():
             host_moid = row['runtime.host']._moId
 
             labels = self._labels[moid] = [
@@ -467,12 +474,7 @@ class VmwareCollector():
                         snapshot['timestamp_seconds'],
                     )
 
-        if self.collect_only['vms'] is True:
-            self._vmware_get_vm_perf_manager_metrics(
-                content, counter_info, result, metrics, inventory
-            )
-
-        return result
+        yield d
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
