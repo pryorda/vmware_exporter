@@ -37,8 +37,6 @@ from .helpers import batch_fetch_properties
 
 class VmwareCollector():
 
-    THREAD_LIMIT = 25
-
     def __init__(self, host, username, password, collect_only, ignore_ssl=False):
         self.host = host
         self.username = username
@@ -729,6 +727,8 @@ def main():
                         default=9272, help="HTTP port to expose metrics")
 
     args = parser.parse_args()
+
+    reactor.suggestThreadPoolSize(25)
 
     # Start up the server to expose the metrics.
     root = Resource()
