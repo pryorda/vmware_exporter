@@ -28,4 +28,6 @@ RUN set -x; buildDeps="gcc python-dev musl-dev libffi-dev openssl openssl-dev" \
 
 EXPOSE 9272
 
+ENV PYTHONUNBUFFERED=1
+
 ENTRYPOINT ["/usr/local/bin/vmware_exporter"]
