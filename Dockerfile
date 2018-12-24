@@ -15,7 +15,7 @@ FROM python:3.6-alpine
 
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter
-LABEL VERSION=0.3.0
+LABEL VERSION=0.3.1
 
 WORKDIR /opt/vmware_exporter/
 
@@ -23,9 +23,11 @@ COPY . /opt/vmware_exporter/
 
 RUN set -x; buildDeps="gcc python-dev musl-dev libffi-dev openssl openssl-dev" \
  && apk add --no-cache --update $buildDeps \
- && pip install -r requirements.txt \
+ && pip install -r requirements.txt . \
  && apk del $buildDeps
 
 EXPOSE 9272
 
-ENTRYPOINT ["python", "-u", "/opt/vmware_exporter/vmware_exporter/vmware_exporter.py"]
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["/usr/local/bin/vmware_exporter"]

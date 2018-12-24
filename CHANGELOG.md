@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a changelog](https://github.com/olivierlacan/keep-a-changelog).
 
+## [0.3.1] - 2018-12-23
+### Changed
+- [#43](https://github.com/pryorda/vmware_exporter/pull/43) Property collectors
+### Fixed
+- [#40](https://github.com/pryorda/vmware_exporter/pull/40) Fixed race condition with intermittent results @Jc2k
+
 ## [0.3.0] - 2018-12-09
 ### Changed
 - [#35](https://github.com/pryorda/vmware_exporter/pull/35) Refactor threading @Jc2k
