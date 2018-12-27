@@ -1,4 +1,7 @@
 # vmware_exporter
+
+[![Join the chat at https://gitter.im/vmware_exporter/community](https://badges.gitter.im/vmware_exporter/community.svg)](https://gitter.im/vmware_exporter/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 VMware vCenter Exporter for Prometheus.
 
 Get VMware vCenter information:
