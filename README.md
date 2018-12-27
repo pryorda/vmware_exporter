@@ -1,7 +1,5 @@
 # vmware_exporter
 
-[![Join the chat at https://gitter.im/vmware_exporter/community](https://badges.gitter.im/vmware_exporter/community.svg)](https://gitter.im/vmware_exporter/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 VMware vCenter Exporter for Prometheus.
 
 Get VMware vCenter information:
@@ -15,7 +13,7 @@ Get VMware vCenter information:
 ![Docker Pulls](https://img.shields.io/docker/pulls/pryorda/vmware_exporter.svg)
 ![Docker Automated](https://img.shields.io/docker/automated/pryorda/vmware_exporter.svg)
 ![Docker Build](https://img.shields.io/docker/build/pryorda/vmware_exporter.svg)
-
+[![Join the chat at https://gitter.im/vmware_exporter/community](https://badges.gitter.im/vmware_exporter/community.svg)](https://gitter.im/vmware_exporter/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Usage
 
