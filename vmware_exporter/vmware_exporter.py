@@ -48,13 +48,7 @@ class VmwareCollector():
         except Exception:
             log(traceback.format_exc())
 
-    @defer.inlineCallbacks
-    def collect(self):
-        """ collects metrics """
-        vsphere_host = self.host
-
-        host_inventory = {}
-        ds_inventory = {}
+    def _create_metric_containers(self):
         metric_list = {}
         metric_list['vms'] = {
             'vmware_vm_power_state': GaugeMetricFamily(
@@ -167,6 +161,18 @@ class VmwareCollector():
         for key, value in self.collect_only.items():
             if value is True:
                 metrics.update(metric_list[key])
+
+        return metrics
+
+    @defer.inlineCallbacks
+    def collect(self):
+        """ collects metrics """
+        vsphere_host = self.host
+
+        host_inventory = {}
+        ds_inventory = {}
+
+        metrics = self._create_metric_containers()
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
