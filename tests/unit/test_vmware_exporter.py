@@ -188,6 +188,56 @@ def test_collect_datastore(batch_fetch_properties):
     assert metrics['vmware_datastore_accessible'].samples[0][2] == 1.0
 
 
+def test_vmware_connect():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    with mock.patch('vmware_exporter.vmware_exporter.connect') as connect:
+        collector._vmware_connect()
+
+        call_kwargs = connect.SmartConnect.call_args[1]
+        assert call_kwargs['host'] == '127.0.0.1'
+        assert call_kwargs['user'] == 'root'
+        assert call_kwargs['pwd'] == 'password'
+        assert call_kwargs['sslContext'] is not None
+
+
+def test_vmware_disconnect():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+
+    # Mock that we have a connection
+    connection = object()
+    collector.vmware_connection = connection
+
+    with mock.patch('vmware_exporter.vmware_exporter.connect') as connect:
+        collector._vmware_disconnect()
+        connect.Disconnect.assert_called_with(connection)
+
+
 def test_healthz():
     request = mock.Mock()
 
