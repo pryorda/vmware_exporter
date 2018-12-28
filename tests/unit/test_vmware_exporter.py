@@ -162,7 +162,13 @@ def test_collect_vm_perf():
 
     collector._labels = {'vm:1': ['vm-1', 'host-1', 'dc', 'cluster-1']}
 
-    vms = {}
+    vms = {
+        'vm-1': {
+            'name': 'vm-1',
+            'obj': vim.ManagedObject('vm-1'),
+            'runtime.powerState': 'poweredOn',
+        }
+    }
 
     metric_1 = mock.Mock()
     metric_1.id.counterId = 9
