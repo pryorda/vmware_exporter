@@ -7,7 +7,7 @@ jobs:
       cache: pip
 
       script:
-        - pip install -r requirements.txt -r requirements-tests.txt
+        - pip install -e . -r requirements.txt -r requirements-tests.txt
         - flake8 vmware_exporter tests
         - pytest --cov=. tests/unit
 
@@ -23,5 +23,5 @@ jobs:
       - docker
 
       script:
-      - pip install -r requirements.txt -r requirements-tests.txt
+      - pip install -e . -r requirements.txt -r requirements-tests.txt
       - pytest tests/integration
