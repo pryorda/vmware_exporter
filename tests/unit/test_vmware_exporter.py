@@ -1,9 +1,11 @@
+import contextlib
 import datetime
 from unittest import mock
 
 import pytest_twisted
 import pytz
 from pyVmomi import vim
+from twisted.internet import defer
 
 from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource
 
@@ -324,6 +326,37 @@ def test_collect_datastore(batch_fetch_properties):
         'ds_cluster': 'ds_cluster'
     }
     assert metrics['vmware_datastore_accessible'].samples[0][2] == 1.0
+
+
+@pytest_twisted.inlineCallbacks
+def test_collect():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(collector, '_vmware_connect'))
+        get_inventory = stack.enter_context(mock.patch.object(collector, '_vmware_get_inventory'))
+        get_inventory.return_value = ([], [])
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_vms')).return_value = defer.succeed(None)
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores'))
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts'))
+        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect'))
+        metrics = yield collector.collect()
+
+    assert metrics[0].name == 'vmware_vm_power_state'
+    assert metrics[-1].name == 'vmware_vm_snapshot_timestamp_seconds'
 
 
 def test_vmware_connect():
