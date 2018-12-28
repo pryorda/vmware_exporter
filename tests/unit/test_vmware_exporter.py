@@ -5,7 +5,7 @@ import pytest_twisted
 import pytz
 from pyVmomi import vim
 
-from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector
+from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource
 
 
 EPOCH = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
@@ -308,3 +308,45 @@ def test_healthz():
     request.setResponseCode.assert_called_with(200)
 
     assert response == b'Server is UP'
+
+
+@pytest_twisted.inlineCallbacks
+def test_vmware_resource_async_render_GET():
+    request = mock.Mock()
+    request.args = {
+        b'vsphere_host': [b'127.0.0.1'],
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    resource = VMWareMetricsResource(args)
+
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+        Collector.return_value.collect.return_value = []
+        yield resource._async_render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+    request.write.assert_called_with(b'')
+    request.finish.assert_called_with()
+
+
+@pytest_twisted.inlineCallbacks
+def test_vmware_resource_async_render_GET_errback():
+    request = mock.Mock()
+    request.args = {
+        b'vsphere_host': [b'127.0.0.1'],
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    resource = VMWareMetricsResource(args)
+
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+        Collector.return_value.collect.side_effect = RuntimeError('Test exception')
+        yield resource._async_render_GET(request)
+
+    request.setResponseCode.assert_called_with(500)
+    request.write.assert_called_with(b'# Collection failed')
+    request.finish.assert_called_with()
