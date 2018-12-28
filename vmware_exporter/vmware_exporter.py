@@ -422,7 +422,7 @@ class VmwareCollector():
         )
 
         if self.collect_only['vms'] is True:
-            d = self._vmware_get_vm_perf_manager_metrics(
+            vm_perf_deferred = self._vmware_get_vm_perf_manager_metrics(
                 content, virtual_machines, metrics, inventory
             )
 
@@ -471,7 +471,7 @@ class VmwareCollector():
                         snapshot['timestamp_seconds'],
                     )
 
-        yield d
+        yield vm_perf_deferred
         log("Finished vm metrics collection")
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
