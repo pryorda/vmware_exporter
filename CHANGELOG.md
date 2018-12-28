@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a changelog](https://github.com/olivierlacan/keep-a-changelog).
 
+## [0.4.0] - 2018-12-328
+## Changed
+- [#44](https://github.com/pryorda/vmware_exporter/pull/44) Embrace more twisted machinery + allow concurrent scrapes
+## Fixed
+- [#46](https://github.com/pryorda/vmware_exporter/issues/46) Failure instance: Traceback: <class 'KeyError'>
+-
+
+
 ## [0.3.1] - 2018-12-23
 ### Changed
 - [#43](https://github.com/pryorda/vmware_exporter/pull/43) Property collectors
