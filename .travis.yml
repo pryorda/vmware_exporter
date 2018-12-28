@@ -1,19 +1,19 @@
-language: python
-python:
-  - "3.6"
-
-cache: pip
-
-script:
-  - pip install -r requirements.txt -r requirements-tests.txt
-  - flake8 vmware_exporter tests
-  - pytest --cov=. tests/unit
-
-after_success:
-  - codecov
-
 jobs:
   include:
+    - language: python
+      python:
+        - "3.6"
+
+      cache: pip
+
+      script:
+        - pip install -r requirements.txt -r requirements-tests.txt
+        - flake8 vmware_exporter tests
+        - pytest --cov=. tests/unit
+
+      after_success:
+        - codecov
+
     - language: python
       python: "3.6"
       cache: pip
@@ -25,4 +25,3 @@ jobs:
       script:
       - pip install -r requirements.txt -r requirements-tests.txt
       - pytest tests/integration
-
