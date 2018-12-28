@@ -75,6 +75,57 @@ def test_collect_vms(batch_fetch_properties):
 
 
 @mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
+def test_collect_hosts(batch_fetch_properties):
+    content = mock.Mock()
+
+    batch_fetch_properties.return_value = {
+        'host-1': {
+            'id': 'host:1',
+            'name': 'host-1',
+            'runtime.powerState': 'poweredOn',
+            'runtime.connectionState': 'connected',
+            'runtime.inMaintenanceMode': True,
+            'summary.quickStats.overallCpuUsage': 100,
+            'summary.hardware.numCpuCores': 12,
+            'summary.hardware.cpuMhz': 1000,
+            'summary.quickStats.overallMemoryUsage': 1024,
+            'summary.hardware.memorySize': 2048 * 1024 * 1024,
+        }
+    }
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+
+    inventory = {
+        'host:1': {
+            'dc': 'dc',
+            'cluster': 'cluster',
+        }
+    }
+
+    metrics = collector._create_metric_containers()
+    collector._vmware_get_hosts(content, metrics, inventory)
+
+    assert metrics['vmware_host_memory_max'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster'
+    }
+    assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
+
+
+@mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
 def test_collect_datastore(batch_fetch_properties):
     content = mock.Mock()
 
