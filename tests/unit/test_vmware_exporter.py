@@ -613,6 +613,24 @@ def test_vmware_resource_async_render_GET_errback():
     request.finish.assert_called_with()
 
 
+@pytest_twisted.inlineCallbacks
+def test_vmware_resource_async_render_GET_no_target():
+    request = mock.Mock()
+    request.args = {
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    resource = VMWareMetricsResource(args)
+
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+        yield resource._async_render_GET(request)
+
+    request.setResponseCode.assert_called_with(500)
+    request.write.assert_called_with(b'No vsphere_host or target defined!\n')
+    request.finish.assert_called_with()
+
 def test_main():
     with pytest.raises(SystemExit):
         main(['-h'])
