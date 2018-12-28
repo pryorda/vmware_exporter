@@ -1,0 +1,20 @@
+language: python
+python:
+  - "3.6"
+
+sudo: required
+
+services:
+  - docker
+
+cache: pip
+
+install:
+  - pip install -r requirements.txt -r requirements-tests.txt
+
+script:
+  - pytest --cov=. tests
+  - flake8 vmware_exporter tests
+
+after_success:
+  - codecov

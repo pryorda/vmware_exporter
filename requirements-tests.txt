@@ -1,0 +1,5 @@
+pytest-docker-tools
+pytest
+pytest-cov
+codecov
+flake8
