@@ -132,6 +132,77 @@ def test_collect_vms(batch_fetch_properties):
     assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[1][2] == 60
 
 
+@pytest_twisted.inlineCallbacks
+def test_collect_vm_perf():
+    content = mock.Mock()
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+
+    inventory = {
+        'host-1': {
+            'name': 'host-1',
+            'dc': 'dc',
+            'cluster': 'cluster-1',
+        }
+    }
+
+    metrics = collector._create_metric_containers()
+
+    collector._labels = {'vm:1': ['vm-1', 'host-1', 'dc', 'cluster-1']}
+
+    vms = {}
+
+    metric_1 = mock.Mock()
+    metric_1.id.counterId = 9
+    metric_1.value = [9]
+
+    metric_2 = mock.Mock()
+    metric_2.id.counterId = 1
+    metric_2.value = [1]
+
+    ent_1 = mock.Mock()
+    ent_1.value = [metric_1, metric_2]
+    ent_1.entity = vim.ManagedObject('vm:1')
+
+    content.perfManager.QueryStats.return_value = [ent_1]
+
+    with mock.patch.object(collector, '_vmware_perf_metrics') as _vmware_perf_metrics:
+        _vmware_perf_metrics.return_value = {
+            'cpu.ready.summation': 1,
+            'cpu.usage.average': 2,
+            'cpu.usagemhz.average': 3,
+            'disk.usage.average': 4,
+            'disk.read.average': 5,
+            'disk.write.average': 6,
+            'mem.usage.average': 7,
+            'net.received.average': 8,
+            'net.transmitted.average': 9,
+        }
+
+        yield collector._vmware_get_vm_perf_manager_metrics(content, vms, metrics, inventory)
+
+    # General VM metrics
+    assert metrics['vmware_vm_net_transmitted_average'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_net_transmitted_average'].samples[0][2] == 9.0
+
+
 @mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
 def test_collect_hosts(batch_fetch_properties):
     content = mock.Mock()
