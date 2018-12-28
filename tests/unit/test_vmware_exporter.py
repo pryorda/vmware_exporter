@@ -18,6 +18,24 @@ def test_collect_vms(batch_fetch_properties):
 
     boot_time = EPOCH + datetime.timedelta(seconds=60)
 
+    snapshot_1 = mock.Mock()
+    snapshot_1.createTime = EPOCH + datetime.timedelta(seconds=60)
+    snapshot_1.name = 'snapshot_1'
+    snapshot_1.childSnapshotList = []
+
+    snapshot_2 = mock.Mock()
+    snapshot_2.createTime = EPOCH + datetime.timedelta(seconds=120)
+    snapshot_2.name = 'snapshot_2'
+    snapshot_2.childSnapshotList = [snapshot_1]
+
+    snapshot = mock.Mock()
+    snapshot.rootSnapshotList = [snapshot_2]
+
+    disk = mock.Mock()
+    disk.diskPath = '/boot'
+    disk.capacity = 100
+    disk.freeSpace = 50
+
     batch_fetch_properties.return_value = {
         'vm-1': {
             'name': 'vm-1',
@@ -25,6 +43,8 @@ def test_collect_vms(batch_fetch_properties):
             'runtime.powerState': 'poweredOn',
             'summary.config.numCpu': 1,
             'runtime.bootTime': boot_time,
+            'snapshot': snapshot,
+            'guest.disk': [disk],
         }
     }
 
@@ -57,6 +77,7 @@ def test_collect_vms(batch_fetch_properties):
     with mock.patch.object(collector, '_vmware_get_vm_perf_manager_metrics'):
         yield collector._vmware_get_vms(content, metrics, inventory)
 
+    # General VM metrics
     assert metrics['vmware_vm_power_state'].samples[0][1] == {
         'vm_name': 'vm-1',
         'host_name': 'host-1',
@@ -72,6 +93,43 @@ def test_collect_vms(batch_fetch_properties):
         'dc_name': 'dc',
     }
     assert metrics['vmware_vm_boot_timestamp_seconds'].samples[0][2] == 60
+
+    # Disk info (vmguest)
+    assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'partition': '/boot',
+    }
+    assert metrics['vmware_vm_guest_disk_capacity'].samples[0][2] == 100
+
+    # Snapshots
+    assert metrics['vmware_vm_snapshots'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_snapshots'].samples[0][2] == 2
+
+    assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'vm_snapshot_name': 'snapshot_2',
+    }
+    assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[0][2] == 120
+
+    assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[1][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'vm_snapshot_name': 'snapshot_1',
+    }
+    assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[1][2] == 60
 
 
 @mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
