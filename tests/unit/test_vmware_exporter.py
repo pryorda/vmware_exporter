@@ -136,11 +136,14 @@ def test_collect_vms(batch_fetch_properties):
 def test_collect_hosts(batch_fetch_properties):
     content = mock.Mock()
 
+    boot_time = EPOCH + datetime.timedelta(seconds=60)
+
     batch_fetch_properties.return_value = {
         'host-1': {
             'id': 'host:1',
             'name': 'host-1',
             'runtime.powerState': 'poweredOn',
+            'runtime.bootTime': boot_time,
             'runtime.connectionState': 'connected',
             'runtime.inMaintenanceMode': True,
             'summary.quickStats.overallCpuUsage': 100,
