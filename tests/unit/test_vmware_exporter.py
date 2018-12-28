@@ -376,6 +376,35 @@ def test_vmware_disconnect():
         connect.Disconnect.assert_called_with(connection)
 
 
+def test_vmware_perf_metrics():
+    counter = mock.Mock()
+    counter.groupInfo.key = 'a'
+    counter.nameInfo.key = 'b'
+    counter.rollupType = 'c'
+    counter.key = 1
+
+    content = mock.Mock()
+    content.perfManager.perfCounter = [counter]
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+
+    result = collector._vmware_perf_metrics(content)
+
+    assert result == {'a.b.c': 1}
+
+
 def test_healthz():
     request = mock.Mock()
 
