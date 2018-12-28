@@ -10,20 +10,17 @@ from datetime import datetime
 
 # Generic imports
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import os
 import ssl
 import traceback
 import pytz
-import yaml
 
 from yamlconfig import YamlConfig
 
 # Twisted
 from twisted.web.server import Site, NOT_DONE_YET
 from twisted.web.resource import Resource
-from twisted.internet import reactor, endpoints
-from twisted.internet.task import deferLater
+from twisted.internet import reactor, endpoints, defer, threads
 
 # VMWare specific imports
 from pyVmomi import vim, vmodl
@@ -38,11 +35,7 @@ from .helpers import batch_fetch_properties
 
 class VmwareCollector():
 
-    THREAD_LIMIT = 25
-
     def __init__(self, host, username, password, collect_only, ignore_ssl=False):
-        self.threader = ThreadPoolExecutor(max_workers=self.THREAD_LIMIT)
-
         self.host = host
         self.username = username
         self.password = password
@@ -55,10 +48,7 @@ class VmwareCollector():
         except Exception:
             log(traceback.format_exc())
 
-    def thread_it(self, method, data):
-        future = self.threader.submit(method, *data)
-        future.add_done_callback(self._future_done)
-
+    @defer.inlineCallbacks
     def collect(self):
         """ collects metrics """
         vsphere_host = self.host
@@ -180,55 +170,56 @@ class VmwareCollector():
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
-        self.vmware_connection = self._vmware_connect()
+        self.vmware_connection = yield threads.deferToThread(self._vmware_connect)
         if not self.vmware_connection:
             log(b"Cannot connect to vmware")
             return
 
-        content = self.vmware_connection.RetrieveContent()
+        content = yield threads.deferToThread(self.vmware_connection.RetrieveContent)
 
         # Generate inventory dict
         log("Starting inventory collection")
-        host_inventory, ds_inventory = self._vmware_get_inventory(content)
+        host_inventory, ds_inventory = yield threads.deferToThread(
+            self._vmware_get_inventory,
+            content,
+        )
         log("Finished inventory collection")
 
         self._labels = {}
 
         collect_only = self.collect_only
 
+        tasks = []
+
+        # Collect vm / snahpshot / vmguest metrics
+        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
+            tasks.append(self._vmware_get_vms(content, metrics, host_inventory))
+
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            self.thread_it(
+            tasks.append(threads.deferToThread(
                 self._vmware_get_datastores,
-                [content, metrics, ds_inventory],
-            )
+                content,
+                metrics,
+                ds_inventory,
+            ))
 
         # Collect Hosts metrics
         if collect_only['hosts'] is True:
-            self.thread_it(
+            tasks.append(threads.deferToThread(
                 self._vmware_get_hosts,
-                [content, metrics, host_inventory],
-            )
+                content,
+                metrics,
+                host_inventory,
+            ))
 
-        # Collect VMs metrics
-        if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
-            log("Starting VM metrics collection")
-            virtual_machines = self._vmware_get_vms(content, metrics, host_inventory)
-            log("Finished VM metrics collection")
+        # Waits for these to finish
+        yield defer.DeferredList(tasks)
 
-        if collect_only['vms'] is True:
-            counter_info = self._vmware_perf_metrics(content)
-            self._vmware_get_vm_perf_manager_metrics(
-                content, counter_info, virtual_machines, metrics, host_inventory
-            )
-
-        self.threader.shutdown(wait=True)
-
-        self._vmware_disconnect()
+        yield threads.deferToThread(self._vmware_disconnect)
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
-        for _key, metric in metrics.items():
-            yield metric
+        return list(metrics.values())
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
@@ -341,8 +332,12 @@ class VmwareCollector():
 
         log("Finished datastore metrics collection")
 
-    def _vmware_get_vm_perf_manager_metrics(self, content, counter_info, virtual_machines, vm_metrics, inventory):
+    @defer.inlineCallbacks
+    def _vmware_get_vm_perf_manager_metrics(self, content, virtual_machines, vm_metrics, inventory):
         log('START: _vmware_get_vm_perf_manager_metrics')
+
+        counter_info = yield threads.deferToThread(self._vmware_perf_metrics, content)
+
         # List of performance counter we want
         perf_list = [
             'cpu.ready.summation',
@@ -377,9 +372,8 @@ class VmwareCollector():
 
         specs = []
         for vm in virtual_machines.values():
-            # summary = vm.summary
-            # if summary.runtime.powerState != 'poweredOn':
-            #     continue
+            if vm.get('runtime.powerState') != 'poweredOn':
+                continue
             specs.append(vim.PerformanceManager.QuerySpec(
                 maxSample=1,
                 entity=vm['obj'],
@@ -388,7 +382,7 @@ class VmwareCollector():
             ))
 
         log('START: _vmware_get_vm_perf_manager_metrics: QUERY')
-        result = content.perfManager.QueryStats(querySpec=specs)
+        result = yield threads.deferToThread(content.perfManager.QueryStats, querySpec=specs)
         log('FIN: _vmware_get_vm_perf_manager_metrics: QUERY')
 
         for ent in result:
@@ -399,10 +393,13 @@ class VmwareCollector():
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
+    @defer.inlineCallbacks
     def _vmware_get_vms(self, content, metrics, inventory):
         """
         Get VM information
         """
+        log("Starting vm metrics collection")
+
         properties = [
             'name',
             'runtime.powerState',
@@ -417,9 +414,19 @@ class VmwareCollector():
         if self.collect_only['snapshots'] is True:
             properties.append('snapshot')
 
-        result = batch_fetch_properties(content, vim.VirtualMachine, properties)
+        virtual_machines = yield threads.deferToThread(
+            batch_fetch_properties,
+            content,
+            vim.VirtualMachine,
+            properties,
+        )
 
-        for moid, row in result.items():
+        if self.collect_only['vms'] is True:
+            vm_perf_deferred = self._vmware_get_vm_perf_manager_metrics(
+                content, virtual_machines, metrics, inventory
+            )
+
+        for moid, row in virtual_machines.items():
             host_moid = row['runtime.host']._moId
 
             labels = self._labels[moid] = [
@@ -464,7 +471,8 @@ class VmwareCollector():
                         snapshot['timestamp_seconds'],
                     )
 
-        return result
+        yield vm_perf_deferred
+        log("Finished vm metrics collection")
 
     def _vmware_get_hosts(self, content, host_metrics, inventory):
         """
@@ -584,18 +592,25 @@ class VmwareCollector():
         return host_inventory, ds_inventory
 
 
+class ListCollector(object):
+
+    def __init__(self, metrics):
+        self.metrics = list(metrics)
+
+    def collect(self):
+        return self.metrics
+
+
 class VMWareMetricsResource(Resource):
-    """
-    VMWare twisted ``Resource`` handling multi endpoints
-    Only handle /metrics and /healthz path
-    """
+
     isLeaf = True
 
-    def __init__(self):
+    def __init__(self, args):
         """
         Init Metric Resource
         """
         Resource.__init__(self)
+        self.configure(args)
 
     def configure(self, args):
         if args.config_file:
@@ -604,58 +619,46 @@ class VMWareMetricsResource(Resource):
                 if 'default' not in self.config.keys():
                     log("Error, you must have a default section in config file (for now)")
                     exit(1)
+                return
             except Exception as exception:
                 raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
-        else:
-            config_data = """
-            default:
-                vsphere_host: "{0}"
-                vsphere_user: "{1}"
-                vsphere_password: "{2}"
-                ignore_ssl: {3}
-                collect_only:
-                    vms: True
-                    vmguests: True
-                    datastores: True
-                    hosts: True
-                    snapshots: True
-            """.format(os.environ.get('VSPHERE_HOST'),
-                       os.environ.get('VSPHERE_USER'),
-                       os.environ.get('VSPHERE_PASSWORD'),
-                       os.environ.get('VSPHERE_IGNORE_SSL', False)
-                       )
-            self.config = yaml.load(config_data)
-            self.config['default']['collect_only']['hosts'] = os.environ.get('VSPHERE_COLLECT_HOSTS', True)
-            self.config['default']['collect_only']['datastores'] = os.environ.get('VSPHERE_COLLECT_DATASTORES', True)
-            self.config['default']['collect_only']['vms'] = os.environ.get('VSPHERE_COLLECT_VMS', True)
-            self.config['default']['collect_only']['vmguests'] = os.environ.get('VSPHERE_COLLECT_VMGUESTS', True)
-            self.config['default']['collect_only']['snapshots'] = os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True)
+
+        self.config = {
+            'default': {
+                'vsphere_host': os.environ.get('VSPHERE_HOST'),
+                'vsphere_user': os.environ.get('VSPHERE_USER'),
+                'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
+                'ignore_ssl': os.environ.get('VSPHERE_IGNORE_SSL', False),
+                'collect_only': {
+                    'vms': os.environ.get('VSPHERE_COLLECT_VMS', True),
+                    'vmguests': os.environ.get('VSPHERE_COLLECT_VMGUESTS', True),
+                    'datastores': os.environ.get('VSPHERE_COLLECT_DATASTORES', True),
+                    'hosts': os.environ.get('VSPHERE_COLLECT_HOSTS', True),
+                    'snapshots': os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True),
+                }
+            }
+        }
 
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
-        path = request.path.decode()
-        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
-        if path == '/metrics':
-            deferred_request = deferLater(reactor, 0, lambda: request)
-            deferred_request.addCallback(self.generate_latest_metrics)
-            deferred_request.addErrback(self.errback, request)
-            return NOT_DONE_YET
-        elif path == '/healthz':
-            request.setResponseCode(200)
-            log("Service is UP")
-            return 'Server is UP'.encode()
-        else:
-            log(b"Uri not found: " + request.uri)
-            request.setResponseCode(404)
-            return '404 Not Found'.encode()
+        self._async_render_GET(request)
+        return NOT_DONE_YET
 
-    def errback(self, failure, request):
-        """ handles failures from requests """
-        failure.printTraceback()
-        log(failure)
-        request.processingFailed(failure)   # This will send a trace to the browser and close the request.
-        return None
+    @defer.inlineCallbacks
+    def _async_render_GET(self, request):
+        try:
+            yield self.generate_latest_metrics(request)
+        except Exception:
+            log(traceback.format_exc())
+            request.setResponseCode(500)
+            request.write(b'# Collection failed')
+            request.finish()
 
+        # We used to call request.processingFailed to send a traceback to browser
+        # This can make sense in debug mode for a HTML site - but we don't want
+        # prometheus trying to parse a python traceback
+
+    @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
         section = request.args.get('section', ['default'])[0]
@@ -676,18 +679,34 @@ class VMWareMetricsResource(Resource):
             request.finish()
             return
 
-        registry = CollectorRegistry()
-        registry.register(VmwareCollector(
+        collector = VmwareCollector(
             vsphere_host,
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
             self.config[section]['ignore_ssl'],
-        ))
+        )
+        metrics = yield collector.collect()
+
+        registry = CollectorRegistry()
+        registry.register(ListCollector(metrics))
         output = generate_latest(registry)
 
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        request.setResponseCode(200)
         request.write(output)
         request.finish()
+
+
+class HealthzResource(Resource):
+
+    isLeaf = True
+
+    def render_GET(self, request):
+        request.setHeader("Content-Type", "text/plain; charset=UTF-8")
+        request.setResponseCode(200)
+        log("Service is UP")
+        return 'Server is UP'.encode()
 
 
 def log(data):
@@ -707,11 +726,12 @@ def main():
 
     args = parser.parse_args()
 
+    reactor.suggestThreadPoolSize(25)
+
     # Start up the server to expose the metrics.
-    root = VMWareMetricsResource()
-    root.configure(args)
-    root.putChild(b'metrics', VMWareMetricsResource())
-    root.putChild(b'healthz', VMWareMetricsResource())
+    root = Resource()
+    root.putChild(b'metrics', VMWareMetricsResource(args))
+    root.putChild(b'healthz', HealthzResource())
 
     factory = Site(root)
     log("Starting web server on port {}".format(args.port))
