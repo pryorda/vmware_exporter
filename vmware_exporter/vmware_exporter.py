@@ -42,12 +42,6 @@ class VmwareCollector():
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
 
-    def _future_done(self, future):
-        try:
-            future.result()
-        except Exception:
-            log(traceback.format_exc())
-
     def _create_metric_containers(self):
         metric_list = {}
         metric_list['vms'] = {
