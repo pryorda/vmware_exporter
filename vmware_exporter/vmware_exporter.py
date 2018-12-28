@@ -12,6 +12,7 @@ from datetime import datetime
 import argparse
 import os
 import ssl
+import sys
 import traceback
 import pytz
 
@@ -716,7 +717,7 @@ def log(data):
     print("[{0}] {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), data))
 
 
-def main():
+def main(argv=None):
     """ start up twisted reactor """
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
@@ -724,7 +725,7 @@ def main():
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv or sys.argv[1:])
 
     reactor.suggestThreadPoolSize(25)
 

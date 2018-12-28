@@ -2,13 +2,14 @@ import contextlib
 import datetime
 from unittest import mock
 
+import pytest
 import pytest_twisted
 import pytz
 from pyVmomi import vim
 from twisted.internet import defer
 from twisted.web.server import NOT_DONE_YET
 
-from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource
+from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollector, VMWareMetricsResource
 
 
 EPOCH = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
@@ -610,3 +611,8 @@ def test_vmware_resource_async_render_GET_errback():
     request.setResponseCode.assert_called_with(500)
     request.write.assert_called_with(b'# Collection failed')
     request.finish.assert_called_with()
+
+
+def test_main():
+    with pytest.raises(SystemExit):
+        main(['-h'])
