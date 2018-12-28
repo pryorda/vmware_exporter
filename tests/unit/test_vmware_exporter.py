@@ -6,6 +6,7 @@ import pytest_twisted
 import pytz
 from pyVmomi import vim
 from twisted.internet import defer
+from twisted.web.server import NOT_DONE_YET
 
 from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource
 
@@ -169,6 +170,11 @@ def test_collect_vm_perf():
             'name': 'vm-1',
             'obj': vim.ManagedObject('vm-1'),
             'runtime.powerState': 'poweredOn',
+        },
+        'vm-2': {
+            'name': 'vm-2',
+            'obj': vim.ManagedObject('vm-2'),
+            'runtime.powerState': 'poweredOff',
         }
     }
 
@@ -230,6 +236,11 @@ def test_collect_hosts(batch_fetch_properties):
             'summary.hardware.cpuMhz': 1000,
             'summary.quickStats.overallMemoryUsage': 1024,
             'summary.hardware.memorySize': 2048 * 1024 * 1024,
+        },
+        'host-2': {
+            'id': 'host:2',
+            'name': 'host-2',
+            'runtime.powerState': 'poweredOff',
         }
     }
 
@@ -251,6 +262,10 @@ def test_collect_hosts(batch_fetch_properties):
         'host:1': {
             'dc': 'dc',
             'cluster': 'cluster',
+        },
+        'host:2': {
+            'dc': 'dc',
+            'cluster': 'cluster',
         }
     }
 
@@ -263,6 +278,11 @@ def test_collect_hosts(batch_fetch_properties):
         'cluster_name': 'cluster'
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
+
+    # In our test data we hava a host that is powered down - we should have its
+    # power_state metric but not any others.
+    assert len(metrics['vmware_host_power_state'].samples) == 2
+    assert len(metrics['vmware_host_memory_max'].samples) == 1
 
 
 @mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
@@ -535,6 +555,19 @@ def test_healthz():
     request.setResponseCode.assert_called_with(200)
 
     assert response == b'Server is UP'
+
+
+def test_vmware_resource():
+    request = mock.Mock()
+
+    args = mock.Mock()
+    args.config_file = None
+
+    resource = VMWareMetricsResource(args)
+
+    with mock.patch.object(resource, '_async_render_GET') as _async_render_GET:
+        assert resource.render_GET(request) == NOT_DONE_YET
+        _async_render_GET.assert_called_with(request)
 
 
 @pytest_twisted.inlineCallbacks
