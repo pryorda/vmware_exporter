@@ -624,12 +624,13 @@ def test_vmware_resource_async_render_GET_no_target():
 
     resource = VMWareMetricsResource(args)
 
-    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector'):
         yield resource._async_render_GET(request)
 
     request.setResponseCode.assert_called_with(500)
     request.write.assert_called_with(b'No vsphere_host or target defined!\n')
     request.finish.assert_called_with()
+
 
 def test_main():
     with pytest.raises(SystemExit):
