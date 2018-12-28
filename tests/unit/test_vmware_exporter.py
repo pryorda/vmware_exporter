@@ -359,6 +359,94 @@ def test_collect():
     assert metrics[-1].name == 'vmware_vm_snapshot_timestamp_seconds'
 
 
+def test_vmware_get_inventory():
+    content = mock.Mock()
+
+    # Compute case 1
+    host_1 = mock.Mock()
+    host_1._moId = 'host:1'
+    host_1.name = 'host-1'
+
+    folder_1 = mock.Mock()
+    folder_1.host = [host_1]
+
+    # Computer case 2
+    host_2 = mock.Mock()
+    host_2._moId = 'host:2'
+    host_2.name = 'host-2'
+    host_2.summary.config.name = 'host-2.'
+
+    folder_2 = vim.ClusterComputeResource('computer-cluster:1')
+    folder_2.__dict__['name'] = 'compute-cluster-1'
+    folder_2.__dict__['host'] = [host_2]
+
+    # Datastore case 1
+    datastore_1 = vim.Datastore('datastore:1')
+    datastore_1.__dict__['name'] = 'datastore-1'
+
+    # Datastore case 2
+    datastore_2 = vim.Datastore('datastore:2')
+    datastore_2.__dict__['name'] = 'datastore-2'
+
+    datastore_2_folder = mock.Mock()
+    datastore_2_folder.childEntity = [datastore_2]
+    datastore_2_folder.name = 'datastore2-folder'
+
+    data_center_1 = mock.Mock()
+    data_center_1.name = 'dc-1'
+    data_center_1.hostFolder.childEntity = [folder_1, folder_2]
+    data_center_1.datastoreFolder.childEntity = [datastore_1, datastore_2_folder]
+
+    content.rootFolder.childEntity = [data_center_1]
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    with contextlib.ExitStack() as stack:
+        # We have to disable the LazyObject magic on pyvmomi classes so that we can use them as fakes
+        stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'name', None))
+        stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'host', None))
+        stack.enter_context(mock.patch.object(vim.Datastore, 'name', None))
+
+        host, ds = collector._vmware_get_inventory(content)
+
+    assert host == {
+        'host:1': {
+            'name': 'host-1',
+            'dc': 'dc-1',
+            'cluster': '',
+        },
+        'host:2': {
+            'name': 'host-2',
+            'dc': 'dc-1',
+            'cluster': 'compute-cluster-1',
+        }
+    }
+
+    assert ds == {
+        'datastore-1': {
+            'dc': 'dc-1',
+            'ds_cluster': '',
+        },
+        'datastore-2': {
+            'dc': 'dc-1',
+            'ds_cluster': 'datastore2-folder',
+        }
+    }
+
+
 def test_vmware_connect():
     collect_only = {
         'vms': True,
