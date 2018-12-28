@@ -5,7 +5,8 @@ import pytest_twisted
 import pytz
 from pyVmomi import vim
 
-from vmware_exporter.vmware_exporter import VmwareCollector
+from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector
+
 
 EPOCH = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
 
@@ -134,3 +135,14 @@ def test_collect_datastore(batch_fetch_properties):
         'ds_cluster': 'ds_cluster'
     }
     assert metrics['vmware_datastore_accessible'].samples[0][2] == 1.0
+
+
+def test_healthz():
+    request = mock.Mock()
+
+    resource = HealthzResource()
+    response = resource.render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+
+    assert response == b'Server is UP'
