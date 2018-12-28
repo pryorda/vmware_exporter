@@ -1,5 +1,6 @@
 pytest-docker-tools
 pytest
 pytest-cov
+pytest-twisted
 codecov
 flake8
