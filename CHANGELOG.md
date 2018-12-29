@@ -2,7 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a changelog](https://github.com/olivierlacan/keep-a-changelog).
 
-## [0.4.0] - 2018-12-328
+## [0.4.1] - 2018-12-28
+## Changed
+- [#50](https://github.com/pryorda/vmware_exper/pull/50) Adding tests
+
+## [0.4.0] - 2018-12-28
 ## Changed
 - [#44](https://github.com/pryorda/vmware_exporter/pull/44) Embrace more twisted machinery + allow concurrent scrapes
 
