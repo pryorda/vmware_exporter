@@ -1,0 +1,27 @@
+jobs:
+  include:
+    - language: python
+      python:
+        - "3.6"
+
+      cache: pip
+
+      script:
+        - pip install -e . -r requirements.txt -r requirements-tests.txt
+        - flake8 vmware_exporter tests
+        - pytest --cov=. tests/unit
+
+      after_success:
+        - codecov
+
+    - language: python
+      python: "3.6"
+      cache: pip
+
+      sudo: required
+      services:
+      - docker
+
+      script:
+      - pip install -e . -r requirements.txt -r requirements-tests.txt
+      - pytest tests/integration

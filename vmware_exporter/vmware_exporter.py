@@ -12,6 +12,7 @@ from datetime import datetime
 import argparse
 import os
 import ssl
+import sys
 import traceback
 import pytz
 
@@ -42,19 +43,7 @@ class VmwareCollector():
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
 
-    def _future_done(self, future):
-        try:
-            future.result()
-        except Exception:
-            log(traceback.format_exc())
-
-    @defer.inlineCallbacks
-    def collect(self):
-        """ collects metrics """
-        vsphere_host = self.host
-
-        host_inventory = {}
-        ds_inventory = {}
+    def _create_metric_containers(self):
         metric_list = {}
         metric_list['vms'] = {
             'vmware_vm_power_state': GaugeMetricFamily(
@@ -167,6 +156,18 @@ class VmwareCollector():
         for key, value in self.collect_only.items():
             if value is True:
                 metrics.update(metric_list[key])
+
+        return metrics
+
+    @defer.inlineCallbacks
+    def collect(self):
+        """ collects metrics """
+        vsphere_host = self.host
+
+        host_inventory = {}
+        ds_inventory = {}
+
+        metrics = self._create_metric_containers()
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
@@ -716,7 +717,7 @@ def log(data):
     print("[{0}] {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), data))
 
 
-def main():
+def main(argv=None):
     """ start up twisted reactor """
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
@@ -724,7 +725,7 @@ def main():
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv or sys.argv[1:])
 
     reactor.suggestThreadPoolSize(25)
 
