@@ -653,6 +653,28 @@ class VMWareMetricsResource(Resource):
             }
         }
 
+        for key in os.environ.keys():
+            if key == 'VSPHERE_USER':
+                continue
+            if not key.startswith('VSPHERE_') or not key.endswith('_USER'):
+                continue
+
+            section = key.split('_', 1)[1].rsplit('_', 1)[0]
+
+            self.config[section.lower()] = {
+                'vsphere_host': os.environ.get('VSPHERE_{}_HOST'.format(section)),
+                'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
+                'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
+                'ignore_ssl': os.environ.get('VSPHERE_{}_IGNORE_SSL'.format(section), False),
+                'collect_only': {
+                    'vms': os.environ.get('VSPHERE_{}_COLLECT_VMS'.format(section), True),
+                    'vmguests': os.environ.get('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
+                    'datastores': os.environ.get('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
+                    'hosts': os.environ.get('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
+                    'snapshots': os.environ.get('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                }
+            }
+
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
         self._async_render_GET(request)
