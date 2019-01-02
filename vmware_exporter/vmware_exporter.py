@@ -12,6 +12,7 @@ from datetime import datetime
 import argparse
 import os
 import ssl
+import sys
 import traceback
 import pytz
 
@@ -42,19 +43,7 @@ class VmwareCollector():
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
 
-    def _future_done(self, future):
-        try:
-            future.result()
-        except Exception:
-            log(traceback.format_exc())
-
-    @defer.inlineCallbacks
-    def collect(self):
-        """ collects metrics """
-        vsphere_host = self.host
-
-        host_inventory = {}
-        ds_inventory = {}
+    def _create_metric_containers(self):
         metric_list = {}
         metric_list['vms'] = {
             'vmware_vm_power_state': GaugeMetricFamily(
@@ -167,6 +156,18 @@ class VmwareCollector():
         for key, value in self.collect_only.items():
             if value is True:
                 metrics.update(metric_list[key])
+
+        return metrics
+
+    @defer.inlineCallbacks
+    def collect(self):
+        """ collects metrics """
+        vsphere_host = self.host
+
+        host_inventory = {}
+        ds_inventory = {}
+
+        metrics = self._create_metric_containers()
 
         log("Start collecting metrics from {0}".format(vsphere_host))
 
@@ -302,8 +303,8 @@ class VmwareCollector():
             name = datastore['name']
             labels = [name, inventory[name]['dc'], inventory[name]['ds_cluster']]
 
-            ds_capacity = float(datastore['summary.capacity'])
-            ds_freespace = float(datastore['summary.freeSpace'])
+            ds_capacity = float(datastore.get('summary.capacity', 0))
+            ds_freespace = float(datastore.get('summary.freeSpace', 0))
             ds_uncommitted = float(datastore.get('summary.uncommitted', 0))
             ds_provisioned = ds_capacity - ds_freespace + ds_uncommitted
 
@@ -312,11 +313,11 @@ class VmwareCollector():
             ds_metrics['vmware_datastore_uncommited_size'].add_metric(labels, ds_uncommitted)
             ds_metrics['vmware_datastore_provisoned_size'].add_metric(labels, ds_provisioned)
 
-            ds_metrics['vmware_datastore_hosts'].add_metric(labels, len(datastore['host']))
-            ds_metrics['vmware_datastore_vms'].add_metric(labels, len(datastore['vm']))
+            ds_metrics['vmware_datastore_hosts'].add_metric(labels, len(datastore.get('host', [])))
+            ds_metrics['vmware_datastore_vms'].add_metric(labels, len(datastore.get('vm', [])))
 
             ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
-                labels + [datastore.get('summary.maintenanceMode', 'normal')],
+                labels + [datastore.get('summary.maintenanceMode', 'unknown')],
                 1
             )
 
@@ -325,10 +326,11 @@ class VmwareCollector():
                 1
             )
 
-            ds_metrics['vmware_datastore_accessible'].add_metric(
-                labels,
-                datastore['summary.accessible'] * 1,
-            )
+            if 'summary.accessible' in datastore:
+                ds_metrics['vmware_datastore_accessible'].add_metric(
+                    labels,
+                    datastore['summary.accessible'] * 1,
+                )
 
         log("Finished datastore metrics collection")
 
@@ -402,11 +404,15 @@ class VmwareCollector():
 
         properties = [
             'name',
-            'runtime.powerState',
-            'runtime.bootTime',
             'runtime.host',
-            'summary.config.numCpu',
         ]
+
+        if self.collect_only['vms'] is True:
+            properties.append([
+                'runtime.powerState',
+                'runtime.bootTime',
+                'summary.config.numCpu',
+            ])
 
         if self.collect_only['vmguests'] is True:
             properties.append('guest.disk')
@@ -436,16 +442,17 @@ class VmwareCollector():
                 inventory[host_moid]['cluster'],
             ]
 
-            if self.collect_only['vms'] is True:
-                vm_power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
-                metrics['vmware_vm_power_state'].add_metric(labels, vm_power_state)
+            if 'runtime.powerState' in row:
+                power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
+                metrics['vmware_vm_power_state'].add_metric(labels, power_state)
 
-                if vm_power_state and row.get('runtime.bootTime', None):
+                if power_state and row.get('runtime.bootTime'):
                     metrics['vmware_vm_boot_timestamp_seconds'].add_metric(
                         labels,
                         self._to_epoch(row['runtime.bootTime'])
                     )
 
+            if 'summary.config.numCpu' in row:
                 metrics['vmware_vm_num_cpu'].add_metric(labels, row['summary.config.numCpu'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
@@ -514,37 +521,44 @@ class VmwareCollector():
                 )
 
             # Host connection state (connected, disconnected, notResponding)
+            connection_state = host.get('runtime.connectionState', 'unknown')
             host_metrics['vmware_host_connection_state'].add_metric(
-                labels + [host['runtime.connectionState']],
+                labels + [connection_state],
                 1
             )
 
             # Host in maintenance mode?
-            host_metrics['vmware_host_maintenance_mode'].add_metric(
-                labels,
-                host['runtime.inMaintenanceMode'] * 1,
-            )
+            if 'runtime.inMaintenanceMode' in host:
+                host_metrics['vmware_host_maintenance_mode'].add_metric(
+                    labels,
+                    host['runtime.inMaintenanceMode'] * 1,
+                )
 
             # CPU Usage (in Mhz)
-            host_metrics['vmware_host_cpu_usage'].add_metric(
-                labels,
-                host['summary.quickStats.overallCpuUsage'],
-            )
+            if 'summary.quickStats.overallCpuUsage' in host:
+                host_metrics['vmware_host_cpu_usage'].add_metric(
+                    labels,
+                    host['summary.quickStats.overallCpuUsage'],
+                )
 
-            cpu_core_num = host['summary.hardware.numCpuCores']
-            cpu_total = host['summary.hardware.cpuMhz'] * cpu_core_num
-            host_metrics['vmware_host_cpu_max'].add_metric(labels, cpu_total)
+            cpu_core_num = host.get('summary.hardware.numCpuCores')
+            cpu_mhz = host.get('summary.hardware.cpuMhz')
+            if cpu_core_num and cpu_mhz:
+                cpu_total = cpu_core_num * cpu_mhz
+                host_metrics['vmware_host_cpu_max'].add_metric(labels, cpu_total)
 
             # Memory Usage (in MB)
-            host_metrics['vmware_host_memory_usage'].add_metric(
-                labels,
-                host['summary.quickStats.overallMemoryUsage']
-            )
+            if 'summary.quickStats.overallMemoryUsage' in host:
+                host_metrics['vmware_host_memory_usage'].add_metric(
+                    labels,
+                    host['summary.quickStats.overallMemoryUsage']
+                )
 
-            host_metrics['vmware_host_memory_max'].add_metric(
-                labels,
-                float(host['summary.hardware.memorySize']) / 1024 / 1024
-            )
+            if 'summary.hardware.memorySize' in host:
+                host_metrics['vmware_host_memory_max'].add_metric(
+                    labels,
+                    float(host['summary.hardware.memorySize']) / 1024 / 1024
+                )
 
         log("Finished host metrics collection")
 
@@ -639,6 +653,28 @@ class VMWareMetricsResource(Resource):
             }
         }
 
+        for key in os.environ.keys():
+            if key == 'VSPHERE_USER':
+                continue
+            if not key.startswith('VSPHERE_') or not key.endswith('_USER'):
+                continue
+
+            section = key.split('_', 1)[1].rsplit('_', 1)[0]
+
+            self.config[section.lower()] = {
+                'vsphere_host': os.environ.get('VSPHERE_{}_HOST'.format(section)),
+                'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
+                'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
+                'ignore_ssl': os.environ.get('VSPHERE_{}_IGNORE_SSL'.format(section), False),
+                'collect_only': {
+                    'vms': os.environ.get('VSPHERE_{}_COLLECT_VMS'.format(section), True),
+                    'vmguests': os.environ.get('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
+                    'datastores': os.environ.get('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
+                    'hosts': os.environ.get('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
+                    'snapshots': os.environ.get('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                }
+            }
+
     def render_GET(self, request):
         """ handles get requests for metrics, health, and everything else """
         self._async_render_GET(request)
@@ -716,7 +752,7 @@ def log(data):
     print("[{0}] {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), data))
 
 
-def main():
+def main(argv=None):
     """ start up twisted reactor """
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
@@ -724,7 +760,7 @@ def main():
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv or sys.argv[1:])
 
     reactor.suggestThreadPoolSize(25)
 

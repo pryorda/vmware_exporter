@@ -1,0 +1,5 @@
+[run]
+source = vmware_exporter
+omit =
+    tests/*
+    setup.py
