@@ -632,6 +632,52 @@ def test_vmware_resource_async_render_GET_no_target():
     request.finish.assert_called_with()
 
 
+def test_config_env_multiple_sections():
+    env = {
+        'VSPHERE_HOST': '127.0.0.10',
+        'VSPHERE_USER': 'username1',
+        'VSPHERE_PASSWORD': 'password1',
+        'VSPHERE_MYSECTION_HOST': '127.0.0.11',
+        'VSPHERE_MYSECTION_USER': 'username2',
+        'VSPHERE_MYSECTION_PASSWORD': 'password2',
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    with mock.patch('vmware_exporter.vmware_exporter.os.environ', env):
+        resource = VMWareMetricsResource(args)
+
+    assert resource.config == {
+        'default': {
+            'ignore_ssl': False,
+            'vsphere_host': '127.0.0.10',
+            'vsphere_user': 'username1',
+            'vsphere_password': 'password1',
+            'collect_only': {
+                'datastores': True,
+                'hosts': True,
+                'snapshots': True,
+                'vmguests': True,
+                'vms': True,
+            }
+        },
+        'mysection': {
+            'ignore_ssl': False,
+            'vsphere_host': '127.0.0.11',
+            'vsphere_user': 'username2',
+            'vsphere_password': 'password2',
+            'collect_only': {
+                'datastores': True,
+                'hosts': True,
+                'snapshots': True,
+                'vmguests': True,
+                'vms': True,
+            }
+        }
+    }
+
+
 def test_main():
     with pytest.raises(SystemExit):
         main(['-h'])
