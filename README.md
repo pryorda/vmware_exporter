@@ -98,6 +98,22 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
 | `VSPHERE_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
 
+You can create new sections as well, with very similiar variables. For example, to create a `limited` section you can set:
+
+| Variable                      | Precedence             | Defaults | Description                                      |
+| ---------------------------- | ---------------------- | -------- | --------------------------------------- |
+| `VSPHERE_LIMITED_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
+| `VSPHERE_LIMITED_USER`               | config, env            | n/a      | User for connecting to vsphere |
+| `VSPHERE_LIMITED_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
+| `VSPHERE_LIMITED_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
+| `VSPHERE_LIMITED_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
+| `VSPHERE_LIMITED_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
+| `VSPHERE_LIMITED_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
+| `VSPHERE_LIMITED_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
+| `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
+
+You need to set at least `VSPHERE_SECTIONNAME_USER` for the section to be detected.
+
 ### Prometheus configuration
 
 You can use the following parameters in the Prometheus configuration file. The `params` section is used to manage multiple login/passwords.
