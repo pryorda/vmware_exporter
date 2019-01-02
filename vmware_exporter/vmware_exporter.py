@@ -215,7 +215,7 @@ class VmwareCollector():
             ))
 
         # Waits for these to finish
-        yield defer.DeferredList(tasks)
+        yield defer.DeferredList(tasks, fireOnOneErrback=True)
 
         yield threads.deferToThread(self._vmware_disconnect)
         log("Finished collecting metrics from {0}".format(vsphere_host))

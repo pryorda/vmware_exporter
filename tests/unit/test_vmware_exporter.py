@@ -394,6 +394,41 @@ def test_collect():
     assert metrics[-1].name == 'vmware_vm_snapshot_timestamp_seconds'
 
 
+@pytest_twisted.inlineCallbacks
+def test_collect_deferred_error_works():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': True,
+        'hosts': True,
+        'snapshots': True,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    @defer.inlineCallbacks
+    def _fake_get_vms(*args, **kwargs):
+        yield None
+        raise RuntimeError('An error has occurred')
+
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(collector, '_vmware_connect'))
+        get_inventory = stack.enter_context(mock.patch.object(collector, '_vmware_get_inventory'))
+        get_inventory.return_value = ([], [])
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_vms')).side_effect = _fake_get_vms
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores'))
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts'))
+        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect'))
+
+        with pytest.raises(defer.FirstError):
+            yield collector.collect()
+
+
 def test_vmware_get_inventory():
     content = mock.Mock()
 
