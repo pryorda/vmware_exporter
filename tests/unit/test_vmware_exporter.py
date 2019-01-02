@@ -274,6 +274,7 @@ def test_collect_hosts():
         'cluster_name': 'cluster'
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
+    assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
 
     # In our test data we hava a host that is powered down - we should have its
     # power_state metric but not any others.

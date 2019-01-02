@@ -143,6 +143,10 @@ class VmwareCollector():
                 'vmware_host_cpu_max',
                 'VMWare Host CPU max availability in Mhz',
                 labels=['host_name', 'dc_name', 'cluster_name']),
+            'vmware_host_num_cpu': GaugeMetricFamily(
+                'vmware_host_num_cpu',
+                'VMWare Number of processors in the Host',
+                labels=['host_name', 'dc_name', 'cluster_name']),
             'vmware_host_memory_usage': GaugeMetricFamily(
                 'vmware_host_memory_usage',
                 'VMWare Host Memory usage in Mbytes',
@@ -195,7 +199,7 @@ class VmwareCollector():
 
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
-        return list(metrics.values())
+        return list(metrics.values())   # noqa: F705
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
@@ -657,6 +661,9 @@ class VmwareCollector():
                 )
 
             cpu_core_num = host.get('summary.hardware.numCpuCores')
+            if cpu_core_num:
+                host_metrics['vmware_host_num_cpu'].add_metric(labels, cpu_core_num)
+
             cpu_mhz = host.get('summary.hardware.cpuMhz')
             if cpu_core_num and cpu_mhz:
                 cpu_total = cpu_core_num * cpu_mhz
