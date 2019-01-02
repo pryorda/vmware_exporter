@@ -153,6 +153,10 @@ class VmwareCollector():
                 'vmware_host_cpu_max',
                 'VMWare Host CPU max availability in Mhz',
                 labels=['host_name', 'dc_name', 'cluster_name']),
+            'vmware_host_num_cpu': GaugeMetricFamily(
+                'vmware_host_num_cpu',
+                'VMWare Number of processors in the Host',
+                labels=['host_name', 'dc_name', 'cluster_name']),
             'vmware_host_memory_usage': GaugeMetricFamily(
                 'vmware_host_memory_usage',
                 'VMWare Host Memory usage in Mbytes',
@@ -532,6 +536,11 @@ class VmwareCollector():
             )
 
             cpu_core_num = host['summary.hardware.numCpuCores']
+
+            # CPU number of cores
+            host_metrics['vmware_host_num_cpu'].add_metric(labels, cpu_core_num)
+
+            # CPU max overall clock speed
             cpu_total = host['summary.hardware.cpuMhz'] * cpu_core_num
             host_metrics['vmware_host_cpu_max'].add_metric(labels, cpu_total)
 
