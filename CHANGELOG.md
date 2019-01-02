@@ -2,7 +2,13 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a changelog](https://github.com/olivierlacan/keep-a-changelog).
 
-## [0.4.0] - 2018-12-328
+## [0.4.1] - 2018-01-02
+## Changed
+- [#50](https://github.com/pryorda/vmware_exporter/pull/50) Added tests + CI (#47) (#50)
+- [#55](https://github.com/pryorda/vmware_exporter/pull/55) Robustness around collected properties #55
+- [#58](https://github.com/pryorda/vmware_exporter/pull/58) Multiple section support via ENV variables. #58
+
+## [0.4.0] - 2018-12-28
 ## Changed
 - [#44](https://github.com/pryorda/vmware_exporter/pull/44) Embrace more twisted machinery + allow concurrent scrapes
 
