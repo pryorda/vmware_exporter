@@ -408,7 +408,7 @@ class VmwareCollector():
         ]
 
         if self.collect_only['vms'] is True:
-            properties.append([
+            properties.extend([
                 'runtime.powerState',
                 'runtime.bootTime',
                 'summary.config.numCpu',

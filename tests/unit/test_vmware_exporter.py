@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 import pytest_twisted
 import pytz
-from pyVmomi import vim
+from pyVmomi import vim, vmodl
 from twisted.internet import defer
 from twisted.web.server import NOT_DONE_YET
 
@@ -13,6 +13,14 @@ from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollect
 
 
 EPOCH = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
+
+
+def _check_properties(properties):
+    ''' This will run the prop list through the pyvmomi serializer and catch malformed types (not values) '''
+    PropertyCollector = vmodl.query.PropertyCollector
+    property_spec = PropertyCollector.PropertySpec()
+    property_spec.pathSet = properties
+    return len(property_spec.pathSet) > 0
 
 
 @mock.patch('vmware_exporter.vmware_exporter.batch_fetch_properties')
@@ -80,6 +88,8 @@ def test_collect_vms(batch_fetch_properties):
 
     with mock.patch.object(collector, '_vmware_get_vm_perf_manager_metrics'):
         yield collector._vmware_get_vms(content, metrics, inventory)
+
+    assert _check_properties(batch_fetch_properties.call_args[0][2])
 
     # General VM metrics
     assert metrics['vmware_vm_power_state'].samples[0][1] == {
@@ -273,6 +283,8 @@ def test_collect_hosts(batch_fetch_properties):
     metrics = collector._create_metric_containers()
     collector._vmware_get_hosts(content, metrics, inventory)
 
+    assert _check_properties(batch_fetch_properties.call_args[0][2])
+
     assert metrics['vmware_host_memory_max'].samples[0][1] == {
         'host_name': 'host-1',
         'dc_name': 'dc',
@@ -325,6 +337,8 @@ def test_collect_datastore(batch_fetch_properties):
 
     metrics = collector._create_metric_containers()
     collector._vmware_get_datastores(content, metrics, inventory)
+
+    assert _check_properties(batch_fetch_properties.call_args[0][2])
 
     assert metrics['vmware_datastore_capacity_size'].samples[0][1] == {
         'ds_name': 'datastore-1',
