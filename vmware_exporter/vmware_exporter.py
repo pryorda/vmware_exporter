@@ -59,6 +59,10 @@ class VmwareCollector():
                 'vmware_vm_num_cpu',
                 'VMWare Number of processors in the virtual machine',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+            'vmware_vm_memory_max': GaugeMetricFamily(
+                'vmware_vm_memory_max',
+                'VMWare VM Memory Max availability in Mbytes',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
@@ -586,6 +590,9 @@ class VmwareCollector():
 
             if 'summary.config.numCpu' in row:
                 metrics['vmware_vm_num_cpu'].add_metric(labels, row['summary.config.numCpu'])
+
+            if 'summary.config.memorySizeMB' in row:
+                metrics['vmware_vm_memory_max'].add_metric(labels, row['summary.config.memorySizeMB'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
