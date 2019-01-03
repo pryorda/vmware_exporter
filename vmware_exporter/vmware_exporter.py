@@ -574,21 +574,22 @@ class VmwareCollector():
             dc = child
             hostFolders = dc.hostFolder.childEntity
             for folder in hostFolders:  # Iterate through host folders
-                if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
-                    hosts = folder.host
-                    for host in hosts:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name.rstrip('.')
-                        row = host_inventory[host._moId] = {}
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = folder.name
-                else:  # Unclustered host
-                    for host in folder.host:
-                        row = host_inventory[host._moId] = {}
-                        host_name = host.name.rstrip('.')
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = ''
+                if hasattr(folder, 'host'):
+                    if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
+                        hosts = folder.host
+                        for host in hosts:  # Iterate through Hosts in the Cluster
+                            host_name = host.summary.config.name.rstrip('.')
+                            row = host_inventory[host._moId] = {}
+                            row['name'] = host_name
+                            row['dc'] = dc.name
+                            row['cluster'] = folder.name
+                    else:  # Unclustered host
+                        for host in folder.host:
+                            row = host_inventory[host._moId] = {}
+                            host_name = host.name.rstrip('.')
+                            row['name'] = host_name
+                            row['dc'] = dc.name
+                            row['cluster'] = ''
 
             dsFolders = dc.datastoreFolder.childEntity
             for folder in dsFolders:  # Iterate through datastore folders
