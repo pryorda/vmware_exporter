@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- python -*-
 # -*- coding: utf-8 -*-
+
 """
 Handles collection of metrics for vmware.
 """
@@ -562,6 +563,39 @@ class VmwareCollector():
 
         log("Finished host metrics collection")
 
+    def _vmware_collect_datastores(self, dc, parent=[]):
+        ds_inventory = {}
+        for folder in parent.childEntity:  # Iterate through datastore folders
+            if isinstance(folder, vim.Datastore):  # Unclustered datastore
+                ds_inventory[folder.name] = {}
+                ds_inventory[folder.name]['dc'] = dc.name
+                ds_inventory[folder.name]['ds_cluster'] = ""
+                if isinstance(folder, vim.StoragePod):
+                    ds_inventory[folder.name]['ds_cluster'] = folder.name
+
+            else:  # Folder is a Datastore Cluster
+                ds_inventory.update(self._vmware_collect_datastores(dc, folder))
+
+        return ds_inventory
+
+    def _vmware_collect_hosts(self, dc, parent):
+        host_inventory = {}
+        for folder in parent.childEntity:
+            if hasattr(folder, 'host'):
+                for host in folder.host:  # Iterate through Hosts in the Cluster
+                    host_name = host.summary.config.name.rstrip('.')
+                    row = host_inventory[host._moId] = {}
+                    row[host._moId] = {}
+                    row['name'] = host_name
+                    row['dc'] = dc.name
+                    row['cluster'] = ''
+                    if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
+                        row['cluster'] = folder.name
+            if isinstance(folder, vim.Folder):
+                host_inventory.update(self._vmware_collect_hosts(dc, folder))
+
+        return host_inventory
+
     def _vmware_get_inventory(self, content):
         """
         Get host and datastore inventory (datacenter, cluster) information
@@ -570,38 +604,9 @@ class VmwareCollector():
         ds_inventory = {}
 
         children = content.rootFolder.childEntity
-        for child in children:  # Iterate though DataCenters
-            dc = child
-            hostFolders = dc.hostFolder.childEntity
-            for folder in hostFolders:  # Iterate through host folders
-                if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
-                    hosts = folder.host
-                    for host in hosts:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name.rstrip('.')
-                        row = host_inventory[host._moId] = {}
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = folder.name
-                else:  # Unclustered host
-                    for host in folder.host:
-                        row = host_inventory[host._moId] = {}
-                        host_name = host.name.rstrip('.')
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = ''
-
-            dsFolders = dc.datastoreFolder.childEntity
-            for folder in dsFolders:  # Iterate through datastore folders
-                if isinstance(folder, vim.Datastore):  # Unclustered datastore
-                    ds_inventory[folder.name] = {}
-                    ds_inventory[folder.name]['dc'] = dc.name
-                    ds_inventory[folder.name]['ds_cluster'] = ''
-                else:  # Folder is a Datastore Cluster
-                    datastores = folder.childEntity
-                    for datastore in datastores:
-                        ds_inventory[datastore.name] = {}
-                        ds_inventory[datastore.name]['dc'] = dc.name
-                        ds_inventory[datastore.name]['ds_cluster'] = folder.name
+        for dc in children:  # Iterate though DataCenters
+            host_inventory.update(self._vmware_collect_hosts(dc, dc.hostFolder))
+            ds_inventory.update(self._vmware_collect_datastores(dc, dc.datastoreFolder))
 
         return host_inventory, ds_inventory
 
