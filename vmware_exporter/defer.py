@@ -32,6 +32,9 @@ class BranchingDeferred(defer.Deferred):
     Now we don't have to wait for content to be finished before get_hosts etc
     starts running. It is up to get_hosts to block on the content deferred itself.
 
+    (Thats a contrived example, the real win is allowing host_labels and
+    vm_inventory to run in parallel).
+
     Unfortunately you can't have parallel branches blocking on the same deferred
     like this with a standard Twisted deferred.
 
@@ -69,11 +72,15 @@ class BranchingDeferred(defer.Deferred):
 class run_once_property(object):
 
     '''
-    This is a property descriptor that caches the first result it retrieves. It does this by setting keys in self.__dict__ on the parent class instance. This is fast - python won't even bother running our descriptor next time because attributes in self.__dict__ on a class instance trump descriptors on the class.
+    This is a property descriptor that caches the first result it retrieves. It
+    does this by setting keys in self.__dict__ on the parent class instance.
+    This is fast - python won't even bother running our descriptor next time
+    because attributes in self.__dict__ on a class instance trump descriptors
+    on the class.
 
-    In Twisted a async function returns a Deferred. It is safe to cache the deferred, as if you wait on a fired Deferred you code will just run immediately with the final result.
-
-    This is intended to be used with the Collector class which has a request boud lifecycle (this isn't going to cache stuff forever).
+    This is intended to be used with the Collector class which has a request
+    bound lifecycle (this isn't going to cache stuff forever and cause memory
+    leaks).
     '''
 
     def __init__(self, callable):
@@ -89,5 +96,5 @@ class run_once_property(object):
 
 @defer.inlineCallbacks
 def parallelize(*args):
-     results = yield defer.DeferredList(args, fireOnOneErrback=True)
-     return tuple(r[1] for r in results)
+    results = yield defer.DeferredList(args, fireOnOneErrback=True)
+    return tuple(r[1] for r in results)

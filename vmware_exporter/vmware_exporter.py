@@ -6,7 +6,6 @@ Handles collection of metrics for vmware.
 """
 
 from __future__ import print_function
-from datetime import datetime
 import datetime
 
 # Generic imports
@@ -192,7 +191,8 @@ class VmwareCollector():
 
         yield parallelize(*tasks)
 
-        #yield threads.deferToThread(self._vmware_disconnect)
+        yield self._vmware_disconnect
+
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
         return list(metrics.values())
@@ -247,73 +247,6 @@ class VmwareCollector():
             properties,
         )
         return batch
-
-    @run_once_property
-    @defer.inlineCallbacks
-    def folder_inventory(self):
-        ''' Returns a dict that maps any `vim.Folder` to a Datacenter '''
-        log("Fetching vim.Folder inventory")
-        start = datetime.datetime.utcnow()
-        folders = yield self.batch_fetch_properties(vim.Folder, ['name', 'parent'])
-        log("Fetched vim.Folder inventory (%s)", datetime.datetime.utcnow() - start)
-        return folders
-
-    @run_once_property
-    @defer.inlineCallbacks
-    def folder_to_datacenter(self):
-        log('Building mapping of vim.Folder -> vim.Datacenter')
-        folders = yield self.folder_inventory
-
-        folders_to_dcs = {}
-        for folder in folders.values():
-            cur = folder['id']
-            while not isinstance(folders[cur]['parent'], vim.Datacenter):
-                cur = folders[cur]['parent']._moId
-
-            folders_to_dcs[folder['id']] = folders[cur]['parent']._moId
-
-        log('Built mapping of vim.Folder -> vim.Datacenter')
-        return folders_to_dcs
-
-    @run_once_property
-    @defer.inlineCallbacks
-    def compute_resource_inventory(self):
-        log("Fetching vim.ComputeResource inventory")
-        start = datetime.datetime.utcnow()
-        clusters = yield self.batch_fetch_properties(
-            vim.ComputeResource,
-            ['name', 'parent', 'host', 'datastore']
-        )
-        log("Fetched vim.ComputeResource inventory (%s)", datetime.datetime.utcnow() - start)
-        return clusters
-
-    @run_once_property
-    @defer.inlineCallbacks
-    def compute_resource_by_children(self):
-        result = yield self.compute_resource_inventory
-
-        compute_resource_by_children = {}
-        for resource in result.values():
-            if not 'name' in resource:
-                continue
-            for host in resource.get('host', []):
-                compute_resource_by_children[host._moId] = resource
-            for datastore in resource.get('datastore', []):
-                compute_resource_by_children[datastore._moId] = resource
-
-        return compute_resource_by_children
-
-    @run_once_property
-    @defer.inlineCallbacks
-    def datacenter_inventory(self):
-        log("Fetching vim.Datacenter inventory")
-        start = datetime.datetime.utcnow()
-        dcs = yield self.batch_fetch_properties(
-            vim.Datacenter,
-            ['name'],
-        )
-        log("Fetched vim.Datacenter inventory (%s)", datetime.datetime.utcnow() - start)
-        return dcs
 
     @run_once_property
     @defer.inlineCallbacks
@@ -398,22 +331,69 @@ class VmwareCollector():
 
     @run_once_property
     @defer.inlineCallbacks
-    def host_labels(self):
-        hosts, dcs, compute_resource_by_children, folder_to_datacenter = yield parallelize(
-            self.host_system_inventory,
-            self.datacenter_inventory,
-            self.compute_resource_by_children,
-            self.folder_to_datacenter
-        )
+    def datacenter_inventory(self):
+        content = yield self.content
+        # FIXME: It's unclear if this is operating on data already fetched in
+        # content or if this is doing stealth HTTP requests
+        # Right now we assume it does stealth lookups
+        datacenters = yield threads.deferToThread(lambda: content.rootFolder.childEntity)
+        return datacenters
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def datastore_labels(self):
+
+        def _collect(dc, node):
+            inventory = {}
+            for folder in node.childEntity:  # Iterate through datastore folders
+                if isinstance(folder, vim.Datastore):  # Unclustered datastore
+                    row = inventory[folder.name] = [
+                        folder.name,
+                        dc.name,
+                    ]
+                    if isinstance(node, vim.StoragePod):
+                        row.append(node.name)
+                    else:
+                        row.append('')
+
+                else:  # Folder is a Datastore Cluster
+                    inventory.update(_collect(dc, folder))
+            return inventory
 
         labels = {}
-        for moid, host in hosts.items():
-            comp_resource = compute_resource_by_children[host['id']]
-            labels[moid] = [
-                host['name'],
-                dcs[folder_to_datacenter[comp_resource['parent']._moId]]['name'],
-                comp_resource.get('name', ''),
-            ]
+        dcs = yield self.datacenter_inventory
+        for dc in dcs:
+            result = yield threads.deferToThread(lambda: _collect(dc, dc.datastoreFolder))
+            labels.update(result)
+
+        return labels
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def host_labels(self):
+
+        def _collect(dc, node):
+            host_inventory = {}
+            for folder in node.childEntity:
+                if hasattr(folder, 'host'):
+                    for host in folder.host:  # Iterate through Hosts in the Cluster
+                        host_name = host.summary.config.name.rstrip('.')
+                        host_inventory[host._moId] = [
+                            host_name,
+                            dc.name,
+                            folder.name if isinstance(folder, vim.ClusterComputeResource) else ''
+                        ]
+
+                if isinstance(folder, vim.Folder):
+                    host_inventory.extend(_collect(dc, folder))
+
+            return host_inventory
+
+        labels = {}
+        dcs = yield self.datacenter_inventory
+        for dc in dcs:
+            result = yield threads.deferToThread(lambda: _collect(dc, dc.hostFolder))
+            labels.update(result)
 
         return labels
 
@@ -445,11 +425,17 @@ class VmwareCollector():
             counter_info[counter_full] = counter.key
         return counter_info
 
+    @defer.inlineCallbacks
     def _vmware_disconnect(self):
         """
         Disconnect from Vcenter
         """
-        connect.Disconnect(self.connection)
+        connection = yield self.connection
+        yield threads.deferToThread(
+            connect.Disconnect,
+            connection,
+        )
+        del self.connection
 
     def _vmware_full_snapshots_list(self, snapshots):
         """
@@ -471,11 +457,11 @@ class VmwareCollector():
         """
 
         log("Starting datastore metrics collection")
-        results, inventory = yield parallelize(self.datastore_inventory, self._vmware_get_datastore_inventory())
+        results, datastore_labels = yield parallelize(self.datastore_inventory, self.datastore_labels)
 
         for datastore_id, datastore in results.items():
             name = datastore['name']
-            labels = [name, inventory[name]['dc'], inventory[name]['ds_cluster']]
+            labels = datastore_labels[name]
 
             ds_capacity = float(datastore.get('summary.capacity', 0))
             ds_freespace = float(datastore.get('summary.freeSpace', 0))
@@ -632,7 +618,6 @@ class VmwareCollector():
         results, host_labels = yield parallelize(self.host_system_inventory, self.host_labels)
 
         for host_id, host in results.items():
-            name = host['name']
             labels = host_labels[host_id]
 
             # Power state
@@ -692,34 +677,6 @@ class VmwareCollector():
 
         log("Finished host metrics collection")
         return results
-
-    @defer.inlineCallbacks
-    def _vmware_get_datastore_inventory(self):
-        """
-        Get host and datastore inventory (datacenter, cluster) information
-        """
-        log("Starting inventory collection")
-        ds_inventory = {}
-        content = yield self.content
-        children = content.rootFolder.childEntity
-
-        for child in children:  # Iterate though DataCenters
-            dc = child
-            dsFolders = dc.datastoreFolder.childEntity
-            for folder in dsFolders:  # Iterate through datastore folders
-                if isinstance(folder, vim.Datastore):  # Unclustered datastore
-                    ds_inventory[folder.name] = {}
-                    ds_inventory[folder.name]['dc'] = dc.name
-                    ds_inventory[folder.name]['ds_cluster'] = ''
-                else:  # Folder is a Datastore Cluster
-                    datastores = folder.childEntity
-                    for datastore in datastores:
-                        ds_inventory[datastore.name] = {}
-                        ds_inventory[datastore.name]['dc'] = dc.name
-                        ds_inventory[datastore.name]['ds_cluster'] = folder.name
-
-        log("Finished inventory collection")
-        return ds_inventory
 
 
 class ListCollector(object):
