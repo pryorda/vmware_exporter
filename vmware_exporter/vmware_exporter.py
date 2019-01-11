@@ -433,6 +433,11 @@ class VmwareCollector():
             )
 
         for moid, row in virtual_machines.items():
+            # Ignore vm if field "runtime.host" does not exist
+            # It will happen during a VM is cloning
+            if 'runtime.host' not in row:
+                continue
+
             host_moid = row['runtime.host']._moId
 
             labels = self._labels[moid] = [
