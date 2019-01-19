@@ -28,6 +28,7 @@ jobs:
     - git config --global user.email "semantic-release@travis"
     - pip install python-semantic-release
     - semantic-release publish
+    - semantic-release changelog --post
 env:
   global:
   - secure: qC8DzqyxBiBBBUGLuNOO2O6XgmUaLhTi1ArfhYxVDjv5vTJvCNO1DpXfFqXJGR3wrRKe1DOddXildOEL7d7xX6Y3b+k3urnPfqnAM/Hvr0djqDWRPuZl89Fg1mrAvBV3LL/ZsrWKHDc3keD/vTcPAsrnJl3MdS5fMKBwEuDmhpnNdGk0Wty357WxWBaz1JYBoGaqbw0JWAAA5UdfyF3aOybRONXcVqnxqSeR43drBLSdAwBJVVhyv3IYX3HRMCP8vXz43LqWK16z8KVPyrwwzE2WXlq+2FypLtM4A/XOssx4M77MefIMC6ydAimLh33gYtaiuO7+fYipLlOlChNO/pxX43FM+7UuKWaL9MWaUvypmOGo+jp/y6PzbIDz/RH4T8mjaswIe22nyTR/Gbtph/58CISGGEtRNKXjE4/OD1gjodcNS2NkwNQimxjHv30rH4X4Z+JYU+I3iobpmWJ5WJsyMnS3jWkRluRgA+8djuRviK4sdIBwk2qC2AGuZ1c6EJbEN7f3sRIgtQMYd1JAiZVwYmRa08hpulvrZAzxqx/PfkaEOBFQrBwISkD2Oq3MGlDSV+sUe53TmRM1KO9y5fC8XnJHRJv5mw+iWaEIImP2muXufdm101oXNzHbs3hC2kYIFD+u1BoVDgWACUIkj2oRxMJ4p3ynlbccALUc8y0=
