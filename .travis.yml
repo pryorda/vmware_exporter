@@ -8,8 +8,12 @@ jobs:
     python:
     - '3.6'
     cache: pip
+    sudo: required
     script:
     - pip install -e . -r requirements.txt -r requirements-tests.txt
+    - grep -Rl packagecloud /etc/apt/ |sudo xargs rm -vf
+    - sudo apt-get update && sudo apt-get install -y nodejs npm && npm install -g dockerfilelint
+    - dockerfilelint ./Dockerfile
     - flake8 vmware_exporter tests
     - pytest --cov=. tests/unit
     after_success:
