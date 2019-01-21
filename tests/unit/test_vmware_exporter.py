@@ -659,6 +659,64 @@ def test_vmware_resource_async_render_GET_no_target():
     request.finish.assert_called_with()
 
 
+@pytest_twisted.inlineCallbacks
+def test_vmware_resource_async_render_GET_section():
+    request = mock.Mock()
+    request.args = {
+        b'target': [b'this-is-ignored'],
+        b'section': [b'mysection'],
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    resource = VMWareMetricsResource(args)
+    resource.config = {
+        'default': {
+            'ignore_ssl': False,
+            'vsphere_host': '127.0.0.10',
+            'vsphere_user': 'username1',
+            'vsphere_password': 'password1',
+            'collect_only': {
+                'datastores': True,
+                'hosts': True,
+                'snapshots': True,
+                'vmguests': True,
+                'vms': True,
+            }
+        },
+        'mysection': {
+            'ignore_ssl': 'On',
+            'vsphere_host': '127.0.0.11',
+            'vsphere_user': 'username2',
+            'vsphere_password': 'password2',
+            'collect_only': {
+                'datastores': True,
+                'hosts': True,
+                'snapshots': True,
+                'vmguests': True,
+                'vms': True,
+            }
+        }
+    }
+
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+        Collector.return_value.collect.return_value = []
+        yield resource._async_render_GET(request)
+
+    Collector.assert_called_with(
+        '127.0.0.11',
+        'username2',
+        'password2',
+        resource.config['mysection']['collect_only'],
+        'On'
+    )
+
+    request.setResponseCode.assert_called_with(200)
+    request.write.assert_called_with(b'')
+    request.finish.assert_called_with()
+
+
 def test_config_env_multiple_sections():
     env = {
         'VSPHERE_HOST': '127.0.0.10',

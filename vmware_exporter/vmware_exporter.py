@@ -777,7 +777,7 @@ class VMWareMetricsResource(Resource):
     @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
-        section = request.args.get('section', ['default'])[0]
+        section = request.args.get(b'section', [b'default'])[0].decode('utf-8')
         if section not in self.config.keys():
             log("{} is not a valid section, using default".format(section))
             section = 'default'
