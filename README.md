@@ -12,13 +12,14 @@ Get VMware vCenter information:
 ![Docker Stars](https://img.shields.io/docker/stars/pryorda/vmware_exporter.svg)
 ![Docker Pulls](https://img.shields.io/docker/pulls/pryorda/vmware_exporter.svg)
 ![Docker Automated](https://img.shields.io/docker/automated/pryorda/vmware_exporter.svg)
+
+[![Travis Build Status](https://travis-ci.org/pryorda/vmware_exporter.svg?branch=master)](https://travis-ci.org/pryorda/vmware_exporter)
 ![Docker Build](https://img.shields.io/docker/build/pryorda/vmware_exporter.svg)
 [![Join the chat at https://gitter.im/vmware_exporter/community](https://badges.gitter.im/vmware_exporter/community.svg)](https://gitter.im/vmware_exporter/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Usage
 
-- Install with `$ python setup.py install` (Installing from pip will install an old version. This is likely something I wont pursue)
--- TODO: update pip `$ pip install vmware_exporter`
+- Install with `$ python setup.py install` or via pip `$ pip install vmware_exporter`. The docker command below is preferred.
 - Create `config.yml` based on the configuration section. Some variables can be passed as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
 - Go to http://localhost:9272/metrics?vsphere_host=vcenter.company.com to see metrics
