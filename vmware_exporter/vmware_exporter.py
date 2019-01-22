@@ -322,6 +322,7 @@ class VmwareCollector():
                 'runtime.powerState',
                 'runtime.bootTime',
                 'summary.config.numCpu',
+                'summary.config.memorySizeMB',
             ])
 
         if self.collect_only['vmguests'] is True:
