@@ -73,6 +73,18 @@ class VmwareCollector():
                 'vmware_vm_guest_disk_capacity',
                 'Disk capacity metric per partition',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'partition', ]),
+            'vmware_vm_guest_tools_running_status': GaugeMetricFamily(
+                'vmware_vm_guest_tools_running_status',
+                'VM tools running status',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_status', ]),
+            'vmware_vm_guest_tools_version': GaugeMetricFamily(
+                'vmware_vm_guest_tools_version',
+                'VM tools version',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_version', ]),
+            'vmware_vm_guest_tools_version_status': GaugeMetricFamily(
+                'vmware_vm_guest_tools_version_status',
+                'VM tools version status',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_version_status', ]),
             }
         metric_list['snapshots'] = {
             'vmware_vm_snapshots': GaugeMetricFamily(
@@ -326,7 +338,12 @@ class VmwareCollector():
             ])
 
         if self.collect_only['vmguests'] is True:
-            properties.append('guest.disk')
+            properties.extend([
+                'guest.disk',
+                'guest.toolsStatus',
+                'guest.toolsVersion',
+                'guest.toolsVersionStatus2',
+            ])
 
         if self.collect_only['snapshots'] is True:
             properties.append('snapshot')
@@ -603,6 +620,21 @@ class VmwareCollector():
                     metrics['vmware_vm_guest_disk_capacity'].add_metric(
                         labels + [disk.diskPath], disk.capacity
                     )
+
+            if 'guest.toolsStatus' in row:
+                metrics['vmware_vm_guest_tools_running_status'].add_metric(
+                    labels + [row['guest.toolsStatus']], 1
+                )
+
+            if 'guest.toolsVersion' in row:
+                metrics['vmware_vm_guest_tools_version'].add_metric(
+                    labels + [row['guest.toolsVersion']], 1
+                )
+
+            if 'guest.toolsVersionStatus2' in row:
+                metrics['vmware_vm_guest_tools_version_status'].add_metric(
+                    labels + [row['guest.toolsVersionStatus2']], 1
+                )
 
             if 'snapshot' in row:
                 snapshots = self._vmware_full_snapshots_list(row['snapshot'].rootSnapshotList)

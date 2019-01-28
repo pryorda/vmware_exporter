@@ -84,6 +84,9 @@ def test_collect_vms():
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
         yield collector._vmware_get_vms(metrics)
@@ -115,6 +118,34 @@ def test_collect_vms():
         'partition': '/boot',
     }
     assert metrics['vmware_vm_guest_disk_capacity'].samples[0][2] == 100
+
+    # VM tools info (vmguest)
+    assert metrics['vmware_vm_guest_tools_running_status'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'tools_status': 'toolsOk',
+    }
+    assert metrics['vmware_vm_guest_tools_running_status'].samples[0][2] == 1.0
+
+    assert metrics['vmware_vm_guest_tools_version'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'tools_version': '10336',
+    }
+    assert metrics['vmware_vm_guest_tools_version'].samples[0][2] == 1.0
+
+    assert metrics['vmware_vm_guest_tools_version_status'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+        'tools_version_status': 'guestToolsUnmanaged',
+    }
+    assert metrics['vmware_vm_guest_tools_version_status'].samples[0][2] == 1.0
 
     # Snapshots
     assert metrics['vmware_vm_snapshots'].samples[0][1] == {
