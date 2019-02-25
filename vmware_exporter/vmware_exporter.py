@@ -63,7 +63,7 @@ class VmwareCollector():
                 'vmware_vm_memory_max',
                 'VMWare VM Memory Max availability in Mbytes',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
-            }
+        }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
                 'vmware_vm_guest_disk_free',
@@ -85,7 +85,7 @@ class VmwareCollector():
                 'vmware_vm_guest_tools_version_status',
                 'VM tools version status',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_version_status', ]),
-            }
+        }
         metric_list['snapshots'] = {
             'vmware_vm_snapshots': GaugeMetricFamily(
                 'vmware_vm_snapshots',
@@ -95,7 +95,7 @@ class VmwareCollector():
                 'vmware_vm_snapshot_timestamp_seconds',
                 'VMWare Snapshot creation time in seconds',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'vm_snapshot_name']),
-            }
+        }
         metric_list['datastores'] = {
             'vmware_datastore_capacity_size': GaugeMetricFamily(
                 'vmware_datastore_capacity_size',
@@ -133,7 +133,7 @@ class VmwareCollector():
                 'vmware_datastore_accessible',
                 'VMWare datastore accessible (true / false)',
                 labels=['ds_name', 'dc_name', 'ds_cluster'])
-            }
+        }
         metric_list['hosts'] = {
             'vmware_host_power_state': GaugeMetricFamily(
                 'vmware_host_power_state',
@@ -171,7 +171,7 @@ class VmwareCollector():
                 'vmware_host_memory_max',
                 'VMWare Host Memory Max availability in Mbytes',
                 labels=['host_name', 'dc_name', 'cluster_name']),
-            }
+        }
 
         metrics = {}
         for key, value in self.collect_only.items():
@@ -532,8 +532,13 @@ class VmwareCollector():
             'cpu.usage.average',
             'cpu.usagemhz.average',
             'disk.usage.average',
+            'disk.numberRead.summation',
+            'disk.numberWrite.summation',
             'disk.read.average',
             'disk.write.average',
+            'disk.totalLatency.average',
+            'disk.totalReadLatency.average',
+            'disk.totalWriteLatency.average',
             'mem.usage.average',
             'net.received.average',
             'net.transmitted.average',

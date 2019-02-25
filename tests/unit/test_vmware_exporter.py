@@ -225,9 +225,14 @@ def test_collect_vm_perf():
         'disk.usage.average': 4,
         'disk.read.average': 5,
         'disk.write.average': 6,
-        'mem.usage.average': 7,
-        'net.received.average': 8,
-        'net.transmitted.average': 9,
+        'disk.numberRead.summation': 7,
+        'disk.numberWrite.summation': 8,
+        'disk.totalLatency.average': 9,
+        'disk.totalReadLatency.average': 10,
+        'disk.totalWriteLatency.average': 11,
+        'mem.usage.average': 12,
+        'net.received.average': 13,
+        'net.transmitted.average': 14,
     })
 
     collector.__dict__['vm_labels'] = _succeed({
