@@ -6,6 +6,7 @@ from pyVmomi import vmodl
 def get_bool_env(key, default=None):
     return bool(os.environ.get(key, default))
 
+
 def batch_fetch_properties(content, obj_type, properties):
     view_ref = content.viewManager.CreateContainerView(
         container=content.rootFolder,
