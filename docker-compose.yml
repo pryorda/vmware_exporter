@@ -1,7 +1,7 @@
 version: '2'
 services:
   vmware_exporter:
-    image: pryorda/vmware_exporter:v0.3.1
+    image: pryorda/vmware_exporter:v0.2.6
     ports:
         - "9275:9272"
     environment:
