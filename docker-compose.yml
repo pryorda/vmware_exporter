@@ -1,0 +1,14 @@
+version: '2'
+services:
+  vmware_exporter:
+    image: pryorda/vmware_exporter:v0.3.1
+    ports:
+        - "9275:9272"
+    environment:
+        VSPHERE_HOST: "vcenter-host"
+        VSPHERE_USER: "username"
+        VSPHERE_PASSWORD: "P@ssw0rd"
+        VSPHERE_IGNORE_SSL: "True"
+        VSPHERE_COLLECT_VMS: "False"
+        VSPHERE_COLLECT_VMGUESTS: "False"
+    restart: always
