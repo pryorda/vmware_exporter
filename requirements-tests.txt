@@ -1,6 +1,6 @@
-pytest-docker-tools
-pytest
-pytest-cov
-pytest-twisted
-codecov
-flake8
+pytest_docker_tools==0.2.0
+pytest==3.3
+pytest-cov==2.6.0
+pytest-twisted==1.8
+codecov==2.0.15
+flake8==3.6.0

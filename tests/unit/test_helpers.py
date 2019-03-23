@@ -1,8 +1,10 @@
+import os
+
 from unittest import mock
 
 from pyVmomi import vim
 
-from vmware_exporter.helpers import batch_fetch_properties
+from vmware_exporter.helpers import batch_fetch_properties, get_bool_env
 
 
 class FakeView(vim.ManagedObject):
@@ -12,6 +14,22 @@ class FakeView(vim.ManagedObject):
 
     def Destroy(self):
         pass
+
+
+def test_get_bool_env_with_default_value():
+    value = get_bool_env('INEXISTENT_ENV', True)
+
+    assert value
+
+
+def test_get_bool_env_with_a_valid_env():
+    key = "TEST_BOOLEAN_VALUE"
+
+    os.environ[key] = "True"
+
+    value = get_bool_env(key, False)
+
+    assert value
 
 
 def test_batch_fetch_properties():

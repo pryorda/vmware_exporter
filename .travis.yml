@@ -1,27 +1,40 @@
+language: python
+python:
+- 3.6
+cache: pip
 jobs:
   include:
-    - language: python
-      python:
-        - "3.6"
-
-      cache: pip
-
-      script:
-        - pip install -e . -r requirements.txt -r requirements-tests.txt
-        - flake8 vmware_exporter tests
-        - pytest --cov=. tests/unit
-
-      after_success:
-        - codecov
-
-    - language: python
-      python: "3.6"
-      cache: pip
-
-      sudo: required
-      services:
-      - docker
-
-      script:
-      - pip install -e . -r requirements.txt -r requirements-tests.txt
-      - pytest tests/integration
+  - language: python
+    python:
+    - '3.6'
+    cache: pip
+    sudo: required
+    script:
+    - pip install -e . -r requirements.txt -r requirements-tests.txt
+    - grep -Rl packagecloud /etc/apt/ |sudo xargs rm -vf
+    - sudo apt-get update && sudo apt-get install -y nodejs npm && npm install -g dockerfilelint
+    - dockerfilelint ./Dockerfile
+    - flake8 vmware_exporter tests
+    - pytest --cov=. tests/unit
+    after_success:
+    - codecov
+  - language: python
+    python: '3.6'
+    cache: pip
+    sudo: required
+    services:
+    - docker
+    script:
+    - pip install -e . -r requirements.txt -r requirements-tests.txt
+    - pytest tests/integration
+    after_success:
+    - git config --global user.name "semantic-release (via TravisCI)"
+    - git config --global user.email "semantic-release@travis"
+    - pip install python-semantic-release
+    - semantic-release publish
+    - semantic-release changelog --post
+env:
+  global:
+  - secure: qC8DzqyxBiBBBUGLuNOO2O6XgmUaLhTi1ArfhYxVDjv5vTJvCNO1DpXfFqXJGR3wrRKe1DOddXildOEL7d7xX6Y3b+k3urnPfqnAM/Hvr0djqDWRPuZl89Fg1mrAvBV3LL/ZsrWKHDc3keD/vTcPAsrnJl3MdS5fMKBwEuDmhpnNdGk0Wty357WxWBaz1JYBoGaqbw0JWAAA5UdfyF3aOybRONXcVqnxqSeR43drBLSdAwBJVVhyv3IYX3HRMCP8vXz43LqWK16z8KVPyrwwzE2WXlq+2FypLtM4A/XOssx4M77MefIMC6ydAimLh33gYtaiuO7+fYipLlOlChNO/pxX43FM+7UuKWaL9MWaUvypmOGo+jp/y6PzbIDz/RH4T8mjaswIe22nyTR/Gbtph/58CISGGEtRNKXjE4/OD1gjodcNS2NkwNQimxjHv30rH4X4Z+JYU+I3iobpmWJ5WJsyMnS3jWkRluRgA+8djuRviK4sdIBwk2qC2AGuZ1c6EJbEN7f3sRIgtQMYd1JAiZVwYmRa08hpulvrZAzxqx/PfkaEOBFQrBwISkD2Oq3MGlDSV+sUe53TmRM1KO9y5fC8XnJHRJv5mw+iWaEIImP2muXufdm101oXNzHbs3hC2kYIFD+u1BoVDgWACUIkj2oRxMJ4p3ynlbccALUc8y0=
+  - secure: GWTsOe1CGvEi/n7k+c91UisQAf7UcofZKeO8EI6n0abRPQii0rfMIQ7fS2KFUyR7I/nk02YrZcd1etAGTVthc9K3YrUhM68eu+ztlUX6Sr5SM6PseYWkgf+G0I+IIoCpqSjwL/9J4jTP1hvNlP7nofUbo43OyEEX7ndNr1r8Ab0Zu48VYFj3sb3whMovakEVH5SIUe001Jix4wIZ9TYUNnSReNzMb8M+s/xK+RUnT3SYYutBbw0Dc+wTaaW/A5g1kSK35VZZ7OWN+l1Sc0xCa9tfJYKuxXFuyKmBRe3z1WUk+4yQxbGKQ0s47LpICo2qKm2iYoKVoWAGXBtWKCbLDoVy1tRTE3bcBMFbNsHXHT4+1F6djJjfr8ndFAoLpXyVBPsD3/ik8k7GzC7Gvam1fzCisjPDZFbdUpUCXU5HDrknB6yKNvekkltgkGajS0rzY6UPPiUdGccoXMngrS8FhD7zPxqfCtbK9WYBM5yXZ/kCgCqy0+dMu0+1iUR8h4hoQxonp2c7cAEnHMcd90o0IK8NEZMNpu5b/F+34/wj3cy+QYpE99pF5ztnPQfzUPZzR7rAl/TzesDLFVQceykYNczoD1YDMUFareV+nyzZp/W4gECaRkqgZxxfYcSUXQCaQfHWSvSdHHLaoIMzQi7lL1c6YxmWx8UireQEChbKfyw=
+  - secure: sbOF44qJH2JyblAVIgbVZ/xmIuF9+ypzmyB6EOvbMagAdcySxYEz7BIadIMtP8wWGM2TZQKFxUTJhJblSBbKAKdC/6o6RLUy/MxyCShJafr9NkBhhbLIzYdVGOC5TjswLBXtvNdTbyUgEu6NQnkBjVoBm8FXfhWxRWzJ7SJHSJYMOB8Fnr7gjxiMbenQUJYfRtVowmExrHq0WxyvNMxqKEW4qWFU3AwAZEc7M5hvf+Upju/rnHsBRZrm/RvfRdhQnAXPVaSJXMzy5Msa6KheqswczSSlLTgpUxCF412EXD2rZsjG3sRFMLnokVw983z2Kw4ov3Y7eYHBpmyz7wg9ICD4TdlbbAPJJIgY7lZzYYtt2sQ6DhLwsNZyCCXBGn6b8tmNiOXdRkZJU7aAW6yuXDSx6RZCRNfn4JFFt1o9yzEbea6oKfovB7cy/3d3ty4+3ud9ozXB9G/m7UzsjCvry7gIxEv2rVYtdNeOvslyftXXXzPl4IRJv99WcSmum0nuOpQrlvOzq+1yQNa3ImCRBkFmqUUa34FObzIaGegq4fD3kMKz9N+impQRvNI9WiDqtRvBJTCaP28ibUainxslW4Ep4rcmWo6synf2q6aWTrUPxXl0jvd6eIuCCvWPH7uLXZhL0dYm5ID/9BOCd3TZcvVjBKW0xWkFafNyt2USJto=

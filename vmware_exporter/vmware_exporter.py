@@ -6,7 +6,7 @@ Handles collection of metrics for vmware.
 """
 
 from __future__ import print_function
-from datetime import datetime
+import datetime
 
 # Generic imports
 import argparse
@@ -31,7 +31,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties
+from .helpers import batch_fetch_properties, get_bool_env
+from .defer import parallelize, run_once_property
 
 
 class VmwareCollector():
@@ -58,6 +59,10 @@ class VmwareCollector():
                 'vmware_vm_num_cpu',
                 'VMWare Number of processors in the virtual machine',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+            'vmware_vm_memory_max': GaugeMetricFamily(
+                'vmware_vm_memory_max',
+                'VMWare VM Memory Max availability in Mbytes',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
@@ -68,6 +73,18 @@ class VmwareCollector():
                 'vmware_vm_guest_disk_capacity',
                 'Disk capacity metric per partition',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'partition', ]),
+            'vmware_vm_guest_tools_running_status': GaugeMetricFamily(
+                'vmware_vm_guest_tools_running_status',
+                'VM tools running status',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_status', ]),
+            'vmware_vm_guest_tools_version': GaugeMetricFamily(
+                'vmware_vm_guest_tools_version',
+                'VM tools version',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_version', ]),
+            'vmware_vm_guest_tools_version_status': GaugeMetricFamily(
+                'vmware_vm_guest_tools_version_status',
+                'VM tools version status',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'tools_version_status', ]),
             }
         metric_list['snapshots'] = {
             'vmware_vm_snapshots': GaugeMetricFamily(
@@ -142,6 +159,10 @@ class VmwareCollector():
                 'vmware_host_cpu_max',
                 'VMWare Host CPU max availability in Mhz',
                 labels=['host_name', 'dc_name', 'cluster_name']),
+            'vmware_host_num_cpu': GaugeMetricFamily(
+                'vmware_host_num_cpu',
+                'VMWare Number of processors in the Host',
+                labels=['host_name', 'dc_name', 'cluster_name']),
             'vmware_host_memory_usage': GaugeMetricFamily(
                 'vmware_host_memory_usage',
                 'VMWare Host Memory usage in Mbytes',
@@ -164,27 +185,9 @@ class VmwareCollector():
         """ collects metrics """
         vsphere_host = self.host
 
-        host_inventory = {}
-        ds_inventory = {}
-
         metrics = self._create_metric_containers()
 
         log("Start collecting metrics from {0}".format(vsphere_host))
-
-        self.vmware_connection = yield threads.deferToThread(self._vmware_connect)
-        if not self.vmware_connection:
-            log(b"Cannot connect to vmware")
-            return
-
-        content = yield threads.deferToThread(self.vmware_connection.RetrieveContent)
-
-        # Generate inventory dict
-        log("Starting inventory collection")
-        host_inventory, ds_inventory = yield threads.deferToThread(
-            self._vmware_get_inventory,
-            content,
-        )
-        log("Finished inventory collection")
 
         self._labels = {}
 
@@ -194,39 +197,33 @@ class VmwareCollector():
 
         # Collect vm / snahpshot / vmguest metrics
         if collect_only['vmguests'] is True or collect_only['vms'] is True or collect_only['snapshots'] is True:
-            tasks.append(self._vmware_get_vms(content, metrics, host_inventory))
+            tasks.append(self._vmware_get_vms(metrics))
+
+        if collect_only['vms'] is True:
+            tasks.append(self._vmware_get_vm_perf_manager_metrics(metrics))
 
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            tasks.append(threads.deferToThread(
-                self._vmware_get_datastores,
-                content,
-                metrics,
-                ds_inventory,
-            ))
+            tasks.append(self._vmware_get_datastores(metrics,))
 
-        # Collect Hosts metrics
         if collect_only['hosts'] is True:
-            tasks.append(threads.deferToThread(
-                self._vmware_get_hosts,
-                content,
-                metrics,
-                host_inventory,
-            ))
+            tasks.append(self._vmware_get_hosts(metrics))
 
-        # Waits for these to finish
-        yield defer.DeferredList(tasks, fireOnOneErrback=True)
+        yield parallelize(*tasks)
 
-        yield threads.deferToThread(self._vmware_disconnect)
+        yield self._vmware_disconnect
+
         log("Finished collecting metrics from {0}".format(vsphere_host))
 
-        return list(metrics.values())
+        return list(metrics.values())   # noqa: F705
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
-        return (my_date - datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds()
+        return (my_date - datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)).total_seconds()
 
-    def _vmware_connect(self):
+    @run_once_property
+    @defer.inlineCallbacks
+    def connection(self):
         """
         Connect to Vcenter and get connection
         """
@@ -235,7 +232,8 @@ class VmwareCollector():
             context = ssl._create_unverified_context()
 
         try:
-            vmware_connect = connect.SmartConnect(
+            vmware_connect = yield threads.deferToThread(
+                connect.SmartConnect,
                 host=self.host,
                 user=self.username,
                 pwd=self.password,
@@ -247,24 +245,223 @@ class VmwareCollector():
             log("Caught vmodl fault: " + error.msg)
             return None
 
-    def _vmware_disconnect(self):
-        """
-        Disconnect from Vcenter
-        """
-        connect.Disconnect(self.vmware_connection)
+    @run_once_property
+    @defer.inlineCallbacks
+    def content(self):
+        log("Retrieving service instance content")
+        connection = yield self.connection
+        content = yield threads.deferToThread(
+            connection.RetrieveContent
+        )
 
-    def _vmware_perf_metrics(self, content):
+        log("Retrieved service instance content")
+        return content
+
+    @defer.inlineCallbacks
+    def batch_fetch_properties(self, objtype, properties):
+        content = yield self.content
+        batch = yield threads.deferToThread(
+            batch_fetch_properties,
+            content,
+            objtype,
+            properties,
+        )
+        return batch
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def datastore_inventory(self):
+        log("Fetching vim.Datastore inventory")
+        start = datetime.datetime.utcnow()
+        properties = [
+            'name',
+            'summary.capacity',
+            'summary.freeSpace',
+            'summary.uncommitted',
+            'summary.maintenanceMode',
+            'summary.type',
+            'summary.accessible',
+            'host',
+            'vm',
+        ]
+
+        datastores = yield self.batch_fetch_properties(
+            vim.Datastore,
+            properties
+        )
+        log("Fetched vim.Datastore inventory (%s)", datetime.datetime.utcnow() - start)
+        return datastores
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def host_system_inventory(self):
+        log("Fetching vim.HostSystem inventory")
+        start = datetime.datetime.utcnow()
+        properties = [
+            'name',
+            'parent',
+            'summary.hardware.numCpuCores',
+            'summary.hardware.cpuMhz',
+            'summary.hardware.memorySize',
+            'runtime.powerState',
+            'runtime.bootTime',
+            'runtime.connectionState',
+            'runtime.inMaintenanceMode',
+            'summary.quickStats.overallCpuUsage',
+            'summary.quickStats.overallMemoryUsage',
+        ]
+
+        host_systems = yield self.batch_fetch_properties(
+            vim.HostSystem,
+            properties,
+        )
+        log("Fetched vim.HostSystem inventory (%s)", datetime.datetime.utcnow() - start)
+        return host_systems
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def vm_inventory(self):
+        log("Fetching vim.VirtualMachine inventory")
+        start = datetime.datetime.utcnow()
+        properties = [
+            'name',
+            'runtime.host',
+            'parent',
+        ]
+
+        if self.collect_only['vms'] is True:
+            properties.extend([
+                'runtime.powerState',
+                'runtime.bootTime',
+                'summary.config.numCpu',
+                'summary.config.memorySizeMB',
+            ])
+
+        if self.collect_only['vmguests'] is True:
+            properties.extend([
+                'guest.disk',
+                'guest.toolsStatus',
+                'guest.toolsVersion',
+                'guest.toolsVersionStatus2',
+            ])
+
+        if self.collect_only['snapshots'] is True:
+            properties.append('snapshot')
+
+        virtual_machines = yield self.batch_fetch_properties(
+            vim.VirtualMachine,
+            properties,
+        )
+        log("Fetched vim.VirtualMachine inventory (%s)", datetime.datetime.utcnow() - start)
+        return virtual_machines
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def datacenter_inventory(self):
+        content = yield self.content
+        # FIXME: It's unclear if this is operating on data already fetched in
+        # content or if this is doing stealth HTTP requests
+        # Right now we assume it does stealth lookups
+        datacenters = yield threads.deferToThread(lambda: content.rootFolder.childEntity)
+        return datacenters
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def datastore_labels(self):
+
+        def _collect(dc, node):
+            inventory = {}
+            for folder in node.childEntity:  # Iterate through datastore folders
+                if isinstance(folder, vim.Datastore):  # Unclustered datastore
+                    row = inventory[folder.name] = [
+                        folder.name,
+                        dc.name,
+                    ]
+                    if isinstance(node, vim.StoragePod):
+                        row.append(node.name)
+                    else:
+                        row.append('')
+
+                else:  # Folder is a Datastore Cluster
+                    inventory.update(_collect(dc, folder))
+            return inventory
+
+        labels = {}
+        dcs = yield self.datacenter_inventory
+        for dc in dcs:
+            result = yield threads.deferToThread(lambda: _collect(dc, dc.datastoreFolder))
+            labels.update(result)
+
+        return labels
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def host_labels(self):
+
+        def _collect(dc, node):
+            host_inventory = {}
+            for folder in node.childEntity:
+                if hasattr(folder, 'host'):
+                    for host in folder.host:  # Iterate through Hosts in the Cluster
+                        host_name = host.summary.config.name.rstrip('.')
+                        host_inventory[host._moId] = [
+                            host_name,
+                            dc.name,
+                            folder.name if isinstance(folder, vim.ClusterComputeResource) else ''
+                        ]
+
+                if isinstance(folder, vim.Folder):
+                    host_inventory.extend(_collect(dc, folder))
+
+            return host_inventory
+
+        labels = {}
+        dcs = yield self.datacenter_inventory
+        for dc in dcs:
+            result = yield threads.deferToThread(lambda: _collect(dc, dc.hostFolder))
+            labels.update(result)
+
+        return labels
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def vm_labels(self):
+        virtual_machines, host_labels = yield parallelize(self.vm_inventory, self.host_labels)
+
+        labels = {}
+        for moid, row in virtual_machines.items():
+            host_moid = row['runtime.host']._moId
+            labels[moid] = [row['name']] + host_labels[host_moid]
+
+        return labels
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def counter_ids(self):
         """
         create a mapping from performance stats to their counterIDs
         counter_info: [performance stat => counterId]
         performance stat example: cpu.usagemhz.LATEST
         """
+        content = yield self.content
         counter_info = {}
         for counter in content.perfManager.perfCounter:
             prefix = counter.groupInfo.key
             counter_full = "{}.{}.{}".format(prefix, counter.nameInfo.key, counter.rollupType)
             counter_info[counter_full] = counter.key
         return counter_info
+
+    @defer.inlineCallbacks
+    def _vmware_disconnect(self):
+        """
+        Disconnect from Vcenter
+        """
+        connection = yield self.connection
+        yield threads.deferToThread(
+            connect.Disconnect,
+            connection,
+        )
+        del self.connection
 
     def _vmware_full_snapshots_list(self, snapshots):
         """
@@ -279,29 +476,18 @@ class VmwareCollector():
                 snapshot.childSnapshotList)
         return snapshot_data
 
-    def _vmware_get_datastores(self, content, ds_metrics, inventory):
+    @defer.inlineCallbacks
+    def _vmware_get_datastores(self, ds_metrics):
         """
         Get Datastore information
         """
 
         log("Starting datastore metrics collection")
+        results, datastore_labels = yield parallelize(self.datastore_inventory, self.datastore_labels)
 
-        properties = [
-            'name',
-            'summary.capacity',
-            'summary.freeSpace',
-            'summary.uncommitted',
-            'summary.maintenanceMode',
-            'summary.type',
-            'summary.accessible',
-            'host',
-            'vm',
-        ]
-
-        results = batch_fetch_properties(content, vim.Datastore, properties)
         for datastore_id, datastore in results.items():
             name = datastore['name']
-            labels = [name, inventory[name]['dc'], inventory[name]['ds_cluster']]
+            labels = datastore_labels[name]
 
             ds_capacity = float(datastore.get('summary.capacity', 0))
             ds_freespace = float(datastore.get('summary.freeSpace', 0))
@@ -335,10 +521,10 @@ class VmwareCollector():
         log("Finished datastore metrics collection")
 
     @defer.inlineCallbacks
-    def _vmware_get_vm_perf_manager_metrics(self, content, virtual_machines, vm_metrics, inventory):
+    def _vmware_get_vm_perf_manager_metrics(self, vm_metrics):
         log('START: _vmware_get_vm_perf_manager_metrics')
 
-        counter_info = yield threads.deferToThread(self._vmware_perf_metrics, content)
+        virtual_machines, counter_info = yield parallelize(self.vm_inventory, self.counter_ids)
 
         # List of performance counter we want
         perf_list = [
@@ -383,54 +569,29 @@ class VmwareCollector():
                 intervalId=20
             ))
 
-        log('START: _vmware_get_vm_perf_manager_metrics: QUERY')
-        result = yield threads.deferToThread(content.perfManager.QueryStats, querySpec=specs)
-        log('FIN: _vmware_get_vm_perf_manager_metrics: QUERY')
+        content = yield self.content
 
-        for ent in result:
+        results, labels = yield parallelize(
+            threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+            self.vm_labels,
+        )
+
+        for ent in results:
             for metric in ent.value:
                 vm_metrics[metric_names[metric.id.counterId]].add_metric(
-                    self._labels[ent.entity._moId],
+                    labels[ent.entity._moId],
                     float(sum(metric.value)),
                 )
         log('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
-    def _vmware_get_vms(self, content, metrics, inventory):
+    def _vmware_get_vms(self, metrics):
         """
         Get VM information
         """
         log("Starting vm metrics collection")
 
-        properties = [
-            'name',
-            'runtime.host',
-        ]
-
-        if self.collect_only['vms'] is True:
-            properties.extend([
-                'runtime.powerState',
-                'runtime.bootTime',
-                'summary.config.numCpu',
-            ])
-
-        if self.collect_only['vmguests'] is True:
-            properties.append('guest.disk')
-
-        if self.collect_only['snapshots'] is True:
-            properties.append('snapshot')
-
-        virtual_machines = yield threads.deferToThread(
-            batch_fetch_properties,
-            content,
-            vim.VirtualMachine,
-            properties,
-        )
-
-        if self.collect_only['vms'] is True:
-            vm_perf_deferred = self._vmware_get_vm_perf_manager_metrics(
-                content, virtual_machines, metrics, inventory
-            )
+        virtual_machines, vm_labels = yield parallelize(self.vm_inventory, self.vm_labels)
 
         for moid, row in virtual_machines.items():
             # Ignore vm if field "runtime.host" does not exist
@@ -438,15 +599,8 @@ class VmwareCollector():
             if 'runtime.host' not in row:
                 continue
 
-            host_moid = row['runtime.host']._moId
-
-            labels = self._labels[moid] = [
-                row['name'],
-                inventory[host_moid]['name'],
-                inventory[host_moid]['dc'],
-                inventory[host_moid]['cluster'],
-            ]
-
+            labels = vm_labels[moid]
+  
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
                 metrics['vmware_vm_power_state'].add_metric(labels, power_state)
@@ -460,6 +614,9 @@ class VmwareCollector():
             if 'summary.config.numCpu' in row:
                 metrics['vmware_vm_num_cpu'].add_metric(labels, row['summary.config.numCpu'])
 
+            if 'summary.config.memorySizeMB' in row:
+                metrics['vmware_vm_memory_max'].add_metric(labels, row['summary.config.memorySizeMB'])
+
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
                     metrics['vmware_vm_guest_disk_free'].add_metric(
@@ -468,6 +625,21 @@ class VmwareCollector():
                     metrics['vmware_vm_guest_disk_capacity'].add_metric(
                         labels + [disk.diskPath], disk.capacity
                     )
+
+            if 'guest.toolsStatus' in row:
+                metrics['vmware_vm_guest_tools_running_status'].add_metric(
+                    labels + [row['guest.toolsStatus']], 1
+                )
+
+            if 'guest.toolsVersion' in row:
+                metrics['vmware_vm_guest_tools_version'].add_metric(
+                    labels + [row['guest.toolsVersion']], 1
+                )
+
+            if 'guest.toolsVersionStatus2' in row:
+                metrics['vmware_vm_guest_tools_version_status'].add_metric(
+                    labels + [row['guest.toolsVersionStatus2']], 1
+                )
 
             if 'snapshot' in row:
                 snapshots = self._vmware_full_snapshots_list(row['snapshot'].rootSnapshotList)
@@ -483,32 +655,19 @@ class VmwareCollector():
                         snapshot['timestamp_seconds'],
                     )
 
-        yield vm_perf_deferred
         log("Finished vm metrics collection")
 
-    def _vmware_get_hosts(self, content, host_metrics, inventory):
+    @defer.inlineCallbacks
+    def _vmware_get_hosts(self, host_metrics):
         """
         Get Host (ESXi) information
         """
         log("Starting host metrics collection")
 
-        properties = [
-            'name',
-            'summary.hardware.numCpuCores',
-            'summary.hardware.cpuMhz',
-            'summary.hardware.memorySize',
-            'runtime.powerState',
-            'runtime.bootTime',
-            'runtime.connectionState',
-            'runtime.inMaintenanceMode',
-            'summary.quickStats.overallCpuUsage',
-            'summary.quickStats.overallMemoryUsage',
-        ]
+        results, host_labels = yield parallelize(self.host_system_inventory, self.host_labels)
 
-        results = batch_fetch_properties(content, vim.HostSystem, properties)
         for host_id, host in results.items():
-            name = host['name']
-            labels = [name, inventory[host['id']]['dc'], inventory[host['id']]['cluster']]
+            labels = host_labels[host_id]
 
             # Power state
             power_state = 1 if host['runtime.powerState'] == 'poweredOn' else 0
@@ -547,6 +706,9 @@ class VmwareCollector():
                 )
 
             cpu_core_num = host.get('summary.hardware.numCpuCores')
+            if cpu_core_num:
+                host_metrics['vmware_host_num_cpu'].add_metric(labels, cpu_core_num)
+
             cpu_mhz = host.get('summary.hardware.cpuMhz')
             if cpu_core_num and cpu_mhz:
                 cpu_total = cpu_core_num * cpu_mhz
@@ -566,49 +728,7 @@ class VmwareCollector():
                 )
 
         log("Finished host metrics collection")
-
-    def _vmware_get_inventory(self, content):
-        """
-        Get host and datastore inventory (datacenter, cluster) information
-        """
-        host_inventory = {}
-        ds_inventory = {}
-
-        children = content.rootFolder.childEntity
-        for child in children:  # Iterate though DataCenters
-            dc = child
-            hostFolders = dc.hostFolder.childEntity
-            for folder in hostFolders:  # Iterate through host folders
-                if isinstance(folder, vim.ClusterComputeResource):  # Folder is a Cluster
-                    hosts = folder.host
-                    for host in hosts:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name.rstrip('.')
-                        row = host_inventory[host._moId] = {}
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = folder.name
-                else:  # Unclustered host
-                    for host in folder.host:
-                        row = host_inventory[host._moId] = {}
-                        host_name = host.name.rstrip('.')
-                        row['name'] = host_name
-                        row['dc'] = dc.name
-                        row['cluster'] = ''
-
-            dsFolders = dc.datastoreFolder.childEntity
-            for folder in dsFolders:  # Iterate through datastore folders
-                if isinstance(folder, vim.Datastore):  # Unclustered datastore
-                    ds_inventory[folder.name] = {}
-                    ds_inventory[folder.name]['dc'] = dc.name
-                    ds_inventory[folder.name]['ds_cluster'] = ''
-                else:  # Folder is a Datastore Cluster
-                    datastores = folder.childEntity
-                    for datastore in datastores:
-                        ds_inventory[datastore.name] = {}
-                        ds_inventory[datastore.name]['dc'] = dc.name
-                        ds_inventory[datastore.name]['ds_cluster'] = folder.name
-
-        return host_inventory, ds_inventory
+        return results
 
 
 class ListCollector(object):
@@ -647,13 +767,13 @@ class VMWareMetricsResource(Resource):
                 'vsphere_host': os.environ.get('VSPHERE_HOST'),
                 'vsphere_user': os.environ.get('VSPHERE_USER'),
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
-                'ignore_ssl': os.environ.get('VSPHERE_IGNORE_SSL', False),
+                'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
                 'collect_only': {
-                    'vms': os.environ.get('VSPHERE_COLLECT_VMS', True),
-                    'vmguests': os.environ.get('VSPHERE_COLLECT_VMGUESTS', True),
-                    'datastores': os.environ.get('VSPHERE_COLLECT_DATASTORES', True),
-                    'hosts': os.environ.get('VSPHERE_COLLECT_HOSTS', True),
-                    'snapshots': os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True),
+                    'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
+                    'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
+                    'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
+                    'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
+                    'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
                 }
             }
         }
@@ -670,13 +790,13 @@ class VMWareMetricsResource(Resource):
                 'vsphere_host': os.environ.get('VSPHERE_{}_HOST'.format(section)),
                 'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
                 'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
-                'ignore_ssl': os.environ.get('VSPHERE_{}_IGNORE_SSL'.format(section), False),
+                'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
                 'collect_only': {
-                    'vms': os.environ.get('VSPHERE_{}_COLLECT_VMS'.format(section), True),
-                    'vmguests': os.environ.get('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
-                    'datastores': os.environ.get('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
-                    'hosts': os.environ.get('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
-                    'snapshots': os.environ.get('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                    'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
+                    'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
+                    'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
+                    'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
+                    'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
                 }
             }
 
@@ -702,7 +822,7 @@ class VMWareMetricsResource(Resource):
     @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
-        section = request.args.get('section', ['default'])[0]
+        section = request.args.get(b'section', [b'default'])[0].decode('utf-8')
         if section not in self.config.keys():
             log("{} is not a valid section, using default".format(section))
             section = 'default'
@@ -750,11 +870,11 @@ class HealthzResource(Resource):
         return 'Server is UP'.encode()
 
 
-def log(data):
+def log(data, *args):
     """
     Log any message in a uniform format
     """
-    print("[{0}] {1}".format(datetime.utcnow().replace(tzinfo=pytz.utc), data))
+    print("[{0}] {1}".format(datetime.datetime.utcnow().replace(tzinfo=pytz.utc), data % args))
 
 
 def main(argv=None):
