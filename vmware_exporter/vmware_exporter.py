@@ -31,7 +31,7 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties
+from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
 
 
@@ -762,13 +762,13 @@ class VMWareMetricsResource(Resource):
                 'vsphere_host': os.environ.get('VSPHERE_HOST'),
                 'vsphere_user': os.environ.get('VSPHERE_USER'),
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
-                'ignore_ssl': os.environ.get('VSPHERE_IGNORE_SSL', False),
+                'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
                 'collect_only': {
-                    'vms': os.environ.get('VSPHERE_COLLECT_VMS', True),
-                    'vmguests': os.environ.get('VSPHERE_COLLECT_VMGUESTS', True),
-                    'datastores': os.environ.get('VSPHERE_COLLECT_DATASTORES', True),
-                    'hosts': os.environ.get('VSPHERE_COLLECT_HOSTS', True),
-                    'snapshots': os.environ.get('VSPHERE_COLLECT_SNAPSHOTS', True),
+                    'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
+                    'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
+                    'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
+                    'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
+                    'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
                 }
             }
         }
@@ -785,13 +785,13 @@ class VMWareMetricsResource(Resource):
                 'vsphere_host': os.environ.get('VSPHERE_{}_HOST'.format(section)),
                 'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
                 'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
-                'ignore_ssl': os.environ.get('VSPHERE_{}_IGNORE_SSL'.format(section), False),
+                'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
                 'collect_only': {
-                    'vms': os.environ.get('VSPHERE_{}_COLLECT_VMS'.format(section), True),
-                    'vmguests': os.environ.get('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
-                    'datastores': os.environ.get('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
-                    'hosts': os.environ.get('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
-                    'snapshots': os.environ.get('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                    'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
+                    'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
+                    'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
+                    'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
+                    'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
                 }
             }
 
