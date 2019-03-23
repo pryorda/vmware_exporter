@@ -239,11 +239,13 @@ class VmwareCollector():
                 pwd=self.password,
                 sslContext=context,
             )
-            return vmware_connect
+            yield vmware_connect
+            return
 
         except vmodl.MethodFault as error:
             log("Caught vmodl fault: " + error.msg)
-            return None
+            yield None
+            return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -255,7 +257,8 @@ class VmwareCollector():
         )
 
         log("Retrieved service instance content")
-        return content
+        yield content
+        return
 
     @defer.inlineCallbacks
     def batch_fetch_properties(self, objtype, properties):
@@ -266,7 +269,8 @@ class VmwareCollector():
             objtype,
             properties,
         )
-        return batch
+        yield batch
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -290,7 +294,8 @@ class VmwareCollector():
             properties
         )
         log("Fetched vim.Datastore inventory (%s)", datetime.datetime.utcnow() - start)
-        return datastores
+        yield datastores
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -316,7 +321,8 @@ class VmwareCollector():
             properties,
         )
         log("Fetched vim.HostSystem inventory (%s)", datetime.datetime.utcnow() - start)
-        return host_systems
+        yield host_systems
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -353,7 +359,8 @@ class VmwareCollector():
             properties,
         )
         log("Fetched vim.VirtualMachine inventory (%s)", datetime.datetime.utcnow() - start)
-        return virtual_machines
+        yield virtual_machines
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -363,7 +370,8 @@ class VmwareCollector():
         # content or if this is doing stealth HTTP requests
         # Right now we assume it does stealth lookups
         datacenters = yield threads.deferToThread(lambda: content.rootFolder.childEntity)
-        return datacenters
+        yield datacenters
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -392,7 +400,8 @@ class VmwareCollector():
             result = yield threads.deferToThread(lambda: _collect(dc, dc.datastoreFolder))
             labels.update(result)
 
-        return labels
+        yield labels
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -421,7 +430,8 @@ class VmwareCollector():
             result = yield threads.deferToThread(lambda: _collect(dc, dc.hostFolder))
             labels.update(result)
 
-        return labels
+        yield labels
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -432,8 +442,8 @@ class VmwareCollector():
         for moid, row in virtual_machines.items():
             host_moid = row['runtime.host']._moId
             labels[moid] = [row['name']] + host_labels[host_moid]
-
-        return labels
+        yield labels
+        return
 
     @run_once_property
     @defer.inlineCallbacks
@@ -449,7 +459,8 @@ class VmwareCollector():
             prefix = counter.groupInfo.key
             counter_full = "{}.{}.{}".format(prefix, counter.nameInfo.key, counter.rollupType)
             counter_info[counter_full] = counter.key
-        return counter_info
+        yield counter_info
+        return
 
     @defer.inlineCallbacks
     def _vmware_disconnect(self):
@@ -600,7 +611,7 @@ class VmwareCollector():
                 continue
 
             labels = vm_labels[moid]
-  
+
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
                 metrics['vmware_vm_power_state'].add_metric(labels, power_state)
@@ -728,7 +739,8 @@ class VmwareCollector():
                 )
 
         log("Finished host metrics collection")
-        return results
+        yield results
+        return
 
 
 class ListCollector(object):
