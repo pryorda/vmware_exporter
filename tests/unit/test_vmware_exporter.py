@@ -69,6 +69,8 @@ def test_collect_vms():
 
     collector.__dict__['vm_labels'] = _succeed({
         'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+        'vm-2': ['vm-2', 'host-1', 'dc', 'cluster-1'],
+        'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
     })
 
     metrics = collector._create_metric_containers()
@@ -90,7 +92,7 @@ def test_collect_vms():
             },
             'vm-2': {
                 'name': 'vm-2',
-                'runtime.powerState': 'poweredOn',
+                'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
                 'runtime.bootTime': boot_time,
@@ -103,7 +105,7 @@ def test_collect_vms():
             'vm-3': {
                 'name': 'vm-3',
                 'runtime.host': vim.ManagedObject('host-1'),
-                'runtime.powerState': 'poweredOn',
+                'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
                 'runtime.bootTime': boot_time,
@@ -112,11 +114,12 @@ def test_collect_vms():
                 'guest.toolsStatus': 'toolsOk',
                 'guest.toolsVersion': '10336',
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
-            }
+            },
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
-    # Assert that vm-2 skipped #69/#70
+
+    # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
         'vm_name': 'vm-3',
         'host_name': 'host-1',
@@ -277,14 +280,6 @@ def test_collect_vm_perf():
             'obj': vim.ManagedObject('vm-2'),
             'runtime.powerState': 'poweredOff',
         },
-        'vm:3': {
-            'name': 'vm-3',
-            'obj': vim.ManagedObject('vm-3'),
-            'runtime.powerState': 'poweredOff',
-        },
-
-
-
     })
 
     yield collector._vmware_get_vm_perf_manager_metrics(metrics)
