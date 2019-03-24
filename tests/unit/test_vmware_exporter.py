@@ -116,7 +116,6 @@ def test_collect_vms():
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
-
     # Assert that vm-2 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
         'vm_name': 'vm-3',
