@@ -99,15 +99,27 @@ def test_collect_vms():
                 'guest.toolsStatus': 'toolsOk',
                 'guest.toolsVersion': '10336',
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
-            }
+            },
+            'vm-3': {
+                'name': 'vm-3',
+                'runtime.host': vim.ManagedObject('host-1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            },
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
 
     # Assert that vm-2 skipped #69/#70
-    # General VM metrics
-    assert metrics['vmware_vm_power_state'].samples[1][1] != {
-        'vm_name': 'vm-2',
+    assert metrics['vmware_vm_power_state'].samples[1][1] == {
+        'vm_name': 'vm-3',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
