@@ -594,6 +594,11 @@ class VmwareCollector():
         virtual_machines, vm_labels = yield parallelize(self.vm_inventory, self.vm_labels)
 
         for moid, row in virtual_machines.items():
+            # Ignore vm if field "runtime.host" does not exist
+            # It will happen during a VM is cloning
+            if 'runtime.host' not in row:
+                continue
+
             labels = vm_labels[moid]
 
             if 'runtime.powerState' in row:

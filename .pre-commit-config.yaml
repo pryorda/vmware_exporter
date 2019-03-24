@@ -33,6 +33,8 @@ repos:
       - --autofix
   - id: flake8
     stages: [commit]
+    args:
+      - --ignore=F705,E123
 - repo: https://github.com/pryorda/dockerfilelint-precommit-hooks
   rev: v0.1.0
   hooks:
