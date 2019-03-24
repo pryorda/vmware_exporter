@@ -112,7 +112,7 @@ def test_collect_vms():
                 'guest.toolsStatus': 'toolsOk',
                 'guest.toolsVersion': '10336',
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
-            },
+            }
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
@@ -276,7 +276,15 @@ def test_collect_vm_perf():
             'name': 'vm-2',
             'obj': vim.ManagedObject('vm-2'),
             'runtime.powerState': 'poweredOff',
-        }
+        },
+        'vm:3': {
+            'name': 'vm-3',
+            'obj': vim.ManagedObject('vm-3'),
+            'runtime.powerState': 'poweredOff',
+        },
+
+
+
     })
 
     yield collector._vmware_get_vm_perf_manager_metrics(metrics)

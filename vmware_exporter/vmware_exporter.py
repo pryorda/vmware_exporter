@@ -600,7 +600,7 @@ class VmwareCollector():
                 continue
 
             labels = vm_labels[moid]
-  
+
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
                 metrics['vmware_vm_power_state'].add_metric(labels, power_state)
