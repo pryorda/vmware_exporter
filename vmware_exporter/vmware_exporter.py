@@ -286,11 +286,15 @@ class VmwareCollector():
 
         folders_to_dcs = {}
         for folder in folders.values():
-            cur = folder['id']
-            while not isinstance(folders[cur]['parent'], vim.Datacenter):
-                cur = folders[cur]['parent']._moId
-
-            folders_to_dcs[folder['id']] = folders[cur]['parent']._moId
+            cur = folder
+            while cur['parent'] in folders:
+                if isinstance(cur, vim.Datacenter):
+                    folders_to_dcs[folder['id']] = cur
+                    continue
+                cur = folders[folder['parent']]
+            if not isinstance(cur, vim.Datacenter):
+                continue
+            folders_to_dcs[folder['id']] = cur
 
         log('Built mapping of vim.Folder -> vim.Datacenter')
         return folders_to_dcs
@@ -362,6 +366,24 @@ class VmwareCollector():
 
     @run_once_property
     @defer.inlineCallbacks
+    def folder_to_storagepod(self):
+        log('Building mapping of vim.Folder -> vim.StoragePod')
+        folders = yield self.folder_inventory
+
+        folder_to_storagepods = {}
+        for folder in folders.values():
+            cur = folder
+            while cur['parent'] in folders:
+                if isinstance(cur, vim.StoragePod):
+                    folder_to_storagepods[folder['id']] = cur
+                    continue
+                cur = folders[cur['parent']]
+
+        log('Built mapping of vim.Folder -> vim.StoragePod')
+        return folder_to_storagepods
+
+    @run_once_property
+    @defer.inlineCallbacks
     def host_system_inventory(self):
         log("Fetching vim.HostSystem inventory")
         start = datetime.datetime.utcnow()
@@ -426,18 +448,29 @@ class VmwareCollector():
     @run_once_property
     @defer.inlineCallbacks
     def datastore_labels(self):
-        datastores, dcs, folder_to_datacenter = yield parallelize(
+        datastores, dcs, folder_to_datacenter, folder_to_storagepod = yield parallelize(
             self.datastore_inventory,
             self.datacenter_inventory,
-            self.folder_to_datacenter
+            self.folder_to_datacenter,
+            self.folder_to_storagepod,
         )
 
         labels = {}
         for moid, datastore in datastores.items():
+            folder_id = datastore['parent']._moId
+
+            dc_name = ''
+            if folder_id in folder_to_datacenter:
+                dc_name = folder_to_datacenter[folder_id]['name']
+
+            ds_cluster = ''
+            if folder_id in folder_to_storagepod:
+                ds_cluster = folder_to_storagepod[folder_id]['name']
+
             labels[moid] = [
                 datastore['name'],
-                dcs[folder_to_datacenter[datastore['parent']._moId]]['name'],
-                'ds_cluster'
+                dc_name,
+                ds_cluster,
             ]
 
         return labels
@@ -455,9 +488,14 @@ class VmwareCollector():
         labels = {}
         for moid, host in hosts.items():
             comp_resource = compute_resource_by_children[host['id']]
+
+            dc_name = ''
+            if moid in folder_to_datacenter:
+                dc_name = folder_to_datacenter[moid]['name']
+
             labels[moid] = [
                 host['name'],
-                dcs[folder_to_datacenter[comp_resource['parent']._moId]]['name'],
+                dc_name,
                 comp_resource.get('name', ''),
             ]
 
