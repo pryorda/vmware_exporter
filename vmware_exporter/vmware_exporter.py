@@ -430,8 +430,13 @@ class VmwareCollector():
 
         labels = {}
         for moid, row in virtual_machines.items():
-            host_moid = row['runtime.host']._moId
+
+            host_moid = None
+            if 'runtime.host' in row:
+                host_moid = row['runtime.host']._moId
+
             labels[moid] = [row['name']]
+
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
 

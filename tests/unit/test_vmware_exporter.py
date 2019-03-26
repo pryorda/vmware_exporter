@@ -70,7 +70,7 @@ def test_collect_vms():
     )
     collector.content = _succeed(mock.Mock())
 
-    collector.__dict__['host_labels'] = _succeed({'': [],})
+    collector.__dict__['host_labels'] = _succeed({'': []})
 
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
         batch_fetch_properties.return_value = _succeed({
@@ -149,7 +149,11 @@ def test_collect_vms():
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
-        assert collector.vm_labels.result == {'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1']}
+        assert collector.vm_labels.result == {
+                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+                'vm-2': ['vm-2'],
+                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+                }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
@@ -574,7 +578,7 @@ def test_vmware_get_inventory():
 
     data_center_1 = mock.Mock()
     data_center_1.name = 'dc-1'
-    data_center_1.hostFolder.childEntity = [folder_5, folder_1, folder_2]
+    data_center_1.hostFolder.childEntity = [folder_1, folder_2, folder_5]
     data_center_1.datastoreFolder.childEntity = [datastore_1, datastore_2_folder]
 
     content.rootFolder.childEntity = [data_center_1]
@@ -594,7 +598,6 @@ def test_vmware_get_inventory():
         ignore_ssl=True,
     )
     collector.content = content
-
 
     with contextlib.ExitStack() as stack:
         # We have to disable the LazyObject magic on pyvmomi classes so that we can use them as fakes
