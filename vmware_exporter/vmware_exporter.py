@@ -411,7 +411,7 @@ class VmwareCollector():
                         ]
 
                 if isinstance(folder, vim.Folder):
-                    host_inventory.extend(_collect(dc, folder))
+                    host_inventory.update(_collect(dc, folder))
 
             return host_inventory
 
@@ -430,8 +430,15 @@ class VmwareCollector():
 
         labels = {}
         for moid, row in virtual_machines.items():
-            host_moid = row['runtime.host']._moId
-            labels[moid] = [row['name']] + host_labels[host_moid]
+
+            host_moid = None
+            if 'runtime.host' in row:
+                host_moid = row['runtime.host']._moId
+
+            labels[moid] = [row['name']]
+
+            if host_moid in host_labels:
+                labels[moid] = labels[moid] + host_labels[host_moid]
 
         return labels
 

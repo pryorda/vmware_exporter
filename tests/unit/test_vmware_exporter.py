@@ -59,6 +59,9 @@ def test_collect_vms():
         'hosts': True,
         'snapshots': True,
     }
+
+    # Test runtime.host not found
+
     collector = VmwareCollector(
         '127.0.0.1',
         'root',
@@ -67,10 +70,38 @@ def test_collect_vms():
     )
     collector.content = _succeed(mock.Mock())
 
-    collector.__dict__['vm_labels'] = _succeed({
-        'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-        'vm-2': ['vm-2', 'host-1', 'dc', 'cluster-1'],
-        'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+    collector.__dict__['host_labels'] = _succeed({'': []})
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-1',
+                'runtime.host': vim.ManagedObject('notfound:1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+
+    # Reset variables
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    collector.content = _succeed(mock.Mock())
+
+    collector.__dict__['host_labels'] = _succeed({
+        'host-1': ['host-1', 'dc', 'cluster-1'],
     })
 
     metrics = collector._create_metric_containers()
@@ -118,6 +149,11 @@ def test_collect_vms():
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
+        assert collector.vm_labels.result == {
+                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+                'vm-2': ['vm-2'],
+                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+                }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
@@ -511,6 +547,23 @@ def test_vmware_get_inventory():
     folder_2.__dict__['name'] = 'compute-cluster-1'
     folder_2.__dict__['host'] = [host_2]
 
+    # Folders case
+    host_3 = mock.Mock()
+    host_3._moId = 'host:3'
+    host_3.name = 'host-3'
+    host_3.summary.config.name = 'host-3.'
+
+    folder_3 = mock.Mock()
+    folder_3.host = [host_3]
+
+    folder_4 = vim.Folder('folder:4')
+    folder_4.__dict__['name'] = 'folder-4'
+    folder_4.__dict__['childEntity'] = [folder_3]
+
+    folder_5 = vim.Folder('folder:5')
+    folder_5.__dict__['name'] = 'folder-5'
+    folder_5.__dict__['childEntity'] = [folder_4]
+
     # Datastore case 1
     datastore_1 = vim.Datastore('datastore:1')
     datastore_1.__dict__['name'] = 'datastore-1'
@@ -525,7 +578,7 @@ def test_vmware_get_inventory():
 
     data_center_1 = mock.Mock()
     data_center_1.name = 'dc-1'
-    data_center_1.hostFolder.childEntity = [folder_1, folder_2]
+    data_center_1.hostFolder.childEntity = [folder_1, folder_2, folder_5]
     data_center_1.datastoreFolder.childEntity = [datastore_1, datastore_2_folder]
 
     content.rootFolder.childEntity = [data_center_1]
@@ -548,6 +601,8 @@ def test_vmware_get_inventory():
 
     with contextlib.ExitStack() as stack:
         # We have to disable the LazyObject magic on pyvmomi classes so that we can use them as fakes
+        stack.enter_context(mock.patch.object(vim.Folder, 'name', None))
+        stack.enter_context(mock.patch.object(vim.Folder, 'childEntity', None))
         stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'name', None))
         stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'host', None))
         stack.enter_context(mock.patch.object(vim.Datastore, 'name', None))
@@ -560,6 +615,7 @@ def test_vmware_get_inventory():
     assert host == {
         'host:1': ['host-1', 'dc-1', ''],
         'host:2': ['host-2', 'dc-1', 'compute-cluster-1'],
+        'host:3': ['host-3', 'dc-1', ''],
     }
 
     assert ds == {
