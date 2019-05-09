@@ -22,7 +22,7 @@ def test_get_bool_env_with_default_value():
     assert value
 
 
-def test_get_bool_env_with_a_valid_env():
+def test_get_bool_env_with_a_valid_env_true():
     key = "TEST_BOOLEAN_VALUE"
 
     os.environ[key] = "True"
@@ -31,6 +31,16 @@ def test_get_bool_env_with_a_valid_env():
 
     assert value
 
+
+def test_get_bool_env_with_a_valid_env_false():
+    key = "TEST_BOOLEAN_VALUE"
+
+    os.environ[key] = "False"
+
+    value = get_bool_env(key, False)
+
+    assert value
+    
 
 def test_batch_fetch_properties():
     content = mock.Mock()
