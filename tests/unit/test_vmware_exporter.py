@@ -9,7 +9,7 @@ from pyVmomi import vim, vmodl
 from twisted.internet import defer
 from twisted.web.server import NOT_DONE_YET
 
-from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollector, VMWareMetricsResource
+from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollector, VMWareMetricsResource, IndexResource
 from vmware_exporter.defer import BranchingDeferred
 
 
@@ -715,6 +715,23 @@ def test_healthz():
     request.setResponseCode.assert_called_with(200)
 
     assert response == b'Server is UP'
+
+
+def test_index_page():
+    request = mock.Mock()
+
+    resource = IndexResource()
+    response = resource.render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+
+    assert response == b"""<html>
+            <head><title>VMware Exporter</title></head>
+            <body>
+            <h1>VMware Exporter</h1>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>"""
 
 
 def test_vmware_resource():
