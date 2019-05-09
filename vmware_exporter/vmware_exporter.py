@@ -894,6 +894,7 @@ class IndexResource(Resource):
             </body>
             </html>"""
         request.setHeader("Content-Type", "text/html; charset=UTF-8")
+        request.setResponseCode(200)
         return output.encode()
 
 
