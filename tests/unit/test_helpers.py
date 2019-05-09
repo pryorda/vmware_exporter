@@ -37,10 +37,10 @@ def test_get_bool_env_with_a_valid_env_false():
 
     os.environ[key] = "False"
 
-    value = get_bool_env(key, False)
+    value = get_bool_env(key, True)
 
-    assert value
-    
+    assert value is False
+
 
 def test_batch_fetch_properties():
     content = mock.Mock()
