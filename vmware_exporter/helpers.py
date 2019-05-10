@@ -6,9 +6,10 @@ from pyVmomi import vmodl
 def get_bool_env(key, default=None):
     value = os.environ.get(key, default)
     if isinstance(value, str):
-        if value == 'False':
+        value = value.lower()
+        if value == 'false':
             value = False
-        elif value == 'True':
+        elif value == 'true':
             value = True
     return value
 
