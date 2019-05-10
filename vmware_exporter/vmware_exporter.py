@@ -286,6 +286,7 @@ class VmwareCollector():
 
         folders_to_dcs = {}
         for folder in folders.values():
+            log(folder['id'], folder['parent'], type(folder))
             cur = folder
             while cur['parent'] in folders:
                 if isinstance(cur, vim.Datacenter):
@@ -464,6 +465,7 @@ class VmwareCollector():
                 dc_name = folder_to_datacenter[folder_id]['name']
 
             ds_cluster = ''
+            log(folder_id, folder_to_storagepod)
             if folder_id in folder_to_storagepod:
                 ds_cluster = folder_to_storagepod[folder_id]['name']
 
