@@ -15,6 +15,7 @@ import ssl
 import sys
 import traceback
 import pytz
+import logging
 
 from yamlconfig import YamlConfig
 
@@ -187,7 +188,7 @@ class VmwareCollector():
 
         metrics = self._create_metric_containers()
 
-        log("Start collecting metrics from {0}".format(vsphere_host))
+        logging.info(f"Start collecting metrics from {vsphere_host}")
 
         self._labels = {}
 
@@ -213,7 +214,7 @@ class VmwareCollector():
 
         yield self._vmware_disconnect
 
-        log("Finished collecting metrics from {0}".format(vsphere_host))
+        logging.info(f"Finished collecting metrics from {vsphere_host}")
 
         return list(metrics.values())   # noqa: F705
 
@@ -242,19 +243,19 @@ class VmwareCollector():
             return vmware_connect
 
         except vmodl.MethodFault as error:
-            log("Caught vmodl fault: " + error.msg)
+            logging.error(f"Caught vmodl fault: {error.msg}")
             return None
 
     @run_once_property
     @defer.inlineCallbacks
     def content(self):
-        log("Retrieving service instance content")
+        logging.info("Retrieving service instance content")
         connection = yield self.connection
         content = yield threads.deferToThread(
             connection.RetrieveContent
         )
 
-        log("Retrieved service instance content")
+        logging.info("Retrieved service instance content")
         return content
 
     @defer.inlineCallbacks
@@ -271,7 +272,7 @@ class VmwareCollector():
     @run_once_property
     @defer.inlineCallbacks
     def datastore_inventory(self):
-        log("Fetching vim.Datastore inventory")
+        logging.info("Fetching vim.Datastore inventory")
         start = datetime.datetime.utcnow()
         properties = [
             'name',
@@ -289,13 +290,13 @@ class VmwareCollector():
             vim.Datastore,
             properties
         )
-        log("Fetched vim.Datastore inventory (%s)", datetime.datetime.utcnow() - start)
+        logging.info(f"Fetched vim.Datastore inventory ({datetime.datetime.utcnow() - start})")
         return datastores
 
     @run_once_property
     @defer.inlineCallbacks
     def host_system_inventory(self):
-        log("Fetching vim.HostSystem inventory")
+        logging.info("Fetching vim.HostSystem inventory")
         start = datetime.datetime.utcnow()
         properties = [
             'name',
@@ -315,13 +316,13 @@ class VmwareCollector():
             vim.HostSystem,
             properties,
         )
-        log("Fetched vim.HostSystem inventory (%s)", datetime.datetime.utcnow() - start)
+        logging.info(f"Fetched vim.HostSystem inventory ({datetime.datetime.utcnow() - start})")
         return host_systems
 
     @run_once_property
     @defer.inlineCallbacks
     def vm_inventory(self):
-        log("Fetching vim.VirtualMachine inventory")
+        logging.info("Fetching vim.VirtualMachine inventory")
         start = datetime.datetime.utcnow()
         properties = [
             'name',
@@ -352,7 +353,7 @@ class VmwareCollector():
             vim.VirtualMachine,
             properties,
         )
-        log("Fetched vim.VirtualMachine inventory (%s)", datetime.datetime.utcnow() - start)
+        logging.info(f"Fetched vim.VirtualMachine inventory ({datetime.datetime.utcnow() - start})")
         return virtual_machines
 
     @run_once_property
@@ -369,58 +370,66 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def datastore_labels(self):
 
-        def _collect(dc, node):
+        def _collect(node, level=1, dc=None, storagePod=""):
             inventory = {}
-            for folder in node.childEntity:  # Iterate through datastore folders
-                if isinstance(folder, vim.Datastore):  # Unclustered datastore
-                    row = inventory[folder.name] = [
-                        folder.name,
-                        dc.name,
-                    ]
-                    if isinstance(node, vim.StoragePod):
-                        row.append(node.name)
-                    else:
-                        row.append('')
-
-                else:  # Folder is a Datastore Cluster
-                    inventory.update(_collect(dc, folder))
+            if isinstance(node, vim.Folder) and not isinstance(node, vim.StoragePod):
+                logging.debug(f"[Folder    ] {('-' * level).ljust(7)} {node.name}")
+                for child in node.childEntity:
+                    inventory.update(_collect(child, level+1, dc))
+            elif isinstance(node, vim.Datacenter):
+                logging.debug(f"[Datacenter] {('-' * level).ljust(7)} {node.name}")
+                inventory.update(_collect(node.datastoreFolder, level+1, node.name))
+            elif isinstance(node, vim.Folder) and isinstance(node, vim.StoragePod):
+                logging.debug(f"[StoragePod] {('-' * level).ljust(7)} {node.name}")
+                for child in node.childEntity:
+                    inventory.update(_collect(child, level+1, dc, node.name))
+            elif isinstance(node, vim.Datastore):
+                logging.debug(f"[Datastore ] {('-' * level).ljust(7)} {node.name}")
+                inventory[node.name] = [node.name, dc, storagePod]
+            else:
+                logging.debug(f"[?         ] {('-' * level).ljust(7)} {node}")
             return inventory
 
         labels = {}
         dcs = yield self.datacenter_inventory
         for dc in dcs:
-            result = yield threads.deferToThread(lambda: _collect(dc, dc.datastoreFolder))
+            result = yield threads.deferToThread(lambda: _collect(dc))
             labels.update(result)
-
         return labels
 
     @run_once_property
     @defer.inlineCallbacks
     def host_labels(self):
 
-        def _collect(dc, node):
-            host_inventory = {}
-            for folder in node.childEntity:
-                if hasattr(folder, 'host'):
-                    for host in folder.host:  # Iterate through Hosts in the Cluster
-                        host_name = host.summary.config.name.rstrip('.')
-                        host_inventory[host._moId] = [
-                            host_name,
-                            dc.name,
-                            folder.name if isinstance(folder, vim.ClusterComputeResource) else ''
-                        ]
-
-                if isinstance(folder, vim.Folder):
-                    host_inventory.update(_collect(dc, folder))
-
-            return host_inventory
+        def _collect(node, level=1, dc=None, folder=None):
+            inventory = {}
+            if isinstance(node, vim.Folder) and not isinstance(node, vim.StoragePod):
+                logging.debug(f"[Folder    ] {('-' * level).ljust(7)} {node.name}")
+                for child in node.childEntity:
+                    inventory.update(_collect(child, level+1, dc))
+            elif isinstance(node, vim.Datacenter):
+                logging.debug(f"[Datacenter] {('-' * level).ljust(7)} {node.name}")
+                inventory.update(_collect(node.hostFolder, level+1, node.name))
+            elif isinstance(node, vim.ComputeResource):
+                logging.debug(f"[ComputeRes] {('-' * level).ljust(7)} {node.name}")
+                for host in node.host:
+                    inventory.update(_collect(host, level+1, dc, node))
+            elif isinstance(node, vim.HostSystem):
+                logging.debug(f"[HostSystem] {('-' * level).ljust(7)} {node.name}")
+                inventory[node._moId] = [
+                    node.summary.config.name.rstrip('.'),
+                    dc,
+                    folder.name if isinstance(folder, vim.ClusterComputeResource) else ''
+                    ]
+            else:
+                logging.debug(f"[?         ] {('-' * level).ljust(7)} {node}")
+            return inventory
 
         labels = {}
         dcs = yield self.datacenter_inventory
         for dc in dcs:
-            result = yield threads.deferToThread(lambda: _collect(dc, dc.hostFolder))
+            result = yield threads.deferToThread(lambda: _collect(dc))
             labels.update(result)
-
         return labels
 
     @run_once_property
@@ -489,12 +498,15 @@ class VmwareCollector():
         Get Datastore information
         """
 
-        log("Starting datastore metrics collection")
         results, datastore_labels = yield parallelize(self.datastore_inventory, self.datastore_labels)
 
         for datastore_id, datastore in results.items():
-            name = datastore['name']
-            labels = datastore_labels[name]
+            try:
+                name = datastore['name']
+                labels = datastore_labels[name]
+            except KeyError as e:
+                logging.info(f"Key error, unable to register datastore {e}, datastores are {datastore_labels}")
+                continue
 
             ds_capacity = float(datastore.get('summary.capacity', 0))
             ds_freespace = float(datastore.get('summary.freeSpace', 0))
@@ -510,8 +522,8 @@ class VmwareCollector():
             ds_metrics['vmware_datastore_vms'].add_metric(labels, len(datastore.get('vm', [])))
 
             ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
-                labels + [datastore.get('summary.maintenanceMode', 'unknown')],
-                1
+               labels + [datastore.get('summary.maintenanceMode', 'unknown')],
+               1
             )
 
             ds_metrics['vmware_datastore_type'].add_metric(
@@ -525,11 +537,11 @@ class VmwareCollector():
                     datastore['summary.accessible'] * 1,
                 )
 
-        log("Finished datastore metrics collection")
+        return results
 
     @defer.inlineCallbacks
     def _vmware_get_vm_perf_manager_metrics(self, vm_metrics):
-        log('START: _vmware_get_vm_perf_manager_metrics')
+        logging.info('START: _vmware_get_vm_perf_manager_metrics')
 
         virtual_machines, counter_info = yield parallelize(self.vm_inventory, self.counter_ids)
 
@@ -589,14 +601,14 @@ class VmwareCollector():
                     labels[ent.entity._moId],
                     float(sum(metric.value)),
                 )
-        log('FIN: _vmware_get_vm_perf_manager_metrics')
+        logging.info('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
     def _vmware_get_vms(self, metrics):
         """
         Get VM information
         """
-        log("Starting vm metrics collection")
+        logging.info("Starting vm metrics collection")
 
         virtual_machines, vm_labels = yield parallelize(self.vm_inventory, self.vm_labels)
 
@@ -662,19 +674,23 @@ class VmwareCollector():
                         snapshot['timestamp_seconds'],
                     )
 
-        log("Finished vm metrics collection")
+        logging.info("Finished vm metrics collection")
 
     @defer.inlineCallbacks
     def _vmware_get_hosts(self, host_metrics):
         """
         Get Host (ESXi) information
         """
-        log("Starting host metrics collection")
+        logging.info("Starting host metrics collection")
 
         results, host_labels = yield parallelize(self.host_system_inventory, self.host_labels)
 
         for host_id, host in results.items():
-            labels = host_labels[host_id]
+            try:
+                labels = host_labels[host_id]
+            except KeyError as e:
+                logging.info(f"Key error, unable to register host {e}, host labels are {host_labels}")
+                continue
 
             # Power state
             power_state = 1 if host['runtime.powerState'] == 'poweredOn' else 0
@@ -734,7 +750,7 @@ class VmwareCollector():
                     float(host['summary.hardware.memorySize']) / 1024 / 1024
                 )
 
-        log("Finished host metrics collection")
+        logging.info("Finished host metrics collection")
         return results
 
 
@@ -763,7 +779,7 @@ class VMWareMetricsResource(Resource):
             try:
                 self.config = YamlConfig(args.config_file)
                 if 'default' not in self.config.keys():
-                    log("Error, you must have a default section in config file (for now)")
+                    logging.error("Error, you must have a default section in config file (for now)")
                     exit(1)
                 return
             except Exception as exception:
@@ -817,7 +833,7 @@ class VMWareMetricsResource(Resource):
         try:
             yield self.generate_latest_metrics(request)
         except Exception:
-            log(traceback.format_exc())
+            logging.error(traceback.format_exc())
             request.setResponseCode(500)
             request.write(b'# Collection failed')
             request.finish()
@@ -831,7 +847,7 @@ class VMWareMetricsResource(Resource):
         """ gets the latest metrics """
         section = request.args.get(b'section', [b'default'])[0].decode('utf-8')
         if section not in self.config.keys():
-            log("{} is not a valid section, using default".format(section))
+            logging.info("{} is not a valid section, using default".format(section))
             section = 'default'
 
         if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
@@ -842,7 +858,7 @@ class VMWareMetricsResource(Resource):
             vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
         else:
             request.setResponseCode(500)
-            log("No vsphere_host or target defined")
+            logging.info("No vsphere_host or target defined")
             request.write(b'No vsphere_host or target defined!\n')
             request.finish()
             return
@@ -873,15 +889,8 @@ class HealthzResource(Resource):
     def render_GET(self, request):
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
         request.setResponseCode(200)
-        log("Service is UP")
+        logging.info("Service is UP")
         return 'Server is UP'.encode()
-
-
-def log(data, *args):
-    """
-    Log any message in a uniform format
-    """
-    print("[{0}] {1}".format(datetime.datetime.utcnow().replace(tzinfo=pytz.utc), data % args))
 
 
 def main(argv=None):
@@ -891,8 +900,15 @@ def main(argv=None):
                         default=None, help="configuration file")
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
+    parser.add_argument('-l', '--loglevel', dest='loglevel',
+                        default="INFO", help="Set application loglevel INFO, DEBUG")
 
     args = parser.parse_args(argv or sys.argv[1:])
+
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError(f"Invalid log level: {args.loglevel}")
+    logging.basicConfig(level=numeric_level, format='%(asctime)s %(levelname)s:%(message)s')
 
     reactor.suggestThreadPoolSize(25)
 
@@ -902,7 +918,7 @@ def main(argv=None):
     root.putChild(b'healthz', HealthzResource())
 
     factory = Site(root)
-    log("Starting web server on port {}".format(args.port))
+    logging.info(f"Starting web server on port {args.port}")
     endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port)
     endpoint.listen(factory)
     reactor.run()
