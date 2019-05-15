@@ -914,6 +914,14 @@ class IndexResource(Resource):
         return output.encode()
 
 
+def registerEndpoints(args):
+    root = Resource()
+    root.putChild(b'', IndexResource())
+    root.putChild(b'metrics', VMWareMetricsResource(args))
+    root.putChild(b'healthz', HealthzResource())
+    return root
+
+
 def main(argv=None):
     """ start up twisted reactor """
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
@@ -933,12 +941,7 @@ def main(argv=None):
 
     reactor.suggestThreadPoolSize(25)
 
-    # Start up the server to expose the metrics.
-    root = Resource()
-    root.putChild(b'metrics', VMWareMetricsResource(args))
-    root.putChild(b'healthz', HealthzResource())
-
-    factory = Site(root)
+    factory = Site(registerEndpoints(args))
     logging.info(f"Starting web server on port {args.port}")
     endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port)
     endpoint.listen(factory)
