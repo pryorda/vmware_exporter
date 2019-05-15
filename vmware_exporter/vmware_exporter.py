@@ -893,6 +893,27 @@ class HealthzResource(Resource):
         return 'Server is UP'.encode()
 
 
+class IndexResource(Resource):
+    isLeaf = False
+
+    def getChild(self, name, request):
+        if name == b'':
+            return self
+        return Resource.getChild(self, name, request)
+
+    def render_GET(self, request):
+        output = """<html>
+            <head><title>VMware Exporter</title></head>
+            <body>
+            <h1>VMware Exporter</h1>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>"""
+        request.setHeader("Content-Type", "text/html; charset=UTF-8")
+        request.setResponseCode(200)
+        return output.encode()
+
+
 def main(argv=None):
     """ start up twisted reactor """
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
