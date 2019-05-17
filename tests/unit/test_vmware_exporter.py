@@ -482,7 +482,7 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
-        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(None)
+        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
 
     assert metrics[0].name == 'vmware_vm_power_state'
