@@ -9,8 +9,11 @@ from pyVmomi import vim, vmodl
 from twisted.internet import defer
 from twisted.internet.error import ReactorAlreadyRunning
 from twisted.web.server import NOT_DONE_YET
+from twisted.web.resource import Resource
 
-from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollector, VMWareMetricsResource
+
+from vmware_exporter.vmware_exporter import main, registerEndpoints
+from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource, IndexResource
 from vmware_exporter.defer import BranchingDeferred
 
 
@@ -482,7 +485,7 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
-        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(None)
+        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
 
     assert metrics[0].name == 'vmware_vm_power_state'
@@ -724,6 +727,35 @@ def test_healthz():
     request.setResponseCode.assert_called_with(200)
 
     assert response == b'Server is UP'
+
+
+def test_index_page():
+    request = mock.Mock()
+
+    resource = IndexResource()
+    response = resource.render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+
+    assert response == b"""<html>
+            <head><title>VMware Exporter</title></head>
+            <body>
+            <h1>VMware Exporter</h1>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>"""
+
+
+def test_register_endpoints():
+    args = mock.Mock()
+    args.config_file = None
+
+    registered_routes = [b'', b'metrics', b'healthz']
+
+    evaluation_var = registerEndpoints(args)
+    assert isinstance(evaluation_var, Resource)
+    for route in registered_routes:
+        assert evaluation_var.getStaticEntity(route) is not None
 
 
 def test_vmware_resource():
