@@ -188,7 +188,7 @@ class VmwareCollector():
 
         metrics = self._create_metric_containers()
 
-        logging.info(f"Start collecting metrics from {vsphere_host}")
+        logging.info("Start collecting metrics from {vsphere_host}".format(vsphere_host=vsphere_host))
 
         self._labels = {}
 
@@ -212,9 +212,9 @@ class VmwareCollector():
 
         yield parallelize(*tasks)
 
-        yield self._vmware_disconnect
+        yield self._vmware_disconnect()
 
-        logging.info(f"Finished collecting metrics from {vsphere_host}")
+        logging.info("Finished collecting metrics from {vsphere_host}".format(vsphere_host=vsphere_host))
 
         return list(metrics.values())   # noqa: F705
 
@@ -243,7 +243,7 @@ class VmwareCollector():
             return vmware_connect
 
         except vmodl.MethodFault as error:
-            logging.error(f"Caught vmodl fault: {error.msg}")
+            logging.error("Caught vmodl fault: {error}".format(error=error.msg))
             return None
 
     @run_once_property
@@ -290,7 +290,8 @@ class VmwareCollector():
             vim.Datastore,
             properties
         )
-        logging.info(f"Fetched vim.Datastore inventory ({datetime.datetime.utcnow() - start})")
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.Datastore inventory ({fetch_time})".format(fetch_time=fetch_time))
         return datastores
 
     @run_once_property
@@ -316,7 +317,8 @@ class VmwareCollector():
             vim.HostSystem,
             properties,
         )
-        logging.info(f"Fetched vim.HostSystem inventory ({datetime.datetime.utcnow() - start})")
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.HostSystem inventory ({fetch_time})".format(fetch_time=fetch_time))
         return host_systems
 
     @run_once_property
@@ -353,7 +355,8 @@ class VmwareCollector():
             vim.VirtualMachine,
             properties,
         )
-        logging.info(f"Fetched vim.VirtualMachine inventory ({datetime.datetime.utcnow() - start})")
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.VirtualMachine inventory ({fetch_time})".format(fetch_time=fetch_time))
         return virtual_machines
 
     @run_once_property
@@ -373,21 +376,21 @@ class VmwareCollector():
         def _collect(node, level=1, dc=None, storagePod=""):
             inventory = {}
             if isinstance(node, vim.Folder) and not isinstance(node, vim.StoragePod):
-                logging.debug(f"[Folder    ] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[Folder    ] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
                 for child in node.childEntity:
-                    inventory.update(_collect(child, level+1, dc))
+                    inventory.update(_collect(child, level + 1, dc))
             elif isinstance(node, vim.Datacenter):
-                logging.debug(f"[Datacenter] {('-' * level).ljust(7)} {node.name}")
-                inventory.update(_collect(node.datastoreFolder, level+1, node.name))
+                logging.debug("[Datacenter] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
+                inventory.update(_collect(node.datastoreFolder, level + 1, node.name))
             elif isinstance(node, vim.Folder) and isinstance(node, vim.StoragePod):
-                logging.debug(f"[StoragePod] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[StoragePod] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
                 for child in node.childEntity:
-                    inventory.update(_collect(child, level+1, dc, node.name))
+                    inventory.update(_collect(child, level + 1, dc, node.name))
             elif isinstance(node, vim.Datastore):
-                logging.debug(f"[Datastore ] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[Datastore ] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
                 inventory[node.name] = [node.name, dc, storagePod]
             else:
-                logging.debug(f"[?         ] {('-' * level).ljust(7)} {node}")
+                logging.debug("[?         ] {level} {node}".format(node=node, level=('-' * level).ljust(7)))
             return inventory
 
         labels = {}
@@ -404,25 +407,25 @@ class VmwareCollector():
         def _collect(node, level=1, dc=None, folder=None):
             inventory = {}
             if isinstance(node, vim.Folder) and not isinstance(node, vim.StoragePod):
-                logging.debug(f"[Folder    ] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[Folder    ] {level} {name}".format(level=('-' * level).ljust(7), name=node.name))
                 for child in node.childEntity:
-                    inventory.update(_collect(child, level+1, dc))
+                    inventory.update(_collect(child, level + 1, dc))
             elif isinstance(node, vim.Datacenter):
-                logging.debug(f"[Datacenter] {('-' * level).ljust(7)} {node.name}")
-                inventory.update(_collect(node.hostFolder, level+1, node.name))
+                logging.debug("[Datacenter] {level} {name}".format(level=('-' * level).ljust(7), name=node.name))
+                inventory.update(_collect(node.hostFolder, level + 1, node.name))
             elif isinstance(node, vim.ComputeResource):
-                logging.debug(f"[ComputeRes] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[ComputeRes] {level} {name}".format(level=('-' * level).ljust(7), name=node.name))
                 for host in node.host:
-                    inventory.update(_collect(host, level+1, dc, node))
+                    inventory.update(_collect(host, level + 1, dc, node))
             elif isinstance(node, vim.HostSystem):
-                logging.debug(f"[HostSystem] {('-' * level).ljust(7)} {node.name}")
+                logging.debug("[HostSystem] {level} {name}".format(level=('-' * level).ljust(7), name=node.name))
                 inventory[node._moId] = [
                     node.summary.config.name.rstrip('.'),
                     dc,
                     folder.name if isinstance(folder, vim.ClusterComputeResource) else ''
                     ]
             else:
-                logging.debug(f"[?         ] {('-' * level).ljust(7)} {node}")
+                logging.debug("[?         ] {level} {node}".format(level=('-' * level).ljust(7), node=node))
             return inventory
 
         labels = {}
@@ -505,7 +508,11 @@ class VmwareCollector():
                 name = datastore['name']
                 labels = datastore_labels[name]
             except KeyError as e:
-                logging.info(f"Key error, unable to register datastore {e}, datastores are {datastore_labels}")
+                logging.info(
+                    "Key error, unable to register datastore {error}, datastores are {datastore_labels}".format(
+                        error=e, datastore_labels=datastore_labels
+                    )
+                )
                 continue
 
             ds_capacity = float(datastore.get('summary.capacity', 0))
@@ -522,8 +529,8 @@ class VmwareCollector():
             ds_metrics['vmware_datastore_vms'].add_metric(labels, len(datastore.get('vm', [])))
 
             ds_metrics['vmware_datastore_maintenance_mode'].add_metric(
-               labels + [datastore.get('summary.maintenanceMode', 'unknown')],
-               1
+                labels + [datastore.get('summary.maintenanceMode', 'unknown')],
+                1
             )
 
             ds_metrics['vmware_datastore_type'].add_metric(
@@ -689,7 +696,11 @@ class VmwareCollector():
             try:
                 labels = host_labels[host_id]
             except KeyError as e:
-                logging.info(f"Key error, unable to register host {e}, host labels are {host_labels}")
+                logging.info(
+                    "Key error, unable to register host {error}, host labels are {host_labels}".format(
+                        error=e, host_labels=host_labels
+                    )
+                )
                 continue
 
             # Power state
@@ -907,7 +918,7 @@ def main(argv=None):
 
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError(f"Invalid log level: {args.loglevel}")
+        raise ValueError("Invalid log level: {level}".format(level=args.loglevel))
     logging.basicConfig(level=numeric_level, format='%(asctime)s %(levelname)s:%(message)s')
 
     reactor.suggestThreadPoolSize(25)
@@ -918,7 +929,7 @@ def main(argv=None):
     root.putChild(b'healthz', HealthzResource())
 
     factory = Site(root)
-    logging.info(f"Starting web server on port {args.port}")
+    logging.info("Starting web server on port {port}".format(port=args.port))
     endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port)
     endpoint.listen(factory)
     reactor.run()
