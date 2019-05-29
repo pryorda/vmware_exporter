@@ -597,17 +597,19 @@ class VmwareCollector():
 
         content = yield self.content
 
-        results, labels = yield parallelize(
-            threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
-            self.vm_labels,
-        )
+        if len(specs) > 0:
+            results, labels = yield parallelize(
+                threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+                self.vm_labels,
+            )
 
-        for ent in results:
-            for metric in ent.value:
-                vm_metrics[metric_names[metric.id.counterId]].add_metric(
-                    labels[ent.entity._moId],
-                    float(sum(metric.value)),
-                )
+            for ent in results:
+                for metric in ent.value:
+                    vm_metrics[metric_names[metric.id.counterId]].add_metric(
+                        labels[ent.entity._moId],
+                        float(sum(metric.value)),
+                     )
+
         logging.info('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
