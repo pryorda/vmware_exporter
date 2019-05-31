@@ -308,10 +308,18 @@ def test_metrics_without_hostaccess():
         assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
             'vm_name': 'vm-x',
             'partition': '/boot',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
         }
 
+        # Fail due to expected labels ['vm-1', 'host-1', 'dc', 'cluster-1']
+        # but found ['vm-1']
         assert metrics['vmware_vm_power_state'].samples[0][1] == {
             'vm_name': 'vm-x',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
         }
 
 

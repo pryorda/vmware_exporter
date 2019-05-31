@@ -628,6 +628,13 @@ class VmwareCollector():
                 continue
 
             labels = vm_labels[moid]
+            labels_cnt = len(labels)
+
+            if labels_cnt < 4:
+                logging.info("Only ${cnt}/4 labels (vm, host, dc, cluster) found, filling n/a".format(cnt=labels_cnt))
+
+            for i in range(labels_cnt, 4):
+                labels.append('n/a')
 
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
