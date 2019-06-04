@@ -260,6 +260,128 @@ def test_collect_vms():
 
 
 @pytest_twisted.inlineCallbacks
+# @pytest.mark.skip
+def test_metrics_without_hostaccess():
+    boot_time = EPOCH + datetime.timedelta(seconds=60)
+    disk = mock.Mock()
+    disk.diskPath = '/boot'
+    disk.capacity = 100
+    disk.freeSpace = 50
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': False,
+        'hosts': False,
+        'snapshots': False,
+    }
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    metrics = collector._create_metric_containers()
+    collector.content = _succeed(mock.Mock())
+    collector.__dict__['host_labels'] = _succeed({'': []})
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-x',
+                'runtime.host': vim.ManagedObject('notfound:1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        assert collector.vm_labels.result == {'vm-1': ['vm-x']}
+        yield collector._vmware_get_vms(metrics)
+
+        # 113 AssertionError {'partition': '/boot'} vs {'host_name': '/boot'}
+        assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
+            'vm_name': 'vm-x',
+            'partition': '/boot',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
+        }
+
+        # Fail due to expected labels ['vm-1', 'host-1', 'dc', 'cluster-1']
+        # but found ['vm-1']
+        assert metrics['vmware_vm_power_state'].samples[0][1] == {
+            'vm_name': 'vm-x',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
+        }
+
+
+@pytest_twisted.inlineCallbacks
+def test_no_error_onempty_vms():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': False,
+        'hosts': False,
+        'snapshots': False,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    metrics = collector._create_metric_containers()
+
+    metric_1 = mock.Mock()
+    metric_1.id.counterId = 9
+    metric_1.value = [9]
+
+    metric_2 = mock.Mock()
+    metric_2.id.counterId = 1
+    metric_2.value = [1]
+
+    ent_1 = mock.Mock()
+    ent_1.value = [metric_1, metric_2]
+    ent_1.entity = vim.ManagedObject('vm:1')
+
+    content = mock.Mock()
+    content.perfManager.QueryStats.return_value = [ent_1]
+    collector.content = _succeed(content)
+
+    collector.__dict__['counter_ids'] = _succeed({
+        'cpu.ready.summation': 1,
+        'cpu.usage.average': 2,
+        'cpu.usagemhz.average': 3,
+        'disk.usage.average': 4,
+        'disk.read.average': 5,
+        'disk.write.average': 6,
+        'mem.usage.average': 7,
+        'net.received.average': 8,
+        'net.transmitted.average': 9,
+    })
+
+    collector.__dict__['vm_labels'] = _succeed({'': []})
+    collector.__dict__['vm_inventory'] = _succeed({'': {}})
+
+    # Try to test for querySpec=[]
+    # threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+    # TypeError Required field "querySpec" not provided (not @optional)
+    yield collector._vmware_get_vm_perf_manager_metrics(metrics)
+
+    assert metrics['vmware_vm_power_state'].samples == []
+
+
+@pytest_twisted.inlineCallbacks
 def test_collect_vm_perf():
     collect_only = {
         'vms': True,

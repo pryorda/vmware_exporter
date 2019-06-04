@@ -597,17 +597,19 @@ class VmwareCollector():
 
         content = yield self.content
 
-        results, labels = yield parallelize(
-            threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
-            self.vm_labels,
-        )
+        if len(specs) > 0:
+            results, labels = yield parallelize(
+                threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+                self.vm_labels,
+            )
 
-        for ent in results:
-            for metric in ent.value:
-                vm_metrics[metric_names[metric.id.counterId]].add_metric(
-                    labels[ent.entity._moId],
-                    float(sum(metric.value)),
-                )
+            for ent in results:
+                for metric in ent.value:
+                    vm_metrics[metric_names[metric.id.counterId]].add_metric(
+                        labels[ent.entity._moId],
+                        float(sum(metric.value)),
+                     )
+
         logging.info('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
@@ -626,6 +628,13 @@ class VmwareCollector():
                 continue
 
             labels = vm_labels[moid]
+            labels_cnt = len(labels)
+
+            if labels_cnt < 4:
+                logging.info("Only ${cnt}/4 labels (vm, host, dc, cluster) found, filling n/a".format(cnt=labels_cnt))
+
+            for i in range(labels_cnt, 4):
+                labels.append('n/a')
 
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
