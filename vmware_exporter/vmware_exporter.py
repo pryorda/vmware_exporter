@@ -555,6 +555,7 @@ class VmwareCollector():
         # List of performance counter we want
         perf_list = [
             'cpu.ready.summation',
+            'cpu.maxlimited.summation',
             'cpu.usage.average',
             'cpu.usagemhz.average',
             'disk.usage.average',
