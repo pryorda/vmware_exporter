@@ -343,7 +343,7 @@ def test_no_error_onempty_vms():
     metrics = collector._create_metric_containers()
 
     metric_1 = mock.Mock()
-    metric_1.id.counterId = 9
+    metric_1.id.counterId = 10
     metric_1.value = [9]
 
     metric_2 = mock.Mock()
@@ -360,14 +360,15 @@ def test_no_error_onempty_vms():
 
     collector.__dict__['counter_ids'] = _succeed({
         'cpu.ready.summation': 1,
-        'cpu.usage.average': 2,
-        'cpu.usagemhz.average': 3,
-        'disk.usage.average': 4,
-        'disk.read.average': 5,
-        'disk.write.average': 6,
-        'mem.usage.average': 7,
-        'net.received.average': 8,
-        'net.transmitted.average': 9,
+        'cpu.maxlimited.summation': 2,
+        'cpu.usage.average': 3,
+        'cpu.usagemhz.average': 4,
+        'disk.usage.average': 5,
+        'disk.read.average': 6,
+        'disk.write.average': 7,
+        'mem.usage.average': 8,
+        'net.received.average': 9,
+        'net.transmitted.average': 10,
     })
 
     collector.__dict__['vm_labels'] = _succeed({'': []})
@@ -400,7 +401,7 @@ def test_collect_vm_perf():
     metrics = collector._create_metric_containers()
 
     metric_1 = mock.Mock()
-    metric_1.id.counterId = 9
+    metric_1.id.counterId = 10
     metric_1.value = [9]
 
     metric_2 = mock.Mock()
@@ -417,14 +418,15 @@ def test_collect_vm_perf():
 
     collector.__dict__['counter_ids'] = _succeed({
         'cpu.ready.summation': 1,
-        'cpu.usage.average': 2,
-        'cpu.usagemhz.average': 3,
-        'disk.usage.average': 4,
-        'disk.read.average': 5,
-        'disk.write.average': 6,
-        'mem.usage.average': 7,
-        'net.received.average': 8,
-        'net.transmitted.average': 9,
+        'cpu.maxlimited.summation': 2,
+        'cpu.usage.average': 3,
+        'cpu.usagemhz.average': 4,
+        'disk.usage.average': 5,
+        'disk.read.average': 6,
+        'disk.write.average': 7,
+        'mem.usage.average': 8,
+        'net.received.average': 9,
+        'net.transmitted.average': 10,
     })
 
     collector.__dict__['vm_labels'] = _succeed({
