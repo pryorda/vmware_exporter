@@ -1,3 +1,3 @@
-__version__ = '0.9.5'
+__version__ = '0.9.6'
 __author__ = "Daniel Pryor"
 __license__ = "BSD 3-Clause License"
