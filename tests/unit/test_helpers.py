@@ -16,20 +16,26 @@ class FakeView(vim.ManagedObject):
         pass
 
 
-def test_get_bool_env_with_default_value():
-    value = get_bool_env('INEXISTENT_ENV', True)
+def test_get_bool_env():
+    # Expected behaviour
+    assert get_bool_env('NON_EXISTENT_ENV', True)
 
-    assert value
+    # #102 'bool("False") will evaluate to True in Python'
+    os.environ['VSPHERE_COLLECT_VMS'] = "False"
+    assert not get_bool_env('VSPHERE_COLLECT_VMS', True)
 
+    # Environment is higher prio than defaults
+    os.environ['ENVHIGHERPRIO'] = "True"
+    assert get_bool_env('ENVHIGHERPRIO', False)
+    assert get_bool_env('ENVHIGHERPRIO', True)
 
-def test_get_bool_env_with_a_valid_env():
-    key = "TEST_BOOLEAN_VALUE"
+    os.environ['ENVHIGHERPRIO_F'] = "False"
+    assert not get_bool_env('ENVHIGHERPRIO_F', False)
+    assert not get_bool_env('ENVHIGHERPRIO_F', True)
 
-    os.environ[key] = "True"
-
-    value = get_bool_env(key, False)
-
-    assert value
+    # Accent upper and lower case in env vars
+    os.environ['ENVHIGHERPRIO_F'] = "false"
+    assert not get_bool_env('ENVHIGHERPRIO_F', True)
 
 
 def test_batch_fetch_properties():

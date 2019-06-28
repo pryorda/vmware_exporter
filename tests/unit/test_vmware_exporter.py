@@ -7,9 +7,13 @@ import pytest_twisted
 import pytz
 from pyVmomi import vim, vmodl
 from twisted.internet import defer
+from twisted.internet.error import ReactorAlreadyRunning
 from twisted.web.server import NOT_DONE_YET
+from twisted.web.resource import Resource
 
-from vmware_exporter.vmware_exporter import main, HealthzResource, VmwareCollector, VMWareMetricsResource
+
+from vmware_exporter.vmware_exporter import main, registerEndpoints
+from vmware_exporter.vmware_exporter import HealthzResource, VmwareCollector, VMWareMetricsResource, IndexResource
 from vmware_exporter.defer import BranchingDeferred
 
 
@@ -59,6 +63,9 @@ def test_collect_vms():
         'hosts': True,
         'snapshots': True,
     }
+
+    # Test runtime.host not found
+
     collector = VmwareCollector(
         '127.0.0.1',
         'root',
@@ -67,8 +74,38 @@ def test_collect_vms():
     )
     collector.content = _succeed(mock.Mock())
 
-    collector.__dict__['vm_labels'] = _succeed({
-        'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+    collector.__dict__['host_labels'] = _succeed({'': []})
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-1',
+                'runtime.host': vim.ManagedObject('notfound:1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+
+    # Reset variables
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    collector.content = _succeed(mock.Mock())
+
+    collector.__dict__['host_labels'] = _succeed({
+        'host-1': ['host-1', 'dc', 'cluster-1'],
     })
 
     metrics = collector._create_metric_containers()
@@ -87,10 +124,48 @@ def test_collect_vms():
                 'guest.toolsStatus': 'toolsOk',
                 'guest.toolsVersion': '10336',
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
-            }
+            },
+            'vm-2': {
+                'name': 'vm-2',
+                'runtime.powerState': 'poweredOff',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            },
+            'vm-3': {
+                'name': 'vm-3',
+                'runtime.host': vim.ManagedObject('host-1'),
+                'runtime.powerState': 'poweredOff',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            },
         })
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
+        assert collector.vm_labels.result == {
+                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+                'vm-2': ['vm-2'],
+                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+                }
+
+    # Assert that vm-3 skipped #69/#70
+    assert metrics['vmware_vm_power_state'].samples[1][1] == {
+        'vm_name': 'vm-3',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
 
     # General VM metrics
     assert metrics['vmware_vm_power_state'].samples[0][1] == {
@@ -185,6 +260,129 @@ def test_collect_vms():
 
 
 @pytest_twisted.inlineCallbacks
+# @pytest.mark.skip
+def test_metrics_without_hostaccess():
+    boot_time = EPOCH + datetime.timedelta(seconds=60)
+    disk = mock.Mock()
+    disk.diskPath = '/boot'
+    disk.capacity = 100
+    disk.freeSpace = 50
+
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': False,
+        'hosts': False,
+        'snapshots': False,
+    }
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    metrics = collector._create_metric_containers()
+    collector.content = _succeed(mock.Mock())
+    collector.__dict__['host_labels'] = _succeed({'': []})
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-x',
+                'runtime.host': vim.ManagedObject('notfound:1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'runtime.bootTime': boot_time,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        assert collector.vm_labels.result == {'vm-1': ['vm-x']}
+        yield collector._vmware_get_vms(metrics)
+
+        # 113 AssertionError {'partition': '/boot'} vs {'host_name': '/boot'}
+        assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
+            'vm_name': 'vm-x',
+            'partition': '/boot',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
+        }
+
+        # Fail due to expected labels ['vm-1', 'host-1', 'dc', 'cluster-1']
+        # but found ['vm-1']
+        assert metrics['vmware_vm_power_state'].samples[0][1] == {
+            'vm_name': 'vm-x',
+            'host_name': 'n/a',
+            'cluster_name': 'n/a',
+            'dc_name': 'n/a',
+        }
+
+
+@pytest_twisted.inlineCallbacks
+def test_no_error_onempty_vms():
+    collect_only = {
+        'vms': True,
+        'vmguests': True,
+        'datastores': False,
+        'hosts': False,
+        'snapshots': False,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        ignore_ssl=True,
+    )
+
+    metrics = collector._create_metric_containers()
+
+    metric_1 = mock.Mock()
+    metric_1.id.counterId = 10
+    metric_1.value = [9]
+
+    metric_2 = mock.Mock()
+    metric_2.id.counterId = 1
+    metric_2.value = [1]
+
+    ent_1 = mock.Mock()
+    ent_1.value = [metric_1, metric_2]
+    ent_1.entity = vim.ManagedObject('vm:1')
+
+    content = mock.Mock()
+    content.perfManager.QueryStats.return_value = [ent_1]
+    collector.content = _succeed(content)
+
+    collector.__dict__['counter_ids'] = _succeed({
+        'cpu.ready.summation': 1,
+        'cpu.maxlimited.summation': 2,
+        'cpu.usage.average': 3,
+        'cpu.usagemhz.average': 4,
+        'disk.usage.average': 5,
+        'disk.read.average': 6,
+        'disk.write.average': 7,
+        'mem.usage.average': 8,
+        'net.received.average': 9,
+        'net.transmitted.average': 10,
+    })
+
+    collector.__dict__['vm_labels'] = _succeed({'': []})
+    collector.__dict__['vm_inventory'] = _succeed({'': {}})
+
+    # Try to test for querySpec=[]
+    # threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+    # TypeError Required field "querySpec" not provided (not @optional)
+    yield collector._vmware_get_vm_perf_manager_metrics(metrics)
+
+    assert metrics['vmware_vm_power_state'].samples == []
+
+
+@pytest_twisted.inlineCallbacks
 def test_collect_vm_perf():
     collect_only = {
         'vms': True,
@@ -203,7 +401,7 @@ def test_collect_vm_perf():
     metrics = collector._create_metric_containers()
 
     metric_1 = mock.Mock()
-    metric_1.id.counterId = 9
+    metric_1.id.counterId = 10
     metric_1.value = [9]
 
     metric_2 = mock.Mock()
@@ -220,14 +418,15 @@ def test_collect_vm_perf():
 
     collector.__dict__['counter_ids'] = _succeed({
         'cpu.ready.summation': 1,
-        'cpu.usage.average': 2,
-        'cpu.usagemhz.average': 3,
-        'disk.usage.average': 4,
-        'disk.read.average': 5,
-        'disk.write.average': 6,
-        'mem.usage.average': 7,
-        'net.received.average': 8,
-        'net.transmitted.average': 9,
+        'cpu.maxlimited.summation': 2,
+        'cpu.usage.average': 3,
+        'cpu.usagemhz.average': 4,
+        'disk.usage.average': 5,
+        'disk.read.average': 6,
+        'disk.write.average': 7,
+        'mem.usage.average': 8,
+        'net.received.average': 9,
+        'net.transmitted.average': 10,
     })
 
     collector.__dict__['vm_labels'] = _succeed({
@@ -244,7 +443,7 @@ def test_collect_vm_perf():
             'name': 'vm-2',
             'obj': vim.ManagedObject('vm-2'),
             'runtime.powerState': 'poweredOff',
-        }
+        },
     })
 
     yield collector._vmware_get_vm_perf_manager_metrics(metrics)
@@ -410,7 +609,7 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
-        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(None)
+        stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
 
     assert metrics[0].name == 'vmware_vm_power_state'
@@ -455,19 +654,19 @@ def test_collect_deferred_error_works():
 
 @pytest_twisted.inlineCallbacks
 def test_vmware_get_inventory():
-    content = mock.Mock()
+    content = mock.Mock(spec=vim.ServiceInstanceContent)
 
     # Compute case 1
-    host_1 = mock.Mock()
+    host_1 = mock.Mock(spec=vim.HostSystem)
     host_1._moId = 'host:1'
     host_1.name = 'host-1'
     host_1.summary.config.name = 'host-1.'
 
-    folder_1 = mock.Mock()
+    folder_1 = mock.Mock(spec=vim.ComputeResource)
     folder_1.host = [host_1]
 
     # Computer case 2
-    host_2 = mock.Mock()
+    host_2 = mock.Mock(spec=vim.HostSystem)
     host_2._moId = 'host:2'
     host_2.name = 'host-2'
     host_2.summary.config.name = 'host-2.'
@@ -475,6 +674,23 @@ def test_vmware_get_inventory():
     folder_2 = vim.ClusterComputeResource('computer-cluster:1')
     folder_2.__dict__['name'] = 'compute-cluster-1'
     folder_2.__dict__['host'] = [host_2]
+
+    # Folders case
+    host_3 = mock.Mock(spec=vim.HostSystem)
+    host_3._moId = 'host:3'
+    host_3.name = 'host-3'
+    host_3.summary.config.name = 'host-3.'
+
+    folder_3 = mock.Mock(spec=vim.ComputeResource)
+    folder_3.host = [host_3]
+
+    folder_4 = vim.Folder('folder:4')
+    folder_4.__dict__['name'] = 'folder-4'
+    folder_4.__dict__['childEntity'] = [folder_3]
+
+    folder_5 = vim.Folder('folder:5')
+    folder_5.__dict__['name'] = 'folder-5'
+    folder_5.__dict__['childEntity'] = [folder_4]
 
     # Datastore case 1
     datastore_1 = vim.Datastore('datastore:1')
@@ -488,12 +704,20 @@ def test_vmware_get_inventory():
     datastore_2_folder.__dict__['childEntity'] = [datastore_2]
     datastore_2_folder.__dict__['name'] = 'datastore2-folder'
 
-    data_center_1 = mock.Mock()
+    data_center_1 = mock.Mock(spec=vim.Datacenter)
     data_center_1.name = 'dc-1'
-    data_center_1.hostFolder.childEntity = [folder_1, folder_2]
-    data_center_1.datastoreFolder.childEntity = [datastore_1, datastore_2_folder]
+    data_center_1_hostfolder = mock.Mock(spec=vim.Folder)
+    data_center_1_hostfolder.childEntity = [folder_1, folder_2, folder_5]
+    data_center_1.hostFolder = data_center_1_hostfolder
 
-    content.rootFolder.childEntity = [data_center_1]
+    dc1_datastoreFolder = mock.Mock(spec=vim.Folder)
+    dc1_datastoreFolder.childEntity = [datastore_1, datastore_2_folder]
+
+    data_center_1.datastoreFolder = dc1_datastoreFolder
+
+    rootFolder1 = mock.Mock(spec=vim.Folder)
+    rootFolder1.childEntity = [data_center_1]
+    content.rootFolder = rootFolder1
 
     collect_only = {
         'vms': True,
@@ -513,6 +737,8 @@ def test_vmware_get_inventory():
 
     with contextlib.ExitStack() as stack:
         # We have to disable the LazyObject magic on pyvmomi classes so that we can use them as fakes
+        stack.enter_context(mock.patch.object(vim.Folder, 'name', None))
+        stack.enter_context(mock.patch.object(vim.Folder, 'childEntity', None))
         stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'name', None))
         stack.enter_context(mock.patch.object(vim.ClusterComputeResource, 'host', None))
         stack.enter_context(mock.patch.object(vim.Datastore, 'name', None))
@@ -525,6 +751,7 @@ def test_vmware_get_inventory():
     assert host == {
         'host:1': ['host-1', 'dc-1', ''],
         'host:2': ['host-2', 'dc-1', 'compute-cluster-1'],
+        'host:3': ['host-3', 'dc-1', ''],
     }
 
     assert ds == {
@@ -624,6 +851,35 @@ def test_healthz():
     request.setResponseCode.assert_called_with(200)
 
     assert response == b'Server is UP'
+
+
+def test_index_page():
+    request = mock.Mock()
+
+    resource = IndexResource()
+    response = resource.render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+
+    assert response == b"""<html>
+            <head><title>VMware Exporter</title></head>
+            <body>
+            <h1>VMware Exporter</h1>
+            <p><a href="/metrics">Metrics</a></p>
+            </body>
+            </html>"""
+
+
+def test_register_endpoints():
+    args = mock.Mock()
+    args.config_file = None
+
+    registered_routes = [b'', b'metrics', b'healthz']
+
+    evaluation_var = registerEndpoints(args)
+    assert isinstance(evaluation_var, Resource)
+    for route in registered_routes:
+        assert evaluation_var.getStaticEntity(route) is not None
 
 
 def test_vmware_resource():
@@ -804,6 +1060,16 @@ def test_config_env_multiple_sections():
     }
 
 
+def test_invalid_loglevel_cli_argument():
+    with pytest.raises(ValueError):
+        main(['-l', 'dog'])
+
+
+def test_valid_loglevel_cli_argument():
+    with pytest.raises(ReactorAlreadyRunning):
+        main(['-l', 'INFO'])
+
+
 def test_main():
     with pytest.raises(SystemExit):
-        main(['-h'])
+        main(['-h', '-l debug'])
