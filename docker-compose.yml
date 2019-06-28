@@ -13,5 +13,5 @@ services:
         VSPHERE_COLLECT_VMS: "False"
         VSPHERE_COLLECT_VMGUESTS: "False"
     restart: always
-    #FOR DEBUG UNCOOMENT NEXT LINE
+    #FOR DEBUG UNCOMMENT NEXT LINE
     #command: ["-l","DEBUG"]
