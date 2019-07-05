@@ -717,6 +717,13 @@ class VmwareCollector():
             power_state = 1 if host['runtime.powerState'] == 'poweredOn' else 0
             host_metrics['vmware_host_power_state'].add_metric(labels, power_state)
 
+            # Host connection state (connected, disconnected, notResponding)
+            connection_state = host.get('runtime.connectionState', 'unknown')
+            host_metrics['vmware_host_connection_state'].add_metric(
+                labels + [connection_state],
+                1
+            )
+
             if not power_state:
                 continue
 
@@ -727,13 +734,6 @@ class VmwareCollector():
                     labels,
                     self._to_epoch(host['runtime.bootTime'])
                 )
-
-            # Host connection state (connected, disconnected, notResponding)
-            connection_state = host.get('runtime.connectionState', 'unknown')
-            host_metrics['vmware_host_connection_state'].add_metric(
-                labels + [connection_state],
-                1
-            )
 
             # Host in maintenance mode?
             if 'runtime.inMaintenanceMode' in host:
