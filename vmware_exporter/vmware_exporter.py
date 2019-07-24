@@ -31,6 +31,7 @@ from pyVim import connect
 # Prometheus specific imports
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
+from prometheus_client.core import REGISTRY
 
 from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
@@ -892,8 +893,13 @@ class VMWareMetricsResource(Resource):
             self.config[section]['ignore_ssl'],
         )
         metrics = yield collector.collect()
+		
+        # URI /metrics?section=default
+        if request.path = '/metrics' and section == 'default':
+            registry = REGISTRY
+        else:
+            registry = CollectorRegistry()
 
-        registry = CollectorRegistry()
         registry.register(ListCollector(metrics))
         output = generate_latest(registry)
 
