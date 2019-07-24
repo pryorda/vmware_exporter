@@ -172,6 +172,10 @@ class VmwareCollector():
                 'vmware_host_memory_max',
                 'VMWare Host Memory Max availability in Mbytes',
                 labels=['host_name', 'dc_name', 'cluster_name']),
+            'vmware_host_product_info': GaugeMetricFamily(
+                'vmware_host_product_info',
+                'A metric with a constant "1" value labeled by version and build from os the host.',
+                labels=['host_name', 'dc_name', 'cluster_name', 'version', 'build']),
             }
 
         metrics = {}
@@ -305,6 +309,8 @@ class VmwareCollector():
             'summary.hardware.numCpuCores',
             'summary.hardware.cpuMhz',
             'summary.hardware.memorySize',
+            'summary.config.product.version',
+            'summary.config.product.build',
             'runtime.powerState',
             'runtime.bootTime',
             'runtime.connectionState',
@@ -770,6 +776,14 @@ class VmwareCollector():
                     labels,
                     float(host['summary.hardware.memorySize']) / 1024 / 1024
                 )
+
+
+            config_ver = host.get('summary.config.product.version', 'unknown')
+            build_ver = host.get('summary.config.product.build', 'unknown')
+            host_metrics['vmware_host_product_info'].add_metric(
+                labels + [config_ver, build_ver],
+                1
+            )
 
         logging.info("Finished host metrics collection")
         return results
