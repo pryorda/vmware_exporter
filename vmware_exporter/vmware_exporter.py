@@ -777,7 +777,6 @@ class VmwareCollector():
                     float(host['summary.hardware.memorySize']) / 1024 / 1024
                 )
 
-
             config_ver = host.get('summary.config.product.version', 'unknown')
             build_ver = host.get('summary.config.product.build', 'unknown')
             host_metrics['vmware_host_product_info'].add_metric(
