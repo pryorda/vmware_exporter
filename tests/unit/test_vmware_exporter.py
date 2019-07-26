@@ -498,6 +498,8 @@ def test_collect_hosts():
                 'summary.hardware.cpuMhz': 1000,
                 'summary.quickStats.overallMemoryUsage': 1024,
                 'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765062',
             },
             'host:2': {
                 'id': 'host:2',
@@ -515,6 +517,15 @@ def test_collect_hosts():
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
+
+    assert metrics['vmware_host_product_info'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'version': '6.0.0',
+        'build': '6765062',
+    }
+    assert metrics['vmware_host_product_info'].samples[0][2] == 1
 
     # In our test data we hava a host that is powered down - we should have its
     # power_state metric but not any others.
