@@ -893,9 +893,9 @@ class VMWareMetricsResource(Resource):
             self.config[section]['ignore_ssl'],
         )
         metrics = yield collector.collect()
-		
+
         # URI /metrics?section=default
-        if request.path = '/metrics' and section == 'default':
+        if request.path == b'/metrics' and section == 'default':
             registry = REGISTRY
         else:
             registry = CollectorRegistry()
