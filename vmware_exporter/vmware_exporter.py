@@ -568,6 +568,10 @@ class VmwareCollector():
             'disk.read.average',
             'disk.write.average',
             'mem.usage.average',
+            'mem.consumed.average',
+            'mem.active.average',
+            'mem.swapped.average',
+            'mem.vmmemctl.average',
             'net.received.average',
             'net.transmitted.average',
         ]
