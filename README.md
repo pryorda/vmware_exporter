@@ -126,7 +126,7 @@ You can use the following parameters in the Prometheus configuration file. The `
     metrics_path: '/metrics'
     static_configs:
       - targets:
-        - 'vcenter.company.com
+        - 'vcenter.company.com'
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
