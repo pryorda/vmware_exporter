@@ -563,6 +563,20 @@ def test_collect_hosts():
         'host:2': ['host-1', 'dc', 'cluster'],
     })
 
+    
+    collector.__dict__['host_system_inventory'] = _succeed({
+        'host:1': {
+            'name': 'host-1',
+            'obj': vim.ManagedObject('host-1'),
+            'runtime.powerState': 'poweredOn',
+        },
+        'host:2': {
+            'name': 'host-2',
+            'obj': vim.ManagedObject('host-2'),
+            'runtime.powerState': 'poweredOff',
+        },
+    })
+
     metrics = collector._create_metric_containers()
 
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
