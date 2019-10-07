@@ -626,8 +626,6 @@ def test_collect_hosts():
     assert len(metrics['vmware_host_power_state'].samples) == 2
     assert len(metrics['vmware_host_memory_max'].samples) == 1
 
-
-
 @pytest_twisted.inlineCallbacks
 def test_collect_host_perf():
     collect_only = {
@@ -740,6 +738,7 @@ def test_collect_host_perf():
     }
     assert metrics['vmware_host_net_droppedRx_summation'].samples[0][2] == 10.0
 
+
 @pytest_twisted.inlineCallbacks
 def test_collect_datastore():
     collect_only = {
@@ -827,7 +826,8 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
-        stack.enter_context(mock.patch.object(collector, '_vmware_get_host_perf_manager_metrics')).return_value = _succeed(True)
+        stack.enter_context(mock.patch.object(collector, '_vmware_get_host_perf_manager_metrics')
+        ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
 
