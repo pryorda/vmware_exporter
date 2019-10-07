@@ -32,8 +32,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env
-from .defer import parallelize, run_once_property
+from helpers import batch_fetch_properties, get_bool_env
+from defer import parallelize, run_once_property
 
 
 class VmwareCollector():
@@ -68,6 +68,11 @@ class VmwareCollector():
                 'vmware_vm_template',
                 'VMWare VM Template (true / false)',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+            'vmware_vm_max_cpu_usage': GaugeMetricFamily(
+                'vmware_vm_max_cpu_usage',
+                'VMWare VM Cpu Max availability in hz',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+                
             }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
@@ -176,6 +181,11 @@ class VmwareCollector():
                 'vmware_host_memory_max',
                 'VMWare Host Memory Max availability in Mbytes',
                 labels=['host_name', 'dc_name', 'cluster_name']),
+            'vmware_host_hardware_info': GaugeMetricFamily(
+                'vmware_host_hardware_info',
+                'A metric with a constant "1" value labeled by model and cpu model from the host.',
+                labels=['host_name', 'dc_name', 'cluster_name', 'hardware_model', 'hardware_cpu_model']),
+
             'vmware_host_product_info': GaugeMetricFamily(
                 'vmware_host_product_info',
                 'A metric with a constant "1" value labeled by version and build from os the host.',
@@ -321,6 +331,8 @@ class VmwareCollector():
             'runtime.inMaintenanceMode',
             'summary.quickStats.overallCpuUsage',
             'summary.quickStats.overallMemoryUsage',
+            'summary.hardware.cpuModel',
+            'summary.hardware.model',
         ]
 
         host_systems = yield self.batch_fetch_properties(
@@ -349,6 +361,7 @@ class VmwareCollector():
                 'summary.config.numCpu',
                 'summary.config.memorySizeMB',
                 'summary.config.template',
+                'runtime.maxCpuUsage'
             ])
 
         if self.collect_only['vmguests'] is True:
@@ -575,6 +588,22 @@ class VmwareCollector():
             'mem.usage.average',
             'net.received.average',
             'net.transmitted.average',
+            # To Add
+            'cpu.costop.summation',
+            'cpu.idle.summation',
+            'cpu.demand.average',
+            'mem.consumed.average',
+            'mem.active.average',
+            'mem.swapped.average',
+            'mem.vmmemctl.average',
+            'disk.maxTotalLatency.latest',
+            'net.multicastRx.summation',
+            'net.multicastTx.summation',
+            'net.broadcastTx.summation',
+            'net.broadcastRx.summation',
+            'net.droppedRx.summation',
+            'net.droppedTx.summation',
+
         ]
 
         # Prepare gauges
@@ -666,6 +695,9 @@ class VmwareCollector():
 
             if 'summary.config.template' in row:
                 metrics['vmware_vm_template'].add_metric(labels, row['summary.config.template'])
+
+            if 'runtime.maxCpuUsage' in row:
+                metrics['vmware_vm_max_cpu_usage'].add_metric(labels, row['runtime.maxCpuUsage'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
@@ -784,6 +816,13 @@ class VmwareCollector():
                     labels,
                     float(host['summary.hardware.memorySize']) / 1024 / 1024
                 )
+
+            hardware_cpu_model = host.get('summary.hardware.cpuModel', 'unknown')
+            hardware_model = host.get('summary.hardware.model', 'unknown')
+            host_metrics['vmware_host_hardware_info'].add_metric(
+                labels + [hardware_model, hardware_cpu_model],
+                1
+            )
 
             config_ver = host.get('summary.config.product.version', 'unknown')
             build_ver = host.get('summary.config.product.build', 'unknown')
