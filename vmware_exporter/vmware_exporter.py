@@ -73,7 +73,7 @@ class VmwareCollector():
                 'VMWare VM Cpu Max availability in hz',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             }
-            
+
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
                 'vmware_vm_guest_disk_free',

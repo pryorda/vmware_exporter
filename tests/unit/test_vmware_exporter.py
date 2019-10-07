@@ -609,7 +609,7 @@ def test_collect_hosts():
     assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
 
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
-    
+
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
 
     assert metrics['vmware_host_product_info'].samples[0][1] == {
@@ -625,6 +625,7 @@ def test_collect_hosts():
     # power_state metric but not any others.
     assert len(metrics['vmware_host_power_state'].samples) == 2
     assert len(metrics['vmware_host_memory_max'].samples) == 1
+
 
 @pytest_twisted.inlineCallbacks
 def test_collect_host_perf():
@@ -826,7 +827,8 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
-        stack.enter_context(mock.patch.object(collector, '_vmware_get_host_perf_manager_metrics')
+        stack.enter_context(
+            mock.patch.object(collector, '_vmware_get_host_perf_manager_metrics')
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
