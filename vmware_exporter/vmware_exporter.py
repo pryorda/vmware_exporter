@@ -180,7 +180,6 @@ class VmwareCollector():
                 'vmware_host_hardware_info',
                 'A metric with a constant "1" value labeled by model and cpu model from the host.',
                 labels=['host_name', 'dc_name', 'cluster_name', 'hardware_model', 'hardware_cpu_model']),
-
             'vmware_host_product_info': GaugeMetricFamily(
                 'vmware_host_product_info',
                 'A metric with a constant "1" value labeled by version and build from os the host.',
@@ -582,7 +581,6 @@ class VmwareCollector():
             'mem.usage.average',
             'net.received.average',
             'net.transmitted.average',
-            # To Add
             'cpu.costop.summation',
             'cpu.idle.summation',
             'cpu.demand.average',
