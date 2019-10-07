@@ -68,11 +68,6 @@ class VmwareCollector():
                 'vmware_vm_template',
                 'VMWare VM Template (true / false)',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
-            'vmware_vm_max_cpu_usage': GaugeMetricFamily(
-                'vmware_vm_max_cpu_usage',
-                'VMWare VM Cpu Max availability in hz',
-                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
-                
             }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
@@ -361,7 +356,6 @@ class VmwareCollector():
                 'summary.config.numCpu',
                 'summary.config.memorySizeMB',
                 'summary.config.template',
-                'runtime.maxCpuUsage'
             ])
 
         if self.collect_only['vmguests'] is True:
@@ -695,9 +689,6 @@ class VmwareCollector():
 
             if 'summary.config.template' in row:
                 metrics['vmware_vm_template'].add_metric(labels, row['summary.config.template'])
-
-            if 'runtime.maxCpuUsage' in row:
-                metrics['vmware_vm_max_cpu_usage'].add_metric(labels, row['runtime.maxCpuUsage'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
