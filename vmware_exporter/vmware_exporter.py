@@ -32,8 +32,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from helpers import batch_fetch_properties, get_bool_env
-from defer import parallelize, run_once_property
+from .helpers import batch_fetch_properties, get_bool_env
+from .defer import parallelize, run_once_property
 
 
 class VmwareCollector():
@@ -68,7 +68,12 @@ class VmwareCollector():
                 'vmware_vm_template',
                 'VMWare VM Template (true / false)',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+            'vmware_vm_max_cpu_usage': GaugeMetricFamily(
+                'vmware_vm_max_cpu_usage',
+                'VMWare VM Cpu Max availability in hz',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             }
+            
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
                 'vmware_vm_guest_disk_free',
@@ -221,6 +226,7 @@ class VmwareCollector():
 
         if collect_only['hosts'] is True:
             tasks.append(self._vmware_get_hosts(metrics))
+            tasks.append(self._vmware_get_host_perf_manager_metrics(metrics))
 
         yield parallelize(*tasks)
 
@@ -355,6 +361,7 @@ class VmwareCollector():
                 'summary.config.numCpu',
                 'summary.config.memorySizeMB',
                 'summary.config.template',
+                'runtime.maxCpuUsage',
             ])
 
         if self.collect_only['vmguests'] is True:
@@ -575,27 +582,28 @@ class VmwareCollector():
             'cpu.maxlimited.summation',
             'cpu.usage.average',
             'cpu.usagemhz.average',
-            'disk.usage.average',
-            'disk.read.average',
-            'disk.write.average',
-            'mem.usage.average',
-            'net.received.average',
-            'net.transmitted.average',
             'cpu.costop.summation',
             'cpu.idle.summation',
             'cpu.demand.average',
+            'cpu.wait.summation',
+            'mem.latency.average',
             'mem.consumed.average',
             'mem.active.average',
             'mem.swapped.average',
             'mem.vmmemctl.average',
+            'mem.usage.average',
             'disk.maxTotalLatency.latest',
+            'disk.usage.average',
+            'disk.read.average',
+            'disk.write.average',
+            'net.received.average',
+            'net.transmitted.average',
             'net.multicastRx.summation',
             'net.multicastTx.summation',
             'net.broadcastTx.summation',
             'net.broadcastRx.summation',
             'net.droppedRx.summation',
             'net.droppedTx.summation',
-
         ]
 
         # Prepare gauges
@@ -646,6 +654,87 @@ class VmwareCollector():
         logging.info('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
+    def _vmware_get_host_perf_manager_metrics(self, host_metrics):
+        logging.info('START: _vmware_get_host_perf_manager_metrics')
+
+        host_systems, counter_info = yield parallelize(self.host_system_inventory, self.counter_ids)
+
+        # List of performance counter we want
+        perf_list = [
+            'cpu.costop.summation',
+            'cpu.demand.average',
+            'cpu.idle.summation',
+            'cpu.ready.summation',
+            'cpu.swapwait.summation',
+            'cpu.usage.average',
+            'cpu.usagemhz.average',
+            'cpu.used.summation',
+            'disk.read.average',
+            'disk.write.average',
+            'mem.active.average',
+            'mem.latency.average',
+            'mem.swapin.average',
+            'mem.swapinRate.average',
+            'mem.swapout.average',
+            'mem.swapoutRate.average',
+            'mem.vmmemctl.average',
+            'net.bytesRx.average',
+            'net.bytesTx.average',
+            'net.droppedRx.summation',
+            'net.droppedTx.summation',
+            'net.errorsRx.summation',
+            'net.errorsTx.summation',
+            'net.usage.average',
+        ]
+
+        # Prepare gauges
+        for p in perf_list:
+            p_metric = 'vmware_host_' + p.replace('.', '_')
+            host_metrics[p_metric] = GaugeMetricFamily(
+                p_metric,
+                p_metric,
+                labels=['host_name', 'dc_name', 'cluster_name'])
+
+        metrics = []
+        metric_names = {}
+        for perf_metric in perf_list:
+            perf_metric_name = 'vmware_host_' + perf_metric.replace('.', '_')
+            counter_key = counter_info[perf_metric]
+            metrics.append(vim.PerformanceManager.MetricId(
+                counterId=counter_key,
+                instance=''
+            ))
+            metric_names[counter_key] = perf_metric_name
+
+        specs = []
+        for host in host_systems.values():
+            if host.get('runtime.powerState') != 'poweredOn':
+                continue
+            specs.append(vim.PerformanceManager.QuerySpec(
+                maxSample=1,
+                entity=host['obj'],
+                metricId=metrics,
+                intervalId=20
+            ))
+
+        content = yield self.content
+
+        if len(specs) > 0:
+            results, labels = yield parallelize(
+                threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+                self.host_labels,
+            )
+
+            for ent in results:
+                for metric in ent.value:
+                    host_metrics[metric_names[metric.id.counterId]].add_metric(
+                        labels[ent.entity._moId],
+                        float(sum(metric.value)),
+                     )
+
+        logging.info('FIN: _vmware_get_host_perf_manager_metrics')
+
+    @defer.inlineCallbacks
     def _vmware_get_vms(self, metrics):
         """
         Get VM information
@@ -687,6 +776,9 @@ class VmwareCollector():
 
             if 'summary.config.template' in row:
                 metrics['vmware_vm_template'].add_metric(labels, row['summary.config.template'])
+
+            if 'runtime.maxCpuUsage' in row:
+                metrics['vmware_vm_max_cpu_usage'].add_metric(labels, row['runtime.maxCpuUsage'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
