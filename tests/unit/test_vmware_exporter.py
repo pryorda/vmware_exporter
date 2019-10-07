@@ -84,6 +84,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -118,6 +119,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -130,6 +132,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -143,6 +146,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -257,6 +261,7 @@ def test_collect_vms():
         'dc_name': 'dc',
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
+    assert metrics['vmware_vm_template'].samples[0][2] == 0.0
 
 
 @pytest_twisted.inlineCallbacks
