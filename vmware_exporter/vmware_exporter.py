@@ -656,7 +656,7 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def _vmware_get_host_perf_manager_metrics(self, host_metrics):
         logging.info('START: _vmware_get_host_perf_manager_metrics')
-
+        
         host_systems, counter_info = yield parallelize(self.host_system_inventory, self.counter_ids)
 
         # List of performance counter we want

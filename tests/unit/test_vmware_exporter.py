@@ -609,6 +609,7 @@ def test_collect_hosts():
     assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
 
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
+    
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
 
     assert metrics['vmware_host_product_info'].samples[0][1] == {
