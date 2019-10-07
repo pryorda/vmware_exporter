@@ -261,7 +261,7 @@ def test_collect_vms():
         'dc_name': 'dc',
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
-    assert metrics['vmware_vm_template'].samples[0][2] == False
+    assert metrics['vmware_vm_template'].samples[0][2] == 0.0
 
 
 @pytest_twisted.inlineCallbacks
