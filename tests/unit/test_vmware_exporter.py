@@ -570,11 +570,6 @@ def test_collect_hosts():
             'obj': vim.ManagedObject('host-1'),
             'runtime.powerState': 'poweredOn',
         },
-        'host:2': {
-            'name': 'host-2',
-            'obj': vim.ManagedObject('host-2'),
-            'runtime.powerState': 'poweredOff',
-        },
     })
 
     metrics = collector._create_metric_containers()
@@ -598,11 +593,6 @@ def test_collect_hosts():
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
             },
-            'host:2': {
-                'id': 'host:2',
-                'name': 'host-2',
-                'runtime.powerState': 'poweredOff',
-            }
         })
         yield collector._vmware_get_hosts(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
