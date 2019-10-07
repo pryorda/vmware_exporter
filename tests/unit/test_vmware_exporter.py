@@ -563,15 +563,6 @@ def test_collect_hosts():
         'host:2': ['host-1', 'dc', 'cluster'],
     })
 
-    
-    collector.__dict__['host_system_inventory'] = _succeed({
-        'host:1': {
-            'name': 'host-1',
-            'obj': vim.ManagedObject('host-1'),
-            'runtime.powerState': 'poweredOn',
-        },
-    })
-
     metrics = collector._create_metric_containers()
 
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
@@ -593,6 +584,11 @@ def test_collect_hosts():
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
             },
+            'host:2': {
+                'id': 'host:2',
+                'name': 'host-2',
+                'runtime.powerState': 'poweredOff',
+            }
         })
         yield collector._vmware_get_hosts(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
@@ -702,7 +698,15 @@ def test_collect_host_perf():
     })
 
     collector.__dict__['host_labels'] = _succeed({
-        'host-1': ['host-1', 'dc', 'cluster-1'],
+        'host:1': ['host-1', 'dc', 'cluster-1'],
+    })
+
+    collector.__dict__['host_system_inventory'] = _succeed({
+        'host:1': {
+            'name': 'host-1',
+            'obj': vim.ManagedObject('host-1'),
+            'runtime.powerState': 'poweredOn',
+        },
     })
 
     yield collector._vmware_get_host_perf_manager_metrics(metrics)
