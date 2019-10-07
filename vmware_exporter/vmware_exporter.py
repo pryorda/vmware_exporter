@@ -585,7 +585,6 @@ class VmwareCollector():
             'cpu.costop.summation',
             'cpu.idle.summation',
             'cpu.demand.average',
-            'mem.latency.average',
             'mem.consumed.average',
             'mem.active.average',
             'mem.swapped.average',
