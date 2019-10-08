@@ -32,8 +32,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from helpers import batch_fetch_properties, get_bool_env
-from defer import parallelize, run_once_property
+from .helpers import batch_fetch_properties, get_bool_env
+from .defer import parallelize, run_once_property
 
 
 class VmwareCollector():
