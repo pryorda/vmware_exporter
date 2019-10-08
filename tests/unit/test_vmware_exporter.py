@@ -132,7 +132,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
-                'summary.config.template': False,
+                'summary.config.template': True,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -262,7 +262,16 @@ def test_collect_vms():
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
 
+    # Check Template
     assert metrics['vmware_vm_template'].samples[0][2] == 0.0
+
+    assert metrics['vmware_vm_memory_max'].samples[0][1] == {
+        'vm_name': 'vm-3',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
 
 @pytest_twisted.inlineCallbacks
