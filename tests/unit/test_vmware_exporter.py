@@ -94,7 +94,7 @@ def test_collect_vms():
             }
         })
         assert collector.vm_labels.result == {'vm-1': ['vm-1']}
-        
+
     # Test template True
 
     collector = VmwareCollector(
@@ -110,7 +110,7 @@ def test_collect_vms():
     })
 
     metrics = collector._create_metric_containers()
-    
+
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
         batch_fetch_properties.return_value = _succeed({
             'vm-1': {
@@ -135,7 +135,7 @@ def test_collect_vms():
                 }
 
     assert metrics['vmware_vm_template'].samples[0][2] == 1.0
-    
+
     # Reset variables
 
     collector = VmwareCollector(
