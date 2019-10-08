@@ -700,6 +700,7 @@ class VmwareCollector():
 
         logging.info('FIN: _vmware_get_host_perf_manager_metrics')
     
+    
     @defer.inlineCallbacks
     def _vmware_get_vms(self, metrics):
         """
