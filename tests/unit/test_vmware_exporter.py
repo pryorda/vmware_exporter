@@ -500,6 +500,8 @@ def test_collect_hosts():
                 'summary.hardware.memorySize': 2048 * 1024 * 1024,
                 'summary.config.product.version': '6.0.0',
                 'summary.config.product.build': '6765062',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
             },
             'host:2': {
                 'id': 'host:2',
@@ -531,6 +533,15 @@ def test_collect_hosts():
     # power_state metric but not any others.
     assert len(metrics['vmware_host_power_state'].samples) == 2
     assert len(metrics['vmware_host_memory_max'].samples) == 1
+
+    assert metrics['vmware_host_hardware_info'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'hardware_model': 'model1',
+        'hardware_cpu_model': 'cpu_model1',
+    }
+    assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
 
 
 @pytest_twisted.inlineCallbacks

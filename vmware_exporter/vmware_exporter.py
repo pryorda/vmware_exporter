@@ -176,6 +176,10 @@ class VmwareCollector():
                 'vmware_host_product_info',
                 'A metric with a constant "1" value labeled by version and build from os the host.',
                 labels=['host_name', 'dc_name', 'cluster_name', 'version', 'build']),
+            'vmware_host_hardware_info': GaugeMetricFamily(
+                'vmware_host_hardware_info',
+                'A metric with a constant "1" value labeled by model and cpu model from the host.',
+                labels=['host_name', 'dc_name', 'cluster_name', 'hardware_model', 'hardware_cpu_model']),
             }
 
         metrics = {}
@@ -317,6 +321,8 @@ class VmwareCollector():
             'runtime.inMaintenanceMode',
             'summary.quickStats.overallCpuUsage',
             'summary.quickStats.overallMemoryUsage',
+            'summary.hardware.cpuModel',
+            'summary.hardware.model',
         ]
 
         host_systems = yield self.batch_fetch_properties(
@@ -784,6 +790,12 @@ class VmwareCollector():
                 1
             )
 
+            hardware_cpu_model = host.get('summary.hardware.cpuModel', 'unknown')
+            hardware_model = host.get('summary.hardware.model', 'unknown')
+            host_metrics['vmware_host_hardware_info'].add_metric(
+                labels + [hardware_model, hardware_cpu_model],
+                1
+            )
         logging.info("Finished host metrics collection")
         return results
 
