@@ -109,6 +109,8 @@ def test_collect_vms():
         'host-1': ['host-1', 'dc', 'cluster-1'],
     })
 
+    metrics = collector._create_metric_containers()
+    
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
         batch_fetch_properties.return_value = _succeed({
             'vm-1': {
