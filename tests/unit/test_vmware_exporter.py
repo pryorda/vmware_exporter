@@ -350,7 +350,9 @@ def test_metrics_for_template():
     )
     metrics = collector._create_metric_containers()
     collector.content = _succeed(mock.Mock())
-    collector.__dict__['host_labels'] = _succeed({'': []})
+        collector.__dict__['host_labels'] = _succeed({
+        'host-1': ['host-1', 'dc', 'cluster-1'],
+    })
 
     with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
         batch_fetch_properties.return_value = _succeed({
