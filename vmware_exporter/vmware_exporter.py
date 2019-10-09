@@ -64,6 +64,10 @@ class VmwareCollector():
                 'vmware_vm_memory_max',
                 'VMWare VM Memory Max availability in Mbytes',
                 labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
+            'vmware_vm_template': GaugeMetricFamily(
+                'vmware_vm_template',
+                'VMWare VM Template (true / false)',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             }
         metric_list['vmguests'] = {
             'vmware_vm_guest_disk_free': GaugeMetricFamily(
@@ -350,6 +354,7 @@ class VmwareCollector():
                 'runtime.bootTime',
                 'summary.config.numCpu',
                 'summary.config.memorySizeMB',
+                'summary.config.template',
             ])
 
         if self.collect_only['vmguests'] is True:
@@ -626,6 +631,87 @@ class VmwareCollector():
         logging.info('FIN: _vmware_get_vm_perf_manager_metrics')
 
     @defer.inlineCallbacks
+    def _vmware_get_host_perf_manager_metrics(self, host_metrics):
+        logging.info('START: _vmware_get_host_perf_manager_metrics')
+
+        host_systems, counter_info = yield parallelize(self.host_system_inventory, self.counter_ids)
+
+        # List of performance counter we want
+        perf_list = [
+            'cpu.costop.summation',
+            'cpu.demand.average',
+            'cpu.idle.summation',
+            'cpu.ready.summation',
+            'cpu.swapwait.summation',
+            'cpu.usage.average',
+            'cpu.usagemhz.average',
+            'cpu.used.summation',
+            'disk.read.average',
+            'disk.write.average',
+            'mem.active.average',
+            'mem.latency.average',
+            'mem.swapin.average',
+            'mem.swapinRate.average',
+            'mem.swapout.average',
+            'mem.swapoutRate.average',
+            'mem.vmmemctl.average',
+            'net.bytesRx.average',
+            'net.bytesTx.average',
+            'net.droppedRx.summation',
+            'net.droppedTx.summation',
+            'net.errorsRx.summation',
+            'net.errorsTx.summation',
+            'net.usage.average',
+        ]
+
+        # Prepare gauges
+        for p in perf_list:
+            p_metric = 'vmware_host_' + p.replace('.', '_')
+            host_metrics[p_metric] = GaugeMetricFamily(
+                p_metric,
+                p_metric,
+                labels=['host_name', 'dc_name', 'cluster_name'])
+
+        metrics = []
+        metric_names = {}
+        for perf_metric in perf_list:
+            perf_metric_name = 'vmware_host_' + perf_metric.replace('.', '_')
+            counter_key = counter_info[perf_metric]
+            metrics.append(vim.PerformanceManager.MetricId(
+                counterId=counter_key,
+                instance=''
+            ))
+            metric_names[counter_key] = perf_metric_name
+
+        specs = []
+        for host in host_systems.values():
+            if host.get('runtime.powerState') != 'poweredOn':
+                continue
+            specs.append(vim.PerformanceManager.QuerySpec(
+                maxSample=1,
+                entity=host['obj'],
+                metricId=metrics,
+                intervalId=20
+            ))
+
+        content = yield self.content
+
+        if len(specs) > 0:
+            results, labels = yield parallelize(
+                threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
+                self.host_labels,
+            )
+
+            for ent in results:
+                for metric in ent.value:
+                    host_metrics[metric_names[metric.id.counterId]].add_metric(
+                        labels[ent.entity._moId],
+                        float(sum(metric.value)),
+                     )
+
+        logging.info('FIN: _vmware_get_host_perf_manager_metrics')
+
+    @defer.inlineCallbacks
     def _vmware_get_vms(self, metrics):
         """
         Get VM information
@@ -664,6 +750,9 @@ class VmwareCollector():
 
             if 'summary.config.memorySizeMB' in row:
                 metrics['vmware_vm_memory_max'].add_metric(labels, row['summary.config.memorySizeMB'])
+
+            if 'summary.config.template' in row:
+                metrics['vmware_vm_template'].add_metric(labels, row['summary.config.template'])
 
             if 'guest.disk' in row and len(row['guest.disk']) > 0:
                 for disk in row['guest.disk']:
