@@ -84,6 +84,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -93,6 +94,47 @@ def test_collect_vms():
             }
         })
         assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+
+    # Test template True
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    collector.content = _succeed(mock.Mock())
+
+    collector.__dict__['host_labels'] = _succeed({
+        'host-1': ['host-1', 'dc', 'cluster-1'],
+    })
+
+    metrics = collector._create_metric_containers()
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-1',
+                'runtime.host': vim.ManagedObject('host-1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'summary.config.template': True,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        yield collector._vmware_get_vms(metrics)
+        assert _check_properties(batch_fetch_properties.call_args[0][1])
+        assert collector.vm_labels.result == {
+                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+                }
+
+    assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
     # Reset variables
 
@@ -118,6 +160,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -130,6 +173,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -143,6 +187,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -258,6 +303,8 @@ def test_collect_vms():
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
 
+    assert metrics['vmware_vm_template'].samples[0][2] == 0.0
+
 
 @pytest_twisted.inlineCallbacks
 # @pytest.mark.skip
@@ -294,6 +341,7 @@ def test_metrics_without_hostaccess():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'guest.disk': [disk],
                 'guest.toolsStatus': 'toolsOk',
