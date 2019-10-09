@@ -67,6 +67,7 @@ class VmwareCollector():
             'vmware_vm_max_cpu_usage': GaugeMetricFamily(
                 'vmware_vm_max_cpu_usage',
                 'VMWare VM Cpu Max availability in hz',
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name']),
             'vmware_vm_template': GaugeMetricFamily(
                 'vmware_vm_template',
                 'VMWare VM Template (true / false)',
