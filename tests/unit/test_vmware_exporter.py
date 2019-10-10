@@ -411,8 +411,16 @@ def test_no_error_onempty_vms():
     metric_2.id.counterId = 1
     metric_2.value = [1]
 
+    metric_3 = mock.Mock()
+    metric_3.id.counterId = 13
+    metric_3.value = [618]
+
+    metric_4 = mock.Mock()
+    metric_4.id.counterId = 18
+    metric_4.value = [5]
+
     ent_1 = mock.Mock()
-    ent_1.value = [metric_1, metric_2]
+    ent_1.value = [metric_1, metric_2, metric_3, metric_4]
     ent_1.entity = vim.ManagedObject('vm:1')
 
     content = mock.Mock()
@@ -430,6 +438,20 @@ def test_no_error_onempty_vms():
         'mem.usage.average': 8,
         'net.received.average': 9,
         'net.transmitted.average': 10,
+        'cpu.costop.summation': 11,
+        'cpu.idle.summation': 12,
+        'cpu.demand.average': 13,
+        'mem.consumed.average': 14,
+        'mem.active.average': 15,
+        'mem.swapped.average': 16,
+        'mem.vmmemctl.average': 17,
+        'disk.maxTotalLatency.latest': 18,
+        'net.multicastRx.summation': 19,
+        'net.multicastTx.summation': 20,
+        'net.broadcastTx.summation': 21,
+        'net.broadcastRx.summation': 22,
+        'net.droppedRx.summation': 23,
+        'net.droppedTx.summation': 24,
     })
 
     collector.__dict__['vm_labels'] = _succeed({'': []})
@@ -469,8 +491,16 @@ def test_collect_vm_perf():
     metric_2.id.counterId = 1
     metric_2.value = [1]
 
+    metric_3 = mock.Mock()
+    metric_3.id.counterId = 13
+    metric_3.value = [618]
+
+    metric_4 = mock.Mock()
+    metric_4.id.counterId = 18
+    metric_4.value = [5]
+
     ent_1 = mock.Mock()
-    ent_1.value = [metric_1, metric_2]
+    ent_1.value = [metric_1, metric_2, metric_3, metric_4]
     ent_1.entity = vim.ManagedObject('vm:1')
 
     content = mock.Mock()
@@ -488,6 +518,20 @@ def test_collect_vm_perf():
         'mem.usage.average': 8,
         'net.received.average': 9,
         'net.transmitted.average': 10,
+        'cpu.costop.summation': 11,
+        'cpu.idle.summation': 12,
+        'cpu.demand.average': 13,
+        'mem.consumed.average': 14,
+        'mem.active.average': 15,
+        'mem.swapped.average': 16,
+        'mem.vmmemctl.average': 17,
+        'disk.maxTotalLatency.latest': 18,
+        'net.multicastRx.summation': 19,
+        'net.multicastTx.summation': 20,
+        'net.broadcastTx.summation': 21,
+        'net.broadcastRx.summation': 22,
+        'net.droppedRx.summation': 23,
+        'net.droppedTx.summation': 24,
     })
 
     collector.__dict__['vm_labels'] = _succeed({
@@ -517,6 +561,22 @@ def test_collect_vm_perf():
         'dc_name': 'dc',
     }
     assert metrics['vmware_vm_net_transmitted_average'].samples[0][2] == 9.0
+
+    assert metrics['vmware_vm_cpu_demand_average'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_cpu_demand_average'].samples[0][2] == 618.0
+
+    assert metrics['vmware_vm_disk_maxTotalLatency_latest'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_disk_maxTotalLatency_latest'].samples[0][2] == 5.0
 
 
 @pytest_twisted.inlineCallbacks
@@ -561,6 +621,8 @@ def test_collect_hosts():
                 'summary.hardware.memorySize': 2048 * 1024 * 1024,
                 'summary.config.product.version': '6.0.0',
                 'summary.config.product.build': '6765062',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
             },
             'host:2': {
                 'id': 'host:2',
@@ -592,6 +654,15 @@ def test_collect_hosts():
     # power_state metric but not any others.
     assert len(metrics['vmware_host_power_state'].samples) == 2
     assert len(metrics['vmware_host_memory_max'].samples) == 1
+
+    assert metrics['vmware_host_hardware_info'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'hardware_model': 'model1',
+        'hardware_cpu_model': 'cpu_model1',
+    }
+    assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
 
 
 @pytest_twisted.inlineCallbacks
