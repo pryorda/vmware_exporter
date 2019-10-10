@@ -84,6 +84,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
@@ -160,6 +161,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
@@ -173,6 +175,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
@@ -187,6 +190,7 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
@@ -303,6 +307,14 @@ def test_collect_vms():
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
 
+    # Max Cpu
+    assert metrics['vmware_vm_max_cpu_usage'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_max_cpu_usage'].samples[0][2] == 2400
     assert metrics['vmware_vm_template'].samples[0][2] == 0.0
 
 
@@ -341,6 +353,7 @@ def test_metrics_without_hostaccess():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'guest.disk': [disk],
