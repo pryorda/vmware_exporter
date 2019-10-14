@@ -225,7 +225,7 @@ class VmwareCollector():
 
         if collect_only['hosts'] is True:
             tasks.append(self._vmware_get_hosts(metrics))
-
+            tasks.append(self._vmware_get_host_perf_manager_metrics(metrics))
         yield parallelize(*tasks)
 
         yield self._vmware_disconnect()
