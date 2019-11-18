@@ -97,7 +97,7 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
 | `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
-| `VSPHERE_SPECS_SIZE`         | config, env            | 5000     | size of numbers specs for query stats function |
+| `VSPHERE_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
 | `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
@@ -112,6 +112,7 @@ You can create new sections as well, with very similiar variables. For example, 
 | `VSPHERE_LIMITED_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_LIMITED_USER`               | config, env            | n/a      | User for connecting to vsphere |
 | `VSPHERE_LIMITED_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
+| `VSPHERE_LIMITED_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_LIMITED_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
 | `VSPHERE_LIMITED_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_LIMITED_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
