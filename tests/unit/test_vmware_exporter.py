@@ -70,8 +70,8 @@ def test_collect_vms():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
     )
     collector.content = _succeed(mock.Mock())
 
@@ -103,8 +103,8 @@ def test_collect_vms():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
     )
     collector.content = _succeed(mock.Mock())
 
@@ -145,8 +145,8 @@ def test_collect_vms():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
     collector.content = _succeed(mock.Mock())
 
@@ -342,8 +342,8 @@ def test_metrics_without_hostaccess():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
     )
     metrics = collector._create_metric_containers()
     collector.content = _succeed(mock.Mock())
@@ -401,8 +401,8 @@ def test_no_error_onempty_vms():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
         ignore_ssl=True,
     )
 
@@ -483,8 +483,8 @@ def test_collect_vm_perf():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
     )
 
     metrics = collector._create_metric_containers()
@@ -600,8 +600,8 @@ def test_collect_hosts():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
     collector.content = _succeed(mock.Mock())
 
@@ -685,8 +685,8 @@ def test_collect_host_perf():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
 
     metrics = collector._create_metric_containers()
@@ -799,8 +799,8 @@ def test_collect_datastore():
         '127.0.0.1',
         'root',
         'password',
-        3000,
         collect_only,
+        5000,
     )
     collector.content = _succeed(mock.Mock())
 
@@ -862,8 +862,8 @@ def test_collect():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
         ignore_ssl=True,
     )
     collector.content = _succeed(mock.Mock())
@@ -898,8 +898,8 @@ def test_collect_deferred_error_works():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
         ignore_ssl=True,
     )
     collector.content = _succeed(mock.Mock())
@@ -1000,8 +1000,8 @@ def test_vmware_get_inventory():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
         ignore_ssl=True,
     )
     collector.content = content
@@ -1044,8 +1044,8 @@ def test_vmware_connect():
         '127.0.0.1',
         'root',
         'password',
-        2000,
         collect_only,
+        5000,
         ignore_ssl=True,
     )
 
@@ -1072,7 +1072,7 @@ def test_vmware_disconnect():
         '127.0.0.1',
         'root',
         'password',
-        2000,
+        5000,
         collect_only,
     )
 
@@ -1107,7 +1107,7 @@ def test_counter_ids():
         '127.0.0.1',
         'root',
         'password',
-        2000,
+        5000,
         collect_only,
     )
     collector.content = content
@@ -1262,7 +1262,7 @@ def test_vmware_resource_async_render_GET_section():
             'vsphere_host': '127.0.0.11',
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
-            'specs_size': 2000,
+            'specs_size': 5000,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1281,7 +1281,7 @@ def test_vmware_resource_async_render_GET_section():
         '127.0.0.11',
         'username2',
         'password2',
-        2000,
+        5000,
         resource.config['mysection']['collect_only'],
         'On'
     )
@@ -1300,7 +1300,7 @@ def test_config_env_multiple_sections():
         'VSPHERE_MYSECTION_HOST': '127.0.0.11',
         'VSPHERE_MYSECTION_USER': 'username2',
         'VSPHERE_MYSECTION_PASSWORD': 'password2',
-        'VSPHERE_SPECS_SIZE': 2000,
+        'VSPHERE_MYSECTION_SPECS_SIZE': 5000,
     }
 
     args = mock.Mock()
@@ -1329,7 +1329,7 @@ def test_config_env_multiple_sections():
             'vsphere_host': '127.0.0.11',
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
-            'specs_size': 2000,
+            'specs_size': 5000,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
