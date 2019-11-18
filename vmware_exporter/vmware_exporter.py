@@ -38,12 +38,13 @@ from .defer import parallelize, run_once_property
 
 class VmwareCollector():
 
-    def __init__(self, host, username, password, collect_only, ignore_ssl=False):
+    def __init__(self, host, username, password, collect_only, specs_size, ignore_ssl=False):
         self.host = host
         self.username = username
         self.password = password
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
+        self.specs_size = specs_size
 
     def _create_metric_containers(self):
         metric_list = {}
@@ -636,7 +637,7 @@ class VmwareCollector():
         content = yield self.content
 
         if len(specs) > 0:
-            chunks = [specs[x:x+5000] for x in range(0, len(specs), 5000)]
+            chunks = [specs[x:x+self.specs_size] for x in range(0, len(specs), self.specs_size)]
             for list_specs in chunks:
                 results, labels = yield parallelize(
                     threads.deferToThread(content.perfManager.QueryStats, querySpec=list_specs),
@@ -951,6 +952,7 @@ class VMWareMetricsResource(Resource):
                 'vsphere_user': os.environ.get('VSPHERE_USER'),
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
                 'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
+                'specs_size': os.environ.get('VSPHERE_SPECS_SIZE', 5000),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
                     'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
@@ -974,6 +976,7 @@ class VMWareMetricsResource(Resource):
                 'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
                 'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
                 'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
+                'specs_size': os.environ.get('VSPHERE_{}_SPECS_SIZE'.format(section), 5000),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
                     'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
@@ -1028,6 +1031,7 @@ class VMWareMetricsResource(Resource):
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
+            self.config[section]['specs_size'],
             self.config[section]['ignore_ssl'],
         )
         metrics = yield collector.collect()
