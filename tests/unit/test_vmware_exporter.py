@@ -1281,8 +1281,8 @@ def test_vmware_resource_async_render_GET_section():
         '127.0.0.11',
         'username2',
         'password2',
-        5000,
         resource.config['mysection']['collect_only'],
+        5000,
         'On'
     )
 
