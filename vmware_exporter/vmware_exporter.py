@@ -636,10 +636,12 @@ class VmwareCollector():
         content = yield self.content
 
         if len(specs) > 0:
-            results, labels = yield parallelize(
-                threads.deferToThread(content.perfManager.QueryStats, querySpec=specs),
-                self.vm_labels,
-            )
+            chunks = [specs[x:x+5000] for x in range(0, len(specs), 5000)]
+            for list_specs in chunks:
+                results, labels = yield parallelize(
+                    threads.deferToThread(content.perfManager.QueryStats, querySpec=list_specs),
+                    self.vm_labels,
+                )
 
             for ent in results:
                 for metric in ent.value:
