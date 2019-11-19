@@ -19,7 +19,7 @@
   "gnetId": 10076,
   "graphTooltip": 1,
   "id": 1,
-  "iteration": 1574107392440,
+  "iteration": 1574197896776,
   "links": [],
   "panels": [
     {
@@ -86,7 +86,7 @@
         {
           "expr": "(vmware_host_product_info{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ version }}",
           "refId": "A"
@@ -169,7 +169,7 @@
         {
           "expr": "(vmware_host_product_info{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ build }}",
           "refId": "A"
@@ -252,7 +252,7 @@
         {
           "expr": "(vmware_host_hardware_info{host_name=~\"$esxhost\"}) ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ hardware_model }}",
           "refId": "A"
@@ -335,7 +335,7 @@
         {
           "expr": "(vmware_host_product_info{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ cluster_name }}",
           "refId": "A"
@@ -418,7 +418,7 @@
         {
           "expr": "(vmware_host_hardware_info{host_name=~\"$esxhost\"}) ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ hardware_cpu_model }}",
           "refId": "A"
@@ -501,7 +501,7 @@
         {
           "expr": "time()-vmware_host_boot_timestamp_seconds{host_name=~\"$esxhost\"} ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -583,7 +583,7 @@
         {
           "expr": "(vmware_host_num_cpu{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -665,7 +665,7 @@
         {
           "expr": "(vmware_host_memory_max{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -738,9 +738,9 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "(vmware_host_cpu_usage_average{host_name=~\"$esxhost\"}) * 100 / (vmware_host_cpu_max{host_name=~\"$esxhost\"})",
+          "expr": "(vmware_host_cpu_usagemhz_average{host_name=~\"$esxhost\"}) * 100 / (vmware_host_cpu_max{host_name=~\"$esxhost\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -803,7 +803,7 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "vmware_host_cpu_ready_summation{host_name=~\"$esxhost\"}/(20 * 1000)*100",
+          "expr": "vmware_host_cpu_ready_summation{host_name=~\"$esxhost\"}/200",
           "legendFormat": "Cpu Ready",
           "refId": "B"
         }
@@ -866,9 +866,9 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "vmware_host_cpu_costop_summation{host_name=~\"$esxhost\"}/(20 * 1000)*100",
+          "expr": "vmware_host_cpu_costop_summation{host_name=~\"$esxhost\"}/200",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -1002,7 +1002,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(vmware_host_cpu_usage_average{host_name=~\"$esxhost\"}) * 100 / (vmware_host_cpu_max{host_name=~\"$esxhost\"})",
+          "expr": "(vmware_host_cpu_usagemhz_average{host_name=~\"$esxhost\"}) * 100 / (vmware_host_cpu_max{host_name=~\"$esxhost\"})",
           "legendFormat": "Cpu Usage",
           "refId": "B"
         },
@@ -1098,19 +1098,19 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "vmware_host_cpu_ready_summation{host_name=~\"$esxhost\"}/(20 * 1000)*100",
+          "expr": "vmware_host_cpu_ready_summation{host_name=~\"$esxhost\"}/200",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Cpu Ready",
           "refId": "A"
         },
         {
-          "expr": "vmware_host_cpu_costop_summation{host_name=~\"$esxhost\"}/(20 * 1000)*100",
+          "expr": "vmware_host_cpu_costop_summation{host_name=~\"$esxhost\"}/200",
           "legendFormat": "Cpu Co-Stop",
           "refId": "B"
         },
         {
-          "expr": "vmware_host_cpu_swapwait_summation{host_name=~\"$esxhost\"}/(20 * 1000)*100",
+          "expr": "vmware_host_cpu_swapwait_summation{host_name=~\"$esxhost\"}/200",
           "legendFormat": "Cpu Swap Wait",
           "refId": "C"
         }
@@ -1727,11 +1727,8 @@
       {
         "allValue": null,
         "current": {
-          "tags": [],
           "text": "192.168.0.27",
-          "value": [
-            "192.168.0.27"
-          ]
+          "value": "192.168.0.27"
         },
         "datasource": "Prometheus",
         "definition": "",
@@ -1755,7 +1752,7 @@
     ]
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {
@@ -1787,5 +1784,5 @@
   "timezone": "browser",
   "title": "VMware ESXi Import",
   "uid": "_gg9LEqmk",
-  "version": 14
+  "version": 15
 }

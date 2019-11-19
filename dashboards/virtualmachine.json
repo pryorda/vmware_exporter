@@ -19,7 +19,7 @@
   "gnetId": 10076,
   "graphTooltip": 1,
   "id": 4,
-  "iteration": 1574107239128,
+  "iteration": 1574197942675,
   "links": [],
   "panels": [
     {
@@ -86,7 +86,7 @@
         {
           "expr": "(vmware_vm_boot_timestamp_seconds{vm_name=~\"$vm\"}) ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ cluster_name }}",
           "refId": "A"
@@ -169,7 +169,7 @@
         {
           "expr": "(vmware_vm_boot_timestamp_seconds{vm_name=~\"$vm\"}) ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ host_name }}",
           "refId": "A"
@@ -252,7 +252,7 @@
         {
           "expr": "vmware_vm_template{vm_name=~\"$vm\"}",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -339,7 +339,7 @@
         {
           "expr": "vmware_vm_power_state{vm_name=~\"$vm\"}==1",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -426,7 +426,7 @@
         {
           "expr": "(vmware_vm_guest_tools_running_status{vm_name=~\"$vm\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ tools_status }}",
           "refId": "A"
@@ -514,7 +514,7 @@
         {
           "expr": "(vmware_vm_guest_tools_version{vm_name=~\"$vm\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "legendFormat": "{{ tools_version}}",
           "refId": "A"
@@ -597,7 +597,7 @@
         {
           "expr": "(vmware_vm_num_cpu{vm_name=~\"$vm\"}) ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -672,7 +672,7 @@
         {
           "expr": "vmware_vm_cpu_usagemhz_average{vm_name=~\"$vm\"}/vmware_vm_max_cpu_usage{vm_name=~\"$vm\"}*100",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -735,9 +735,9 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "(vmware_vm_cpu_ready_summation{vm_name=~\"$vm\"})/(20 * 1000)*100",
+          "expr": "(vmware_vm_cpu_ready_summation{vm_name=~\"$vm\"})/200",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -800,9 +800,9 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "vmware_vm_cpu_costop_summation{vm_name=~\"$vm\"}/(20 * 1000)*100",
+          "expr": "vmware_vm_cpu_costop_summation{vm_name=~\"$vm\"}/200",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -874,7 +874,7 @@
         {
           "expr": "(vmware_vm_memory_max{vm_name=~\"$vm\"})  ",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -956,7 +956,7 @@
         {
           "expr": "(vmware_vm_mem_usage_average{vm_name=~\"$vm\"}) * 100 / (vmware_vm_memory_max{vm_name=~\"$vm\"})",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -1032,7 +1032,7 @@
         {
           "expr": "vmware_vm_mem_vmmemctl_average{vm_name=~\"$vm\"}",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -1098,7 +1098,7 @@
         {
           "expr": "vmware_vm_mem_swapped_average{vm_name=~\"$vm\"}",
           "format": "time_series",
-          "instant": true,
+          "instant": false,
           "intervalFactor": 1,
           "refId": "A"
         }
@@ -1244,14 +1244,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(vmware_vm_cpu_ready_summation{vm_name=~\"$vm\"})/(20 * 1000)*100",
+          "expr": "(vmware_vm_cpu_ready_summation{vm_name=~\"$vm\"})/200",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "Cpu Ready",
           "refId": "A"
         },
         {
-          "expr": "vmware_vm_cpu_costop_summation{vm_name=~\"$vm\"}/(20 * 1000)*100",
+          "expr": "vmware_vm_cpu_costop_summation{vm_name=~\"$vm\"}/200",
           "legendFormat": "Co-Stop",
           "refId": "B"
         }
@@ -1922,11 +1922,8 @@
       {
         "allValue": null,
         "current": {
-          "tags": [],
-          "text": "vcsa",
-          "value": [
-            "vcsa"
-          ]
+          "text": "centos-dhcp",
+          "value": "centos-dhcp"
         },
         "datasource": "Prometheus",
         "definition": "label_values(vm_name)",
@@ -1982,5 +1979,5 @@
   "timezone": "browser",
   "title": "VMware VM",
   "uid": "Sl3uaY2Zk",
-  "version": 10
+  "version": 11
 }

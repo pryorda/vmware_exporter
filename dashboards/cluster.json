@@ -19,7 +19,7 @@
   "gnetId": 10076,
   "graphTooltip": 1,
   "id": 3,
-  "iteration": 1574107358159,
+  "iteration": 1574197864736,
   "links": [],
   "panels": [
     {
@@ -492,7 +492,7 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "sum(vmware_host_cpu_usage{cluster_name=~\"$cluster\"}) * 100 / sum(vmware_host_cpu_max{cluster_name=~\"$cluster\"})",
+          "expr": "sum(vmware_host_cpu_usagemhz_average{cluster_name=~\"$cluster\"}) * 100 / sum(vmware_host_cpu_max{cluster_name=~\"$cluster\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ $cluster }",
@@ -557,7 +557,7 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "max(vmware_vm_cpu_ready_summation{cluster_name=~\"$cluster\"})/(20 * 1000)*100",
+          "expr": "max(vmware_vm_cpu_ready_summation{cluster_name=~\"$cluster\"})/ 200",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ cluster }}",
@@ -622,7 +622,7 @@
       "pluginVersion": "6.4.1",
       "targets": [
         {
-          "expr": "max(vmware_vm_cpu_costop_summation{cluster_name=~\"$cluster\"})/(20 * 1000)*100",
+          "expr": "max(vmware_vm_cpu_costop_summation{cluster_name=~\"$cluster\"})/200",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ $cluster }}",
@@ -674,7 +674,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(vmware_host_cpu_usage{cluster_name=~\"$cluster\"}) * 100 / sum(vmware_host_cpu_max{cluster_name=~\"$cluster\"})",
+          "expr": "sum(vmware_host_cpu_usagemhz_average{cluster_name=~\"$cluster\"}) * 100 / sum(vmware_host_cpu_max{cluster_name=~\"$cluster\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{ $cluster }}",
@@ -2026,5 +2026,5 @@
   "timezone": "browser",
   "title": "VMware Cluster",
   "uid": "MRvkcY2Zz",
-  "version": 12
+  "version": 13
 }
