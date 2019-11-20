@@ -84,6 +84,8 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -93,6 +95,47 @@ def test_collect_vms():
             }
         })
         assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+
+    # Test template True
+
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+    collector.content = _succeed(mock.Mock())
+
+    collector.__dict__['host_labels'] = _succeed({
+        'host-1': ['host-1', 'dc', 'cluster-1'],
+    })
+
+    metrics = collector._create_metric_containers()
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'vm-1': {
+                'name': 'vm-1',
+                'runtime.host': vim.ManagedObject('host-1'),
+                'runtime.powerState': 'poweredOn',
+                'summary.config.numCpu': 1,
+                'summary.config.memorySizeMB': 1024,
+                'summary.config.template': True,
+                'runtime.bootTime': boot_time,
+                'snapshot': snapshot,
+                'guest.disk': [disk],
+                'guest.toolsStatus': 'toolsOk',
+                'guest.toolsVersion': '10336',
+                'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
+            }
+        })
+        yield collector._vmware_get_vms(metrics)
+        assert _check_properties(batch_fetch_properties.call_args[0][1])
+        assert collector.vm_labels.result == {
+                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+                }
+
+    assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
     # Reset variables
 
@@ -118,6 +161,8 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -130,6 +175,8 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -143,6 +190,8 @@ def test_collect_vms():
                 'runtime.powerState': 'poweredOff',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -258,6 +307,16 @@ def test_collect_vms():
     }
     assert metrics['vmware_vm_memory_max'].samples[0][2] == 1024
 
+    # Max Cpu
+    assert metrics['vmware_vm_max_cpu_usage'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_max_cpu_usage'].samples[0][2] == 2400
+    assert metrics['vmware_vm_template'].samples[0][2] == 0.0
+
 
 @pytest_twisted.inlineCallbacks
 # @pytest.mark.skip
@@ -294,6 +353,8 @@ def test_metrics_without_hostaccess():
                 'runtime.powerState': 'poweredOn',
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
+                'runtime.maxCpuUsage': 2400,
+                'summary.config.template': False,
                 'runtime.bootTime': boot_time,
                 'guest.disk': [disk],
                 'guest.toolsStatus': 'toolsOk',
@@ -350,8 +411,16 @@ def test_no_error_onempty_vms():
     metric_2.id.counterId = 1
     metric_2.value = [1]
 
+    metric_3 = mock.Mock()
+    metric_3.id.counterId = 13
+    metric_3.value = [618]
+
+    metric_4 = mock.Mock()
+    metric_4.id.counterId = 18
+    metric_4.value = [5]
+
     ent_1 = mock.Mock()
-    ent_1.value = [metric_1, metric_2]
+    ent_1.value = [metric_1, metric_2, metric_3, metric_4]
     ent_1.entity = vim.ManagedObject('vm:1')
 
     content = mock.Mock()
@@ -369,6 +438,20 @@ def test_no_error_onempty_vms():
         'mem.usage.average': 8,
         'net.received.average': 9,
         'net.transmitted.average': 10,
+        'cpu.costop.summation': 11,
+        'cpu.idle.summation': 12,
+        'cpu.demand.average': 13,
+        'mem.consumed.average': 14,
+        'mem.active.average': 15,
+        'mem.swapped.average': 16,
+        'mem.vmmemctl.average': 17,
+        'disk.maxTotalLatency.latest': 18,
+        'net.multicastRx.summation': 19,
+        'net.multicastTx.summation': 20,
+        'net.broadcastTx.summation': 21,
+        'net.broadcastRx.summation': 22,
+        'net.droppedRx.summation': 23,
+        'net.droppedTx.summation': 24,
     })
 
     collector.__dict__['vm_labels'] = _succeed({'': []})
@@ -408,8 +491,16 @@ def test_collect_vm_perf():
     metric_2.id.counterId = 1
     metric_2.value = [1]
 
+    metric_3 = mock.Mock()
+    metric_3.id.counterId = 13
+    metric_3.value = [618]
+
+    metric_4 = mock.Mock()
+    metric_4.id.counterId = 18
+    metric_4.value = [5]
+
     ent_1 = mock.Mock()
-    ent_1.value = [metric_1, metric_2]
+    ent_1.value = [metric_1, metric_2, metric_3, metric_4]
     ent_1.entity = vim.ManagedObject('vm:1')
 
     content = mock.Mock()
@@ -427,6 +518,20 @@ def test_collect_vm_perf():
         'mem.usage.average': 8,
         'net.received.average': 9,
         'net.transmitted.average': 10,
+        'cpu.costop.summation': 11,
+        'cpu.idle.summation': 12,
+        'cpu.demand.average': 13,
+        'mem.consumed.average': 14,
+        'mem.active.average': 15,
+        'mem.swapped.average': 16,
+        'mem.vmmemctl.average': 17,
+        'disk.maxTotalLatency.latest': 18,
+        'net.multicastRx.summation': 19,
+        'net.multicastTx.summation': 20,
+        'net.broadcastTx.summation': 21,
+        'net.broadcastRx.summation': 22,
+        'net.droppedRx.summation': 23,
+        'net.droppedTx.summation': 24,
     })
 
     collector.__dict__['vm_labels'] = _succeed({
@@ -456,6 +561,22 @@ def test_collect_vm_perf():
         'dc_name': 'dc',
     }
     assert metrics['vmware_vm_net_transmitted_average'].samples[0][2] == 9.0
+
+    assert metrics['vmware_vm_cpu_demand_average'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_cpu_demand_average'].samples[0][2] == 618.0
+
+    assert metrics['vmware_vm_disk_maxTotalLatency_latest'].samples[0][1] == {
+        'vm_name': 'vm-1',
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_vm_disk_maxTotalLatency_latest'].samples[0][2] == 5.0
 
 
 @pytest_twisted.inlineCallbacks
@@ -498,6 +619,10 @@ def test_collect_hosts():
                 'summary.hardware.cpuMhz': 1000,
                 'summary.quickStats.overallMemoryUsage': 1024,
                 'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765062',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
             },
             'host:2': {
                 'id': 'host:2',
@@ -516,10 +641,141 @@ def test_collect_hosts():
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
 
+    assert metrics['vmware_host_product_info'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'version': '6.0.0',
+        'build': '6765062',
+    }
+    assert metrics['vmware_host_product_info'].samples[0][2] == 1
+
     # In our test data we hava a host that is powered down - we should have its
     # power_state metric but not any others.
     assert len(metrics['vmware_host_power_state'].samples) == 2
     assert len(metrics['vmware_host_memory_max'].samples) == 1
+
+    assert metrics['vmware_host_hardware_info'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'hardware_model': 'model1',
+        'hardware_cpu_model': 'cpu_model1',
+    }
+    assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
+
+
+@pytest_twisted.inlineCallbacks
+def test_collect_host_perf():
+    collect_only = {
+        'vms': False,
+        'vmguests': False,
+        'datastores': False,
+        'hosts': True,
+        'snapshots': False,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+    )
+
+    metrics = collector._create_metric_containers()
+
+    metric_1 = mock.Mock()
+    metric_1.id.counterId = 2
+    metric_1.value = [3600]
+
+    metric_2 = mock.Mock()
+    metric_2.id.counterId = 6
+    metric_2.value = [3700]
+
+    metric_3 = mock.Mock()
+    metric_3.id.counterId = 17
+    metric_3.value = [1024]
+
+    metric_4 = mock.Mock()
+    metric_4.id.counterId = 20
+    metric_4.value = [10]
+
+    ent_1 = mock.Mock()
+    ent_1.value = [metric_1, metric_2, metric_3, metric_4]
+    ent_1.entity = vim.ManagedObject('host:1')
+
+    content = mock.Mock()
+    content.perfManager.QueryStats.return_value = [ent_1]
+    collector.content = _succeed(content)
+
+    collector.__dict__['counter_ids'] = _succeed({
+        'cpu.costop.summation': 1,
+        'cpu.demand.average': 2,
+        'cpu.idle.summation': 3,
+        'cpu.ready.summation': 4,
+        'cpu.swapwait.summation': 5,
+        'cpu.usage.average': 6,
+        'cpu.usagemhz.average': 7,
+        'cpu.used.summation': 8,
+        'disk.read.average': 9,
+        'disk.write.average': 10,
+        'mem.active.average': 11,
+        'mem.latency.average': 12,
+        'mem.swapin.average': 13,
+        'mem.swapinRate.average': 14,
+        'mem.swapout.average': 15,
+        'mem.swapoutRate.average': 16,
+        'mem.vmmemctl.average': 17,
+        'net.bytesRx.average': 18,
+        'net.bytesTx.average': 19,
+        'net.droppedRx.summation': 20,
+        'net.droppedTx.summation': 21,
+        'net.errorsRx.summation': 22,
+        'net.errorsTx.summation': 23,
+        'net.usage.average': 24,
+    })
+
+    collector.__dict__['host_labels'] = _succeed({
+        'host:1': ['host-1', 'dc', 'cluster-1'],
+    })
+
+    collector.__dict__['host_system_inventory'] = _succeed({
+        'host:1': {
+            'name': 'host-1',
+            'obj': vim.ManagedObject('host-1'),
+            'runtime.powerState': 'poweredOn',
+        },
+    })
+
+    yield collector._vmware_get_host_perf_manager_metrics(metrics)
+
+    # General Host metrics
+    assert metrics['vmware_host_cpu_demand_average'].samples[0][1] == {
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_host_cpu_demand_average'].samples[0][2] == 3600.0
+
+    assert metrics['vmware_host_cpu_usage_average'].samples[0][1] == {
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_host_cpu_usage_average'].samples[0][2] == 3700.0
+
+    assert metrics['vmware_host_mem_vmmemctl_average'].samples[0][1] == {
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_host_mem_vmmemctl_average'].samples[0][2] == 1024.0
+
+    assert metrics['vmware_host_net_droppedRx_summation'].samples[0][1] == {
+        'host_name': 'host-1',
+        'cluster_name': 'cluster-1',
+        'dc_name': 'dc',
+    }
+    assert metrics['vmware_host_net_droppedRx_summation'].samples[0][2] == 10.0
 
 
 @pytest_twisted.inlineCallbacks
@@ -609,6 +865,9 @@ def test_collect():
         ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_datastores')).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_get_hosts')).return_value = _succeed(True)
+        stack.enter_context(
+            mock.patch.object(collector, '_vmware_get_host_perf_manager_metrics')
+        ).return_value = _succeed(True)
         stack.enter_context(mock.patch.object(collector, '_vmware_disconnect')).return_value = _succeed(True)
         metrics = yield collector.collect()
 
