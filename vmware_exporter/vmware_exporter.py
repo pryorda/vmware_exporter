@@ -32,8 +32,9 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env
-from .defer import parallelize, run_once_property
+from helpers import batch_fetch_properties, get_bool_env, batch_fetch_events
+
+from defer import parallelize, run_once_property
 
 
 class VmwareCollector():
@@ -187,9 +188,15 @@ class VmwareCollector():
             'vmware_host_hardware_info': GaugeMetricFamily(
                 'vmware_host_hardware_info',
                 'A metric with a constant "1" value labeled by model and cpu model from the host.',
-                labels=['host_name', 'dc_name', 'cluster_name', 'hardware_model', 'hardware_cpu_model']),
+                labels=['host_name', 'dc_name', 'cluster_name', 'hardware_model', 'hardware_cpu_model'])
             }
-
+        metric_list['ha_events'] = {
+            'com_vmware_vc_HA_HeartbeatDatastoreNotSufficient': GaugeMetricFamily(
+                'com_vmware_vc_HA_HeartbeatDatastoreNotSufficient',
+                'HA heartbeat datastore not sufficient',
+                #labels=['message']),
+                labels=['vm_name', 'host_name', 'dc_name', 'cluster_name', 'user_name', 'time', 'message', 'event']),
+            }
         metrics = {}
         for key, value in self.collect_only.items():
             if value is True:
@@ -218,6 +225,10 @@ class VmwareCollector():
 
         if collect_only['vms'] is True:
             tasks.append(self._vmware_get_vm_perf_manager_metrics(metrics))
+
+        #  Collect ha_events
+        if collect_only['ha_events'] is True:
+            tasks.append(self._vmware_get_ha_events(metrics))
 
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
@@ -286,6 +297,17 @@ class VmwareCollector():
         )
         return batch
 
+    @defer.inlineCallbacks
+    def batch_fetch_events(self, objtype, properties):
+        content = yield self.content
+        batch = yield threads.deferToThread(
+            batch_fetch_events,
+            content,
+            objtype,
+            properties,
+        )
+        return batch
+    
     @run_once_property
     @defer.inlineCallbacks
     def datastore_inventory(self):
@@ -310,6 +332,27 @@ class VmwareCollector():
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.Datastore inventory ({fetch_time})".format(fetch_time=fetch_time))
         return datastores
+
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def ha_event_inventory(self):
+        logging.info("Fetching vim.Event inventory")
+        start = datetime.datetime.utcnow()
+        properties = [
+            'com.vmware.vc.HA.HeartbeatDatastoreNotSufficient',
+        ]
+
+        events = yield self.batch_fetch_events(
+            vim.event,
+            properties
+        )
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.event inventory ({fetch_time})".format(fetch_time=fetch_time))
+        print('OOOOOO')
+        print(events)
+        return events
+
 
     @run_once_property
     @defer.inlineCallbacks
@@ -421,6 +464,38 @@ class VmwareCollector():
         for dc in dcs:
             result = yield threads.deferToThread(lambda: _collect(dc))
             labels.update(result)
+        return labels
+    
+    @run_once_property
+    @defer.inlineCallbacks
+    def ha_event_labels(self):
+        def _collect(event):
+            print(event)
+            inventory = {}
+            inventory[event['timestamp']] = [
+                    event['user_name'],
+                    event['vm_name'],
+                    event['dc_name'],
+                    event['host_name'],
+                    event['message'],
+                    event['event']
+                    ]
+            print(inventory)
+            return inventory
+        
+        labels = {}
+        events = yield self.ha_event_inventory
+        print('AHHHHH')
+        print(events)
+        for event in events:
+            print('IIIIII')
+            print(event)
+            #result = {event['timestamp']: [event['message']]}
+            result = yield threads.deferToThread(lambda: _collect(event))
+            labels.update(result)
+        print('TOTO')
+        print(labels)
+        print('TATA')
         return labels
 
     @run_once_property
@@ -568,6 +643,7 @@ class VmwareCollector():
                 )
 
         return results
+
 
     @defer.inlineCallbacks
     def _vmware_get_vm_perf_manager_metrics(self, vm_metrics):
@@ -911,6 +987,37 @@ class VmwareCollector():
         logging.info("Finished host metrics collection")
         return results
 
+    @defer.inlineCallbacks
+    def _vmware_get_ha_events(self, ha_metrics):
+        """
+        Get HA Events
+        """
+        
+        results, ha_event_labels = yield parallelize(self.ha_event_inventory, self.ha_event_labels)
+        for ha_event in results:
+            try:
+                timestamp = ha_event['timestamp']
+                labels = ha_event_labels[timestamp]
+                print('OHOHOHO')
+                print(labels)
+            except KeyError as e:
+                logging.info(
+                    "Key error, unable to register ha_event {error}, ha_events are {ha_event_labels}".format(
+                        error=e, ha_eventlabels=ha_event_labels
+                    )
+                )
+                continue
+
+            #if 'com.vmware.vc.HA.HeartbeatDatastoreNotSufficient' in ha_event:
+            ha_metrics['com_vmware_vc_HA_HeartbeatDatastoreNotSufficient'].add_metric(
+                        labels,
+                        1
+                        #ha_event['com.vmware.vc.HA.HeartbeatDatastoreNotSufficient'] * 1,
+                    )
+        print('FINISH')
+        print(labels)
+        return results
+
 
 class ListCollector(object):
 
@@ -955,6 +1062,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
                     'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
                     'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
+                    'ha_events': get_bool_env('VSPHERE_COLLECT_HA_EVENTS', True),
                 }
             }
         }
@@ -978,6 +1086,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
                     'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
                     'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                    'ha_events': get_bool_env('VSPHERE_{}_COLLECT_HA_EVENTS'.format(section), True),
                 }
             }
 
