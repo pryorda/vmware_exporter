@@ -29,7 +29,7 @@ Get VMware vCenter information:
 Alternatively, if you don't wish to install the package, run it using `$ vmware_exporter/vmware_exporter.py` or use the following docker command:
 
 ```
-docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True --name vmware_exporter pryorda/vmware_exporter
+docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True -e VSPHERE_SPECS_SIZE=2000 --name vmware_exporter pryorda/vmware_exporter
 ```
 
 ### Configuration and limiting data collection
@@ -54,6 +54,7 @@ default:
     vsphere_user: "user"
     vsphere_password: "password"
     ignore_ssl: False
+    specs_size: 5000
     collect_only:
         vms: True
         vmguests: True
@@ -66,6 +67,7 @@ esx:
     vsphere_user: 'root'
     vsphere_password: 'password'
     ignore_ssl: True
+    specs_size: 5000
     collect_only:
         vms: False
         vmguests: True
@@ -78,6 +80,7 @@ limited:
     vsphere_user: 'administrator@vsphere.local'
     vsphere_password: 'password'
     ignore_ssl: True
+    specs_size: 5000
     collect_only:
         vms: False
         vmguests: False
@@ -94,6 +97,7 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
 | `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
+| `VSPHERE_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
 | `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
@@ -108,6 +112,7 @@ You can create new sections as well, with very similiar variables. For example, 
 | `VSPHERE_LIMITED_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
 | `VSPHERE_LIMITED_USER`               | config, env            | n/a      | User for connecting to vsphere |
 | `VSPHERE_LIMITED_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
+| `VSPHERE_LIMITED_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_LIMITED_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
 | `VSPHERE_LIMITED_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_LIMITED_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
