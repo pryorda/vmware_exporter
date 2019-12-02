@@ -91,6 +91,8 @@ limited:
 ```
 Switching sections can be done by adding ?section=limited to the URL.
 
+specs_size is used to limit the size of the specs array by query (vms). There is no known limit for the size but on some vCenter with a big amount of vm, if you have too many spec in one query, the call can timeout. We recommend you let the default value.
+
 #### Environment Variables
 | Variable                      | Precedence             | Defaults | Description                                      |
 | ---------------------------- | ---------------------- | -------- | --------------------------------------- |

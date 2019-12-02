@@ -32,8 +32,8 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env
-from .defer import parallelize, run_once_property
+from helpers import batch_fetch_properties, get_bool_env
+from defer import parallelize, run_once_property
 
 
 class VmwareCollector():
@@ -1025,13 +1025,12 @@ class VMWareMetricsResource(Resource):
             request.write(b'No vsphere_host or target defined!\n')
             request.finish()
             return
-
         collector = VmwareCollector(
             vsphere_host,
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
-            self.config[section]['specs_size'],
+            self.config[section].get('specs_size', 5000),
             self.config[section]['ignore_ssl'],
         )
         metrics = yield collector.collect()
