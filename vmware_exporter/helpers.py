@@ -69,9 +69,6 @@ def batch_fetch_events(content, event_type, scrape_duration):
     results = []
     try:
         event_collector = event_mgr.CreateCollectorForEvents(filter=filter_spec)
-        print('TOTOTOTOTO')
-        print(event_collector[0])
-        print('TOTOTOTOT')
         for event in event_collector.ReadNextEvents(maxCount=1000):
             properties = {}
             timestamp = datetime.timestamp(event.createdTime)
