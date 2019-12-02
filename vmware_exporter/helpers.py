@@ -57,46 +57,42 @@ def batch_fetch_properties(content, obj_type, properties):
     return results
 
 
-def batch_fetch_events(content, event_type, properties):
-    time_filter = event_type.EventFilterSpec.ByTime()
+def batch_fetch_events(content, event_type, scrape_duration):
     event_mgr = content.eventManager
+    list_events = event_mgr.description.eventInfo
+    ha_events = get_all_ha_events(event_type, list_events)
     now = datetime.now()
-    time_filter.beginTime = now - timedelta(minutes=120)
+    time_filter = event_type.EventFilterSpec.ByTime()
+    time_filter.beginTime = now - timedelta(seconds=scrape_duration)
     time_filter.endTime = now
-    filter_spec = event_type.EventFilterSpec(eventTypeId=properties, time=time_filter)
-    event_collector = event_mgr.CreateCollectorForEvents(filter=filter_spec)
+    filter_spec = event_type.EventFilterSpec(eventTypeId=ha_events, time=time_filter)
     results = []
-    for event in event_collector.ReadNextEvents(maxCount=1000):
-        if hasattr(event, 'eventTypeId'):
+    try:
+        event_collector = event_mgr.CreateCollectorForEvents(filter=filter_spec)
+        print('TOTOTOTOTO')
+        print(event_collector[0])
+        print('TOTOTOTOT')
+        for event in event_collector.ReadNextEvents(maxCount=1000):
             properties = {}
             timestamp = datetime.timestamp(event.createdTime)
-            properties['obj'] = str(event.eventTypeId) + str(timestamp)
-            properties['timestamp'] = timestamp
-            if getattr(event,'userName'):
-                properties['user_name'] = event.userName
-            else:
-                properties['user_name'] = ''
-            if getattr(event,'vm'):
-                properties['vm_name'] = event.vm
-            else:
-                properties['vm_name'] = ''
-            if getattr(event,'datacenter'):
-                properties['dc_name'] = event.datacenter.name
-            else:
-                properties['dc_name'] = ''
-            if getattr(event,'computeResource'):
-                properties['host_name'] = event.computeResource.name
-            else:
-                properties['host_name'] = ''
-            if getattr(event,'fullFormattedMessage'):
-                properties['message'] = event.fullFormattedMessage
-            else:
-                properties['message'] = ''
-            if getattr(event,'eventTypeId'):
-                properties['event'] = event.eventTypeId
-            else:
-                properties['event'] = event.reason
+            properties['obj'] = str(event.key) + str(timestamp)
+            properties['dc_name'] = getattr(getattr(event, 'datacenter', ''), 'name', '')
+            properties['cluster_name'] = getattr(getattr(event, 'computeResource', ''), 'name', '')
+            properties['host_name'] = getattr(getattr(event, 'host', ''), 'name', '')
+            properties['vm_name'] = getattr(getattr(event, 'vm', ''), 'name', '')
+            properties['user_name'] = getattr(event, 'userName', '')
+            properties['event'] = str(getattr(event, 'eventTypeId', ''))
+            properties['message'] = getattr(event, 'fullFormattedMessage', '')
             results.append(properties)
-    print('TTTTTT')
-    print(results)
+    finally:
+        event_collector.DestroyCollector()
     return results
+
+def get_all_ha_events(event_type, list_events):
+    filtered_events = [event_info for event_info in list_events if 
+                       event_info.key == event_type.ExtendedEvent or event_info.key == event_type.EventEx]
+    ha_events = [event_info.fullFormat.split('|')[0] for event_info in filtered_events if 
+                 (event_info.category == "error" or event_info.category == "warning") and (
+                     "com.vmware.vc.ha" in event_info.fullFormat.split('|')[0] or 'com.vmware.vc.HA' in 
+                 event_info.fullFormat.split('|')[0])]
+    return ha_events
