@@ -44,7 +44,7 @@ class VmwareCollector():
         self.password = password
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
-        self.specs_size = specs_size
+        self.specs_size = int(specs_size)
 
     def _create_metric_containers(self):
         metric_list = {}
