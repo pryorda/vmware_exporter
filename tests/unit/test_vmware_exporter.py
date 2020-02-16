@@ -1072,8 +1072,8 @@ def test_vmware_disconnect():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
 
     # Mock that we have a connection
@@ -1107,8 +1107,8 @@ def test_counter_ids():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
     collector.content = content
 
