@@ -844,7 +844,7 @@ class VmwareCollector():
                     )
                 )
                 continue
-    
+
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
             host_metrics['vmware_host_standby_mode'].add_metric(labels, standby_mode)
