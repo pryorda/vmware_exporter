@@ -93,4 +93,4 @@ config*.yml
 *.swp
 
 # Vistual Studio Code files
-.vscode/*
+.vscode
