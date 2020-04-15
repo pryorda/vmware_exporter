@@ -152,7 +152,7 @@ class VmwareCollector():
             'vmware_host_standby_mode': GaugeMetricFamily(
                 'vmware_host_standby_mode',
                 'VMWare Host Standby Mode (entering / exiting / in / none)',
-                labels=['host_name', 'dc_name', 'cluster_name']),
+                labels=['host_name', 'dc_name', 'cluster_name', 'standby_mode_state']),
             'vmware_host_connection_state': GaugeMetricFamily(
                 'vmware_host_connection_state',
                 'VMWare Host connection state (connected / disconnected / notResponding)',
@@ -847,7 +847,11 @@ class VmwareCollector():
 
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
-            host_metrics['vmware_host_standby_mode'].add_metric(labels, standby_mode)
+            standby_mode_state = host.get('runtime.standbyMode', 'unknown')
+            host_metrics['vmware_host_standby_mode'].add_metric(
+                labels + [standby_mode_state], 
+                standby_mode
+            )
 
             # Power state
             power_state = 1 if host['runtime.powerState'] == 'poweredOn' else 0
