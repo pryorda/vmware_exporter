@@ -849,7 +849,7 @@ class VmwareCollector():
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
             standby_mode_state = host.get('runtime.standbyMode', 'unknown')
             host_metrics['vmware_host_standby_mode'].add_metric(
-                labels + [standby_mode_state], 
+                labels + [standby_mode_state],
                 standby_mode
             )
 
