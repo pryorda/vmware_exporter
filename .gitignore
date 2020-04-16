@@ -92,5 +92,5 @@ ENV/
 config*.yml
 *.swp
 
-# Vistual Studio Code files
+# Visual Studio Code
 .vscode
