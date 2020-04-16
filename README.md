@@ -243,3 +243,5 @@ Daniel Pryor [pryorda](https://github.com/pryorda)
 ## License
 
 See LICENSE file
+
+[![Known Vulnerabilities](https://snyk.io/test/github/rmontenegroo/vmware_exporter/badge.svg?targetFile=requirements.txt)](https://snyk.io/test/github/rmontenegroo/vmware_exporter?targetFile=requirements.txt)
