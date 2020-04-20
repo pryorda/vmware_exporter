@@ -607,7 +607,10 @@ def test_collect_hosts():
 
     collector.__dict__['host_labels'] = _succeed({
         'host:1': ['host-1', 'dc', 'cluster'],
-        'host:2': ['host-1', 'dc', 'cluster'],
+        'host:2': ['host-2', 'dc', 'cluster'],
+        'host:3': ['host-3', 'dc', 'cluster'],
+        'host:4': ['host-4', 'dc', 'cluster'],
+        'host:5': ['host-5', 'dc', 'cluster'],
     })
 
     metrics = collector._create_metric_containers()
@@ -620,6 +623,7 @@ def test_collect_hosts():
                 'runtime.powerState': 'poweredOn',
                 'runtime.bootTime': boot_time,
                 'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'none',
                 'runtime.inMaintenanceMode': True,
                 'summary.quickStats.overallCpuUsage': 100,
                 'summary.hardware.numCpuCores': 12,
@@ -635,7 +639,61 @@ def test_collect_hosts():
                 'id': 'host:2',
                 'name': 'host-2',
                 'runtime.powerState': 'poweredOff',
-            }
+            },
+            'host:3': {
+                'id': 'host:3',
+                'name': 'host-3',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'in',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 8,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765063',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+            },
+            'host:4': {
+                'id': 'host:4',
+                'name': 'host-4',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'entering',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 6,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765064',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+            },
+            'host:5': {
+                'id': 'host:5',
+                'name': 'host-5',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'exiting',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 4,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765065',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+            },
         })
         yield collector._vmware_get_hosts(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
@@ -659,8 +717,8 @@ def test_collect_hosts():
 
     # In our test data we hava a host that is powered down - we should have its
     # power_state metric but not any others.
-    assert len(metrics['vmware_host_power_state'].samples) == 2
-    assert len(metrics['vmware_host_memory_max'].samples) == 1
+    assert len(metrics['vmware_host_power_state'].samples) == 5
+    assert len(metrics['vmware_host_memory_max'].samples) == 4
 
     assert metrics['vmware_host_hardware_info'].samples[0][1] == {
         'host_name': 'host-1',
@@ -670,6 +728,51 @@ def test_collect_hosts():
         'hardware_cpu_model': 'cpu_model1',
     }
     assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
+
+    # Host:1 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[0][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'none'
+    }
+
+    # Host:2 is Powered down and Standby Mode and not set
+    assert metrics['vmware_host_standby_mode'].samples[1][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[1][1] == {
+        'host_name': 'host-2',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'unknown'
+    }
+
+    # Host:3 is on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[2][2] == 1
+    assert metrics['vmware_host_standby_mode'].samples[2][1] == {
+        'host_name': 'host-3',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'in'
+    }
+
+    # Host:4 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[3][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[3][1] == {
+        'host_name': 'host-4',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'entering'
+    }
+
+    # Host:5 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[4][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[4][1] == {
+        'host_name': 'host-5',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'exiting'
+    }
 
 
 @pytest_twisted.inlineCallbacks

@@ -91,3 +91,6 @@ ENV/
 # Project
 config*.yml
 *.swp
+
+# Visual Studio Code
+.vscode
