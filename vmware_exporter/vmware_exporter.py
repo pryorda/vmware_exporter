@@ -17,7 +17,7 @@ import traceback
 import pytz
 import logging
 
-from yamlconfig import YamlConfig
+import yaml
 
 # Twisted
 from twisted.web.server import Site, NOT_DONE_YET
@@ -951,7 +951,9 @@ class VMWareMetricsResource(Resource):
     def configure(self, args):
         if args.config_file:
             try:
-                self.config = YamlConfig(args.config_file)
+                with open(args.config_file) as cf:
+                    self.config = yaml.load(cf, Loader=yaml.FullLoader)
+
                 if 'default' not in self.config.keys():
                     logging.error("Error, you must have a default section in config file (for now)")
                     exit(1)
