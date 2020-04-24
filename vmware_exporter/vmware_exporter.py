@@ -69,17 +69,17 @@ class VmwareCollector():
         self._vmsCustomAttributes = {}
         self._hostsCustomAttributes = {}
         self._datastoresCustomAttributes = {}
-        
+
         # Tags
         self.fetch_tags = fetch_tags
-        self._labelNames =  {
-                    'vms': ['vm_name','host_name', 'dc_name', 'cluster_name'],
-                    'vm_perf': ['vm_name','host_name', 'dc_name', 'cluster_name'],
-                    'vmguests': ['vm_name','host_name', 'dc_name', 'cluster_name'],
-                    'snapshots': ['vm_name','host_name', 'dc_name', 'cluster_name'],
-                    'datastores': ['ds_name','dc_name', 'ds_cluster'],
-                    'hosts': ['host_name','dc_name', 'cluster_name'],
-                    'host_perf': ['host_name','dc_name', 'cluster_name'],
+        self._labelNames = {
+                    'vms': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+                    'vm_perf': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+                    'vmguests': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+                    'snapshots': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+                    'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
+                    'hosts': ['host_name', 'dc_name', 'cluster_name'],
+                    'host_perf': ['host_name', 'dc_name', 'cluster_name'],
                 }
 
         if self.fetch_tags:
@@ -201,9 +201,6 @@ class VmwareCollector():
                 'vmware_host_standby_mode',
                 'VMWare Host Standby Mode (entering / exiting / in / none)',
                 labels=self._labelNames['hosts'] + ['standby_mode_state']),
-            'vmware_host_standby_mode': GaugeMetricFamily(
-                'vmware_host_standby_mode',
-                'VMWare Host Standby Mode (entering / exiting / in / none)',
             'vmware_host_connection_state': GaugeMetricFamily(
                 'vmware_host_connection_state',
                 'VMWare Host connection state (connected / disconnected / notResponding)',
@@ -416,7 +413,6 @@ class VmwareCollector():
         logging.info("Retrieved service instance content")
         return content
 
-
     @defer.inlineCallbacks
     def batch_fetch_properties(self, objtype, properties):
         content = yield self.content
@@ -454,7 +450,10 @@ class VmwareCollector():
         )
 
         if self.fetch_custom_attributes:
-            self._datastoresCustomAttributes = dict([(ds_moId, ds.get('customValue', {})) for ds_moId, ds in datastores.items()])
+            self._datastoresCustomAttributes = dict(
+                                                        [(ds_moId, ds.get('customValue', {}))
+                                                            for ds_moId, ds in datastores.items()]
+                                                    )
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.Datastore inventory ({fetch_time})".format(fetch_time=fetch_time))
@@ -494,13 +493,15 @@ class VmwareCollector():
         )
 
         if self.fetch_custom_attributes:
-            self._hostsCustomAttributes = dict([(host_moId, host.get('summary.customValue', {})) for host_moId, host in host_systems.items()])
+            self._hostsCustomAttributes = dict(
+                                                [(host_moId, host.get('summary.customValue', {}))
+                                                    for host_moId, host in host_systems.items()]
+                                                )
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.HostSystem inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return host_systems
-
 
     @run_once_property
     @defer.inlineCallbacks
@@ -543,13 +544,15 @@ class VmwareCollector():
         )
 
         if self.fetch_custom_attributes:
-            self._vmsCustomAttributes = dict([(vm_moId, vm.get('summary.customValue', {})) for vm_moId, vm in virtual_machines.items()])
+            self._vmsCustomAttributes = dict(
+                                                [(vm_moId, vm.get('summary.customValue', {}))
+                                                    for vm_moId, vm in virtual_machines.items()]
+                                            )
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.VirtualMachine inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return virtual_machines
-
 
     @defer.inlineCallbacks
     def customAttributesLabelNames(self, metric_type):
@@ -558,7 +561,7 @@ class VmwareCollector():
 
         if metric_type in ('datastores',):
             labelNames = yield self.datastoresCustomAttributesLabelNames
-            
+
         if metric_type in ('vms', 'vm_perf', 'snapshots', 'vmguests'):
             labelNames = yield self.vmsCustomAttributesLabelNames
 
@@ -567,28 +570,33 @@ class VmwareCollector():
 
         return labelNames
 
-
     @run_once_property
     @defer.inlineCallbacks
     def datastoresCustomAttributesLabelNames(self):
-        
+
         customAttributesLabelNames = {}
 
         if self.fetch_custom_attributes:
             customAttributes = yield self._datastoresCustomAttributes
-            customAttributesLabelNames = list(set(chain(*[attributes.keys() for moid, attributes in customAttributes.items()])))
+            customAttributesLabelNames = list(
+                                                set(chain(*[attributes.keys()
+                                                    for moid, attributes in customAttributes.items()]))
+                                             )
 
         return customAttributesLabelNames
 
     @run_once_property
     @defer.inlineCallbacks
     def hostsCustomAttributesLabelNames(self):
-        
+
         customAttributesLabelNames = {}
 
         if self.fetch_custom_attributes:
             customAttributes = yield self._hostsCustomAttributes
-            customAttributesLabelNames = list(set(chain(*[attributes.keys() for moid, attributes in customAttributes.items()])))
+            customAttributesLabelNames = list(
+                                                set(chain(*[attributes.keys()
+                                                    for moid, attributes in customAttributes.items()]))
+                                             )
 
         return customAttributesLabelNames
 
@@ -599,8 +607,11 @@ class VmwareCollector():
         customAttributesLabelNames = {}
 
         if self.fetch_custom_attributes:
-            customAttributes = yield self._vmsCustomAttributes 
-            customAttributesLabelNames = list(set(chain(*[attributes.keys() for moid, attributes in customAttributes.items()])))
+            customAttributes = yield self._vmsCustomAttributes
+            customAttributesLabelNames = list(
+                                                set(chain(*[attributes.keys()
+                                                    for moid, attributes in customAttributes.items()]))
+                                             )
 
         return customAttributesLabelNames
 
@@ -639,7 +650,7 @@ class VmwareCollector():
     @run_once_property
     @defer.inlineCallbacks
     def vmsCustomAttributes(self):
-        
+
         customAttributes = {}
 
         if self.fetch_custom_attributes:
@@ -775,11 +786,16 @@ class VmwareCollector():
                 labels_cnt += 1
 
             if labels_cnt < len(self._labelNames['vms']):
-                logging.info("Only ${cnt}/{expected} labels (vm, host, dc, cluster) found, filling n/a".format(cnt=labels_cnt,expected=len(self._labelNames['vms'])))
+                logging.info(
+                                "Only ${cnt}/{expected} labels (vm, host, dc, cluster) found, filling n/a"
+                                .format(
+                                        cnt=labels_cnt,
+                                        expected=len(self._labelNames['vms'])
+                                       )
+                            )
 
             for i in range(labels_cnt, len(self._labelNames['vms'])):
                 labels[moid].append('n/a')
-
 
         return labels
 
@@ -824,7 +840,6 @@ class VmwareCollector():
                 snapshot.childSnapshotList)
         return snapshot_data
 
-
     @defer.inlineCallbacks
     def updateMetricsLabelNames(self, metrics, metric_types):
 
@@ -838,8 +853,9 @@ class VmwareCollector():
                 for metric_name in self._metricNames.get(metric_type, []):
                     metric = metrics.get(metric_name)
                     labelnames = metric._labelnames
-                    metric._labelnames = labelnames[0:len(self._labelNames[metric_type])] + customAttributesLabelNames + labelnames[len(self._labelNames[metric_type]):]
-
+                    metric._labelnames = labelnames[0:len(self._labelNames[metric_type])]
+                    metric._labelnames += customAttributesLabelNames
+                    metric._labelnames += labelnames[len(self._labelNames[metric_type]):]
 
     @defer.inlineCallbacks
     def _vmware_get_datastores(self, ds_metrics):
@@ -856,7 +872,6 @@ class VmwareCollector():
                                                         )
         else:
             results, datastore_labels = yield parallelize(self.datastore_inventory, self.datastore_labels)
-
 
         # fetch Custom Attributes Labels ("values")
         customAttributes = {}
@@ -1122,7 +1137,7 @@ class VmwareCollector():
             customAttributesLabelNames = yield self.customAttributesLabelNames('vms')
 
         # Insert custom attributes names as metric labels
-        self.updateMetricsLabelNames(metrics, ['vms','vmguests','snapshots'])
+        self.updateMetricsLabelNames(metrics, ['vms', 'vmguests', 'snapshots'])
 
         for moid, row in virtual_machines.items():
             # Ignore vm if field "runtime.host" does not exist
@@ -1217,8 +1232,12 @@ class VmwareCollector():
         logging.info("Starting host metrics collection")
 
         if self.fetch_tags:
-            results, host_labels, host_tags = yield parallelize(self.host_system_inventory, self.host_labels, self.host_tags)
-            
+            results, host_labels, host_tags = yield parallelize(
+                                                                self.host_system_inventory,
+                                                                self.host_labels,
+                                                                self.host_tags
+                                                                )
+
         else:
             results, host_labels = yield parallelize(self.host_system_inventory, self.host_labels)
 
@@ -1240,7 +1259,7 @@ class VmwareCollector():
                         tags = 'n/a'
 
                     labels += [tags]
-        
+
                 customLabels = []
                 for labelName in customAttributesLabelNames:
                     customLabels.append(customAttributes[host_id].get(labelName))

@@ -3,6 +3,7 @@ import os
 import requests
 from pyVmomi import vmodl
 
+
 # From Vmware
 def get_unverified_session():
     session = requests.session()
@@ -23,7 +24,13 @@ def batch_fetch_properties(content, obj_type, properties):
         recursive=True
     )
 
-    allCustomAttributesNames = dict([(f.key, f.name) for f in content.customFieldsManager.field if f.managedObjectType == obj_type])
+    allCustomAttributesNames = dict(
+                                        [
+                                            (f.key, f.name)
+                                            for f in content.customFieldsManager.field
+                                            if f.managedObjectType == obj_type
+                                        ]
+                                   )
 
     try:
         PropertyCollector = vmodl.query.PropertyCollector
@@ -64,11 +71,11 @@ def batch_fetch_properties(content, obj_type, properties):
 
             if 'customValue' in prop.name:
                 properties[prop.name] = dict(
-                                            [(allCustomAttributesNames[attribute.key], attribute.value) for attribute in prop.val]
-                                        )
+                                                [(allCustomAttributesNames[attribute.key], attribute.value)
+                                                    for attribute in prop.val]
+                                            )
             else:
-               properties[prop.name] = prop.val
-
+                properties[prop.name] = prop.val
 
         results[obj.obj._moId] = properties
 
