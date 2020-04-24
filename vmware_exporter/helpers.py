@@ -1,6 +1,14 @@
 import os
 
+import requests
 from pyVmomi import vmodl
+
+# From Vmware
+def get_unverified_session():
+    session = requests.session()
+    session.verify = False
+    requests.packages.urllib3.disable_warnings()
+    return session
 
 
 def get_bool_env(key: str, default: bool):
@@ -14,6 +22,8 @@ def batch_fetch_properties(content, obj_type, properties):
         type=[obj_type],
         recursive=True
     )
+
+    allCustomAttributesNames = dict([(f.key, f.name) for f in content.customFieldsManager.field if f.managedObjectType == obj_type])
 
     try:
         PropertyCollector = vmodl.query.PropertyCollector
@@ -40,6 +50,7 @@ def batch_fetch_properties(content, obj_type, properties):
         filter_spec.propSet = [property_spec]
 
         props = content.propertyCollector.RetrieveContents([filter_spec])
+
     finally:
         view_ref.Destroy()
 
@@ -50,7 +61,14 @@ def batch_fetch_properties(content, obj_type, properties):
         properties['id'] = obj.obj._moId
 
         for prop in obj.propSet:
-            properties[prop.name] = prop.val
+
+            if 'customValue' in prop.name:
+                properties[prop.name] = dict(
+                                            [(allCustomAttributesNames[attribute.key], attribute.value) for attribute in prop.val]
+                                        )
+            else:
+               properties[prop.name] = prop.val
+
 
         results[obj.obj._moId] = properties
 
