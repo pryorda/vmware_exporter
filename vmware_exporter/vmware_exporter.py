@@ -17,7 +17,7 @@ import traceback
 import pytz
 import logging
 
-from yamlconfig import YamlConfig
+import yaml
 
 # Vmware SDK (for Tag)
 from .helpers import get_unverified_session
@@ -201,6 +201,9 @@ class VmwareCollector():
                 'vmware_host_standby_mode',
                 'VMWare Host Standby Mode (entering / exiting / in / none)',
                 labels=self._labelNames['hosts'] + ['standby_mode_state']),
+            'vmware_host_standby_mode': GaugeMetricFamily(
+                'vmware_host_standby_mode',
+                'VMWare Host Standby Mode (entering / exiting / in / none)',
             'vmware_host_connection_state': GaugeMetricFamily(
                 'vmware_host_connection_state',
                 'VMWare Host connection state (connected / disconnected / notResponding)',
@@ -1252,7 +1255,6 @@ class VmwareCollector():
                 )
                 continue
 
-
             # Insert custom attributes names as metric labels
             self.updateMetricsLabelNames(host_metrics, ['hosts'])
 
@@ -1362,7 +1364,9 @@ class VMWareMetricsResource(Resource):
     def configure(self, args):
         if args.config_file:
             try:
-                self.config = YamlConfig(args.config_file)
+                with open(args.config_file) as cf:
+                    self.config = yaml.load(cf, Loader=yaml.FullLoader)
+
                 if 'default' not in self.config.keys():
                     logging.error("Error, you must have a default section in config file (for now)")
                     exit(1)

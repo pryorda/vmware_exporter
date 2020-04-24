@@ -2,6 +2,6 @@ prometheus-client==0.0.19
 pytz
 pyvmomi>=6.5
 twisted>=14.0.2
-yamlconfig
+pyyaml
 service-identity
 git+https://github.com/vmware/vsphere-automation-sdk-python.git
