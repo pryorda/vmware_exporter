@@ -45,6 +45,21 @@ def test_batch_fetch_properties():
     # but the real return value has methods with side effects. So we need to use a fake.
     content.viewManager.CreateContainerView.return_value = FakeView()
 
+    mockCustomField1 = mock.Mock()
+    mockCustomField1.key = 1
+    mockCustomField1.name = 'customAttribute1'
+    mockCustomField1.managedObjectType = vim.Datastore
+
+    mockCustomField2 = mock.Mock()
+    mockCustomField2.key = 2
+    mockCustomField2.name = 'customAttribute2'
+    mockCustomField1.managedObjectType = vim.VirtualMachine
+
+    content.customFieldsManager.field = [
+        mockCustomField1,
+        mockCustomField2,
+    ]
+
     prop1 = mock.Mock()
     prop1.name = 'someprop'
     prop1.val = 1
