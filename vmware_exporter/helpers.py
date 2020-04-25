@@ -4,8 +4,11 @@ import requests
 from pyVmomi import vmodl
 
 
-# From Vmware
 def get_unverified_session():
+    """
+    create session to connect to vmware API
+    from Vmware Samples
+    """
     session = requests.session()
     session.verify = False
     requests.packages.urllib3.disable_warnings()
@@ -24,8 +27,13 @@ def batch_fetch_properties(content, obj_type, properties):
         recursive=True
     )
 
+    """
+        Gathering all custom attibutes names are stored as key (integer) in CustomFieldsManager
+        We do not want those keys, but the names. So here the names and keys are gathered to
+        be translated later
+    """
     allCustomAttributesNames = dict(
-                                        [
+                                        [                               # noqa: E126
                                             (f.key, f.name)
                                             for f in content.customFieldsManager.field
                                             if f.managedObjectType == obj_type
@@ -69,10 +77,17 @@ def batch_fetch_properties(content, obj_type, properties):
 
         for prop in obj.propSet:
 
+            """
+                if it's a custom value property for vms (summary.customValue), hosts (summary.customValue)
+                or datastores (customValue) - we store all attributes together in a python dict and
+                translate its name key to name
+            """
             if 'customValue' in prop.name:
                 properties[prop.name] = dict(
-                                                [(allCustomAttributesNames[attribute.key], attribute.value)
-                                                    for attribute in prop.val]
+                                                [                                       # noqa: E126
+                                                    (allCustomAttributesNames[attribute.key], attribute.value)
+                                                    for attribute in prop.val
+                                                ]
                                             )
             else:
                 properties[prop.name] = prop.val
