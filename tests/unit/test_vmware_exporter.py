@@ -134,8 +134,8 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+        }
 
     assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
@@ -206,10 +206,10 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                'vm-2': ['vm-2'],
-                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+            'vm-2': ['vm-2'],
+            'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+        }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
