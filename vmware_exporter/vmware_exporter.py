@@ -403,9 +403,8 @@ class VmwareCollector():
             return client
 
         except Exception as e:
-            logging.error("Erro connecting to VSphere server: {error}".format(error=e.msg))
-
-        return None
+            logging.error("Erro connecting to VSphere server: {error}".format(error=e))
+            return None
 
     @run_once_property
     @defer.inlineCallbacks
@@ -1029,6 +1028,11 @@ class VmwareCollector():
             customAttributes = yield self.datastoresCustomAttributes
             customAttributesLabelNames = yield self.datastoresCustomAttributesLabelNames
 
+        """
+        updates the datastore metric label names with custom attributes names
+        """
+        self.updateMetricsLabelNames(ds_metrics, ['datastores'])
+
         for datastore_id, datastore in results.items():
             try:
                 name = datastore['name']
@@ -1062,11 +1066,6 @@ class VmwareCollector():
                     )
                 )
                 continue
-
-            """
-            updates the datastore metric label names with custom attributes names
-            """
-            self.updateMetricsLabelNames(ds_metrics, ['datastores'])
 
             ds_capacity = float(datastore.get('summary.capacity', 0))
             ds_freespace = float(datastore.get('summary.freeSpace', 0))
@@ -1411,6 +1410,9 @@ class VmwareCollector():
             customAttributes = yield self.hostsCustomAttributes
             customAttributesLabelNames = yield self.hostsCustomAttributesLabelNames
 
+        # Insert custom attributes names as metric labels
+        self.updateMetricsLabelNames(host_metrics, ['hosts'])
+
         for host_id, host in results.items():
             try:
                 labels = host_labels[host_id]
@@ -1436,9 +1438,6 @@ class VmwareCollector():
                     )
                 )
                 continue
-
-            # Insert custom attributes names as metric labels
-            self.updateMetricsLabelNames(host_metrics, ['hosts'])
 
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
