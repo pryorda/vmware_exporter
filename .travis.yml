@@ -22,6 +22,7 @@ matrix:
         - INTEGRATION_TEST=true
 
 install:
+  - pip install --upgrade pip setuptools
   - pip install git+https://github.com/vmware/vsphere-automation-sdk-python.git#egg=vsphere-automation-sdk-1.25.0
   - pip install -e . -r requirements.txt -r requirements-tests.txt
   - grep -Rl packagecloud /etc/apt/ |sudo xargs rm -vf
