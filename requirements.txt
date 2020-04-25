@@ -4,4 +4,4 @@ pyvmomi>=6.5
 twisted>=14.0.2
 pyyaml
 service-identity
-git+https://github.com/vmware/vsphere-automation-sdk-python.git
+# git+https://github.com/vmware/vsphere-automation-sdk-python.git
