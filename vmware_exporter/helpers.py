@@ -1,18 +1,6 @@
 import os
 
-import requests
 from pyVmomi import vmodl
-
-
-def get_unverified_session():
-    """
-    create session to connect to vmware API
-    from Vmware Samples
-    """
-    session = requests.session()
-    session.verify = False
-    requests.packages.urllib3.disable_warnings()
-    return session
 
 
 def get_bool_env(key: str, default: bool):
