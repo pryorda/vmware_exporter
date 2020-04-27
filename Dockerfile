@@ -8,6 +8,7 @@ COPY . /opt/vmware_exporter/
 
 RUN set -x; buildDeps="gcc python-dev musl-dev libffi-dev openssl openssl-dev git libxml2 libxml2-dev libxslt-dev" \
  && apk add --no-cache --update $buildDeps \
+ && pip install -r requirements.txt . \
  && apk del $buildDeps
 
 EXPOSE 9272
