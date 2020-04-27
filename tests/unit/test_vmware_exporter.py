@@ -1499,8 +1499,8 @@ def test_config_env_multiple_sections():
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
             'specs_size': 5000,
-            'fetch_custom_attributes': True,
-            'fetch_tags': True,
+            'fetch_custom_attributes': False,
+            'fetch_tags': False,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
