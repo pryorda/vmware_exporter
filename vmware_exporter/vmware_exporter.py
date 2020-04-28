@@ -339,18 +339,19 @@ class VmwareCollector():
             session.get,
             'https://{host}/rest/com/vmware/cis/tagging/tag'.format(host=self.host)
         )
+        output = []
         try:
-            return response.json().get('value')
+            output = response.json().get('value')
         except Exception as e:
             logging.error('Unable to fetch tag IDs from vcenter {} ({})'.format(self.host, e))
 
-        return []
+        return output
 
     @run_once_property
     @defer.inlineCallbacks
     def _attachedObjectsOnTags(self):
         """
-        retrieve a list of all objects which have a tag attached
+        retrieve a dict with all objects which have a tag attached
         """
         session = yield self.session
         tagIDs = yield self._tagIDs
@@ -364,12 +365,14 @@ class VmwareCollector():
             json=jsonBody
         )
 
+        output = {}
+
         try:
-            return response.json().get('value')
+            output = response.json().get('value')
         except Exception as e:
             logging.error('Unable to fetch list of attached objects on tags on vcenter {} ({})'.format(self.host, e))
 
-        return []
+        return output
 
     @run_once_property
     @defer.inlineCallbacks
@@ -424,6 +427,7 @@ class VmwareCollector():
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched tags ({fetch_time})".format(fetch_time=fetch_time))
+
         return tags
 
     @run_once_property
@@ -672,7 +676,7 @@ class VmwareCollector():
         but these custom attributes can be filled or not, depending on
         what has been gathered (of course)
         """
-        customAttributesLabelNames = {}
+        customAttributesLabelNames = []
 
         if self.fetch_custom_attributes:
             customAttributes = yield self._datastoresCustomAttributes
@@ -681,7 +685,7 @@ class VmwareCollector():
                     chain(
                         *[
                             attributes.keys()
-                            for moid, attributes in customAttributes.items()
+                            for attributes in customAttributes.values()
                         ]
                     )
                 )
@@ -699,7 +703,7 @@ class VmwareCollector():
         but these custom attributes can be filled or not, depending on
         what has been gathered (of course)
         """
-        customAttributesLabelNames = {}
+        customAttributesLabelNames = []
 
         if self.fetch_custom_attributes:
             customAttributes = yield self._hostsCustomAttributes
@@ -708,7 +712,7 @@ class VmwareCollector():
                     chain(
                         *[
                             attributes.keys()
-                            for moid, attributes in customAttributes.items()
+                            for attributes in customAttributes.values()
                         ]
                     )
                 )
@@ -726,7 +730,7 @@ class VmwareCollector():
         but these custom attributes can be filled or not, depending on
         what has been gathered (of course)
         """
-        customAttributesLabelNames = {}
+        customAttributesLabelNames = []
 
         if self.fetch_custom_attributes:
             customAttributes = yield self._vmsCustomAttributes
@@ -735,7 +739,7 @@ class VmwareCollector():
                     chain(
                         *[
                             attributes.keys()
-                            for moid, attributes in customAttributes.items()
+                            for attributes in customAttributes.values()
                         ]
                     )
                 )
@@ -755,8 +759,8 @@ class VmwareCollector():
         customAttributes = {}
 
         if self.fetch_custom_attributes:
-            datastoresCustomAttributesLabelNames = yield self.datastoresCustomAttributesLabelNames
             customAttributes = yield self._datastoresCustomAttributes
+            datastoresCustomAttributesLabelNames = yield self.datastoresCustomAttributesLabelNames
             for labelName in datastoresCustomAttributesLabelNames:
                 for ds in customAttributes.keys():
                     if labelName not in customAttributes[ds].keys():
@@ -776,8 +780,8 @@ class VmwareCollector():
         customAttributes = {}
 
         if self.fetch_custom_attributes:
-            hostsCustomAttributesLabelNames = yield self.hostsCustomAttributesLabelNames
             customAttributes = yield self._hostsCustomAttributes
+            hostsCustomAttributesLabelNames = yield self.hostsCustomAttributesLabelNames
             for labelName in hostsCustomAttributesLabelNames:
                 for host in customAttributes.keys():
                     if labelName not in customAttributes[host].keys():
@@ -797,8 +801,8 @@ class VmwareCollector():
         customAttributes = {}
 
         if self.fetch_custom_attributes:
-            vmsCustomAttributesLabelNames = yield self.customAttributesLabelNames('vms')
             customAttributes = yield self._vmsCustomAttributes
+            vmsCustomAttributesLabelNames = yield self.customAttributesLabelNames('vms')
             for labelName in vmsCustomAttributesLabelNames:
                 for vm in customAttributes.keys():
                     if labelName not in customAttributes[vm].keys():
@@ -845,6 +849,7 @@ class VmwareCollector():
         for dc in dcs:
             result = yield threads.deferToThread(lambda: _collect(dc))
             labels.update(result)
+
         return labels
 
     @run_once_property
@@ -888,10 +893,11 @@ class VmwareCollector():
         """
         return a dict that links vms moid to its tags
         """
+        tags = {}
         if self.fetch_tags:
             tags = yield self.tags
-            return tags['vms']
-        return {}
+            tags = tags['vms']
+        return tags
 
     @run_once_property
     @defer.inlineCallbacks
@@ -899,10 +905,11 @@ class VmwareCollector():
         """
         return a dict that links hosts moid to its tags
         """
+        tags = {}
         if self.fetch_tags:
             tags = yield self.tags
-            return tags['hosts']
-        return {}
+            tags = tags['hosts']
+        return tags
 
     @run_once_property
     @defer.inlineCallbacks
@@ -910,10 +917,11 @@ class VmwareCollector():
         """
         return a dict that links datastore moid to its tags
         """
+        tags = {}
         if self.fetch_tags:
             tags = yield self.tags
-            return tags['datastores']
-        return {}
+            tags = tags['datastores']
+        return tags
 
     @run_once_property
     @defer.inlineCallbacks
