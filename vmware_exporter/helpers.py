@@ -21,12 +21,12 @@ def batch_fetch_properties(content, obj_type, properties):
         be translated later
     """
     allCustomAttributesNames = dict(
-                                        [                               # noqa: E126
-                                            (f.key, f.name)
-                                            for f in content.customFieldsManager.field
-                                            if f.managedObjectType == obj_type
-                                        ]
-                                   )
+        [
+            (f.key, f.name)
+            for f in content.customFieldsManager.field
+            if f.managedObjectType in (obj_type, None)
+        ]
+    )
 
     try:
         PropertyCollector = vmodl.query.PropertyCollector
@@ -72,11 +72,11 @@ def batch_fetch_properties(content, obj_type, properties):
             """
             if 'customValue' in prop.name:
                 properties[prop.name] = dict(
-                                                [                                       # noqa: E126
-                                                    (allCustomAttributesNames[attribute.key], attribute.value)
-                                                    for attribute in prop.val
-                                                ]
-                                            )
+                    [
+                        (allCustomAttributesNames[attribute.key], attribute.value)
+                        for attribute in prop.val
+                    ]
+                )
             else:
                 properties[prop.name] = prop.val
 
