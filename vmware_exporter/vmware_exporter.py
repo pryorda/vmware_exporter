@@ -1582,8 +1582,8 @@ class VMWareMetricsResource(Resource):
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
                 'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
                 'specs_size': os.environ.get('VSPHERE_SPECS_SIZE', 5000),
-                'fetch_custom_attributes': os.environ.get('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', True),
-                'fetch_tags': os.environ.get('VSPHERE_FETCH_TAGS', True),
+                'fetch_custom_attributes': get_bool_env('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', True),
+                'fetch_tags': get_bool_env('VSPHERE_FETCH_TAGS', True),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
                     'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
@@ -1608,8 +1608,8 @@ class VMWareMetricsResource(Resource):
                 'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
                 'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
                 'specs_size': os.environ.get('VSPHERE_{}_SPECS_SIZE'.format(section), 5000),
-                'fetch_custom_attributes': os.environ.get('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), True),
-                'fetch_tags': os.environ.get('VSPHERE_{}_FETCH_TAGS'.format(section), True),
+                'fetch_custom_attributes': get_bool_env('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), True),
+                'fetch_tags': get_bool_env('VSPHERE_{}_FETCH_TAGS'.format(section), True),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
                     'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
