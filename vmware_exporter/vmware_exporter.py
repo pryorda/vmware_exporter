@@ -44,7 +44,7 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env, get_unverified_session
+from .helpers import batch_fetch_properties, batch_fetch_alarms, get_bool_env, get_unverified_session
 from .defer import parallelize, run_once_property
 
 
@@ -453,6 +453,16 @@ class VmwareCollector():
         )
         return batch
 
+    @defer.inlineCallbacks
+    def batch_fetch_alarms(self):
+        content = yield self.content
+        batch = yield threads.deferToThread(
+            batch_fetch_properties,
+            content,
+            vim.event.AlarmEvent
+        )
+        return batch
+
     @run_once_property
     @defer.inlineCallbacks
     def datastore_inventory(self):
@@ -553,6 +563,9 @@ class VmwareCollector():
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.HostSystem inventory ({fetch_time})".format(fetch_time=fetch_time))
+
+        alarms = yield self.batch_fetch_alarms()
+        print('Alarms: ', alarms)
 
         return host_systems
 

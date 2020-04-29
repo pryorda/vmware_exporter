@@ -19,6 +19,21 @@ def get_bool_env(key: str, default: bool):
     value = os.environ.get(key, default)
     return value if type(value) == bool else value.lower() == 'true'
 
+def batch_fetch_alarms(content, obj_type):
+    view_ref = content.viewManager.CreateContainerView(
+        container=content.rootFolder,
+        type=[obj_type],
+        recursive=True
+    )
+
+    print('content', dir(content))
+    print('view', dir(view_ref))
+
+    for obj in view_ref:
+        print('obj', obj)
+
+    return {}
+
 
 def batch_fetch_properties(content, obj_type, properties):
     view_ref = content.viewManager.CreateContainerView(
