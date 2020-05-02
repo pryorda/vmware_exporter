@@ -6,10 +6,10 @@ LABEL NAME=vmware_exporter
 WORKDIR /opt/vmware_exporter/
 COPY . /opt/vmware_exporter/
 
-RUN set -x; buildDeps="gcc python-dev musl-dev libffi-dev openssl openssl-dev git libxml2 libxml2-dev libxslt-dev" \
+RUN set -x; buildDeps="gcc python-dev musl-dev libffi-dev openssl openssl-dev" \
  && apk add --no-cache --update $buildDeps \
- && pip install -r requirements.txt . git+https://github.com/vmware/vsphere-automation-sdk-python.git \
- && apk del $buildDeps
+ && pip install -r requirements.txt . \
+ && apk del $buildDeps 
 
 EXPOSE 9272
 

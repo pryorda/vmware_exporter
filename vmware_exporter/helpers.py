@@ -1,18 +1,6 @@
 import os
 
-import requests
 from pyVmomi import vmodl
-
-
-def get_unverified_session():
-    """
-    create session to connect to vmware API
-    from Vmware Samples
-    """
-    session = requests.session()
-    session.verify = False
-    requests.packages.urllib3.disable_warnings()
-    return session
 
 
 def get_bool_env(key: str, default: bool):
@@ -48,12 +36,12 @@ def batch_fetch_properties(content, obj_type, properties):
         be translated later
     """
     allCustomAttributesNames = dict(
-                                        [                               # noqa: E126
-                                            (f.key, f.name)
-                                            for f in content.customFieldsManager.field
-                                            if f.managedObjectType == obj_type
-                                        ]
-                                   )
+        [
+            (f.key, f.name)
+            for f in content.customFieldsManager.field
+            if f.managedObjectType in (obj_type, None)
+        ]
+    )
 
     try:
         PropertyCollector = vmodl.query.PropertyCollector
@@ -99,11 +87,11 @@ def batch_fetch_properties(content, obj_type, properties):
             """
             if 'customValue' in prop.name:
                 properties[prop.name] = dict(
-                                                [                                       # noqa: E126
-                                                    (allCustomAttributesNames[attribute.key], attribute.value)
-                                                    for attribute in prop.val
-                                                ]
-                                            )
+                    [
+                        (allCustomAttributesNames[attribute.key], attribute.value)
+                        for attribute in prop.val
+                    ]
+                )
             else:
                 properties[prop.name] = prop.val
 
