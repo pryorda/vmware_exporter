@@ -1,6 +1,6 @@
 import os
 
-from pyVmomi import vmodl
+from pyVmomi import vmodl, vim
 
 
 def get_bool_env(key: str, default: bool):
@@ -10,17 +10,52 @@ def get_bool_env(key: str, default: bool):
 def batch_fetch_alarms(content, obj_type):
     view_ref = content.viewManager.CreateContainerView(
         container=content.rootFolder,
-        type=[obj_type],
+        # type=[vim.HostSystem, vim.Datastore, vim.VirtualMachine],
+        # type=[vim.VirtualMachine],
+        type=[vim.HostSystem],
         recursive=True
     )
 
-    print('content', dir(content))
-    print('view', dir(view_ref))
+    obj_type = vim.HostSystem
 
-    for obj in view_ref:
-        print('obj', obj)
+    # print('alarmManager', dir(content.alarmManager))
+    amanager = content.alarmManager
 
-    return {}
+    # for alarm in content.alarmManager.GetAlarm():
+    #    print(alarm, alarm.info)
+
+    """
+    for obj in view_ref.view:
+        target = obj.triggeredAlarmState
+        if target:
+            print('obj: ', obj, obj.name)
+            for item in target:
+                print(item.alarm.info, dir(item.alarm.info))
+                # key = item.key.split('.')[0]
+    """
+
+    ####### HOSTS ############################
+    if obj_type == vim.HostSystem:
+        for obj in view_ref.view:
+             target = obj.triggeredAlarmState
+             if target:
+                print('obj: ', obj, obj.name)
+                for item in target:
+                    print(item.alarm.info.systemName, item.overallStatus)
+
+                num_sensors = obj.runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo
+                for sensor in num_sensors:
+                    if sensor.healthState.label.lower() not in ('green', 'unknown'):
+                        print(sensor)
+
+        # print(obj.name)
+        # print('host: ', obj.runtime.healthSystemRuntime.hardwareStatusInfo, dir(obj.runtime.healthSystemRuntime.hardwareStatusInfo))
+    #########################################
+
+    # print('#'*30)
+    # print('obj: ', dir(obj))
+
+    return 'ok'
 
 
 def batch_fetch_properties(content, obj_type, properties):
@@ -92,6 +127,12 @@ def batch_fetch_properties(content, obj_type, properties):
                         for attribute in prop.val
                     ]
                 )
+            elif 'triggeredAlarmState' == prop.name:
+                alarms = []
+                for item in prop.val:
+                    alarms.append('{}:{}'.format(item.alarm.info.systemName.split('.')[1], item.overallStatus))
+                properties[prop.name] = ','.join(alarms)
+
             else:
                 properties[prop.name] = prop.val
 
