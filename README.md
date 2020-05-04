@@ -55,6 +55,7 @@ default:
     vsphere_password: "password"
     ignore_ssl: False
     specs_size: 5000
+    fetch_alarms: True
     collect_only:
         vms: True
         vmguests: True
@@ -68,6 +69,7 @@ esx:
     vsphere_password: 'password'
     ignore_ssl: True
     specs_size: 5000
+    fetch_alarms: True
     collect_only:
         vms: False
         vmguests: True
@@ -81,6 +83,7 @@ limited:
     vsphere_password: 'password'
     ignore_ssl: True
     specs_size: 5000
+    fetch_alarms: False
     collect_only:
         vms: False
         vmguests: False
@@ -99,6 +102,7 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
 | `VSPHERE_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
+| `VSPHERE_FETCH_ALARMS`       | config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well |
 | `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
 | `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
@@ -114,6 +118,7 @@ You can create new sections as well, with very similiar variables. For example, 
 | `VSPHERE_LIMITED_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
 | `VSPHERE_LIMITED_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
 | `VSPHERE_LIMITED_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
+| `VSPHERE_LIMITED_FETCH_ALARMS`       | config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well|
 | `VSPHERE_LIMITED_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
 | `VSPHERE_LIMITED_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
 | `VSPHERE_LIMITED_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |

@@ -1,61 +1,11 @@
 import os
 
-from pyVmomi import vmodl, vim
+from pyVmomi import vmodl
 
 
 def get_bool_env(key: str, default: bool):
     value = os.environ.get(key, default)
     return value if type(value) == bool else value.lower() == 'true'
-
-def batch_fetch_alarms(content, obj_type):
-    view_ref = content.viewManager.CreateContainerView(
-        container=content.rootFolder,
-        # type=[vim.HostSystem, vim.Datastore, vim.VirtualMachine],
-        # type=[vim.VirtualMachine],
-        type=[vim.HostSystem],
-        recursive=True
-    )
-
-    obj_type = vim.HostSystem
-
-    # print('alarmManager', dir(content.alarmManager))
-    amanager = content.alarmManager
-
-    # for alarm in content.alarmManager.GetAlarm():
-    #    print(alarm, alarm.info)
-
-    """
-    for obj in view_ref.view:
-        target = obj.triggeredAlarmState
-        if target:
-            print('obj: ', obj, obj.name)
-            for item in target:
-                print(item.alarm.info, dir(item.alarm.info))
-                # key = item.key.split('.')[0]
-    """
-
-    ####### HOSTS ############################
-    if obj_type == vim.HostSystem:
-        for obj in view_ref.view:
-             target = obj.triggeredAlarmState
-             if target:
-                print('obj: ', obj, obj.name)
-                for item in target:
-                    print(item.alarm.info.systemName, item.overallStatus)
-
-                num_sensors = obj.runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo
-                for sensor in num_sensors:
-                    if sensor.healthState.label.lower() not in ('green', 'unknown'):
-                        print(sensor)
-
-        # print(obj.name)
-        # print('host: ', obj.runtime.healthSystemRuntime.hardwareStatusInfo, dir(obj.runtime.healthSystemRuntime.hardwareStatusInfo))
-    #########################################
-
-    # print('#'*30)
-    # print('obj: ', dir(obj))
-
-    return 'ok'
 
 
 def batch_fetch_properties(content, obj_type, properties):
@@ -127,11 +77,72 @@ def batch_fetch_properties(content, obj_type, properties):
                         for attribute in prop.val
                     ]
                 )
+
             elif 'triggeredAlarmState' == prop.name:
-                alarms = []
-                for item in prop.val:
-                    alarms.append('{}:{}'.format(item.alarm.info.systemName.split('.')[1], item.overallStatus))
+                """
+                    triggered alarms
+                """
+                try:
+                    alarms = list(
+                        'triggeredAlarm:{}:{}'.format(item.alarm.info.systemName.split('.')[1], item.overallStatus)
+                        for item in prop.val
+                    )
+                except Exception:
+                    alarms = ['triggeredAlarm:AlarmsUnavailable:yellow']
+
                 properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
+                """
+                    host hardware sensors alarms
+                """
+                try:
+                    alarms = list(
+                        'sensorInfo:{}:{}'.format(item.name.replace(' ', ''), item.healthState.key.lower())
+                        for item in prop.val if item.healthState.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['sensorInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo' == prop.name:
+                """
+                    cpu status info alarms
+                """
+                try:
+                    alarms = list(
+                        'cpuStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
+                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['cpuStatusInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo' == prop.name:
+                """
+                    memory status info alarms
+                """
+                try:
+                    alarms = list(
+                        'memoryStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
+                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['memoryStatusInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            # storage status info alarms - not included because they made no sense in here
+            # sine there are specific datastore alarms
+            #
+            # elif 'runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo' == prop.name:
+            #    alarms = list(
+            #            'storageStatusInfo:{}:{}'.format(item.name.replace(' ',''), item.status.key.lower())
+            #            for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+            #    )
+            #    properties[prop.name] = ','.join(alarms)
 
             else:
                 properties[prop.name] = prop.val
