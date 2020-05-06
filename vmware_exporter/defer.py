@@ -56,7 +56,7 @@ class BranchingDeferred(defer.Deferred):
             self.callbacks.pop(0).errback(err)
 
     def addCallbacks(self, *args, **kwargs):
-        if not self.result:
+        if self.result is None:
             d = defer.Deferred()
             d.addCallbacks(*args, **kwargs)
             self.callbacks.append(d)

@@ -72,6 +72,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -95,7 +98,7 @@ def test_collect_vms():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-1', 'n/a', 'n/a', 'n/a']}
 
     # Test template True
 
@@ -105,6 +108,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -134,8 +140,8 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+        }
 
     assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
@@ -147,6 +153,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -206,10 +215,10 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                'vm-2': ['vm-2'],
-                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+            'vm-2': ['vm-2', 'n/a', 'n/a', 'n/a'],
+            'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+        }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
@@ -344,6 +353,9 @@ def test_metrics_without_hostaccess():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     metrics = collector._create_metric_containers()
     collector.content = _succeed(mock.Mock())
@@ -366,7 +378,7 @@ def test_metrics_without_hostaccess():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-x']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-x', 'n/a', 'n/a', 'n/a']}
         yield collector._vmware_get_vms(metrics)
 
         # 113 AssertionError {'partition': '/boot'} vs {'host_name': '/boot'}
@@ -602,6 +614,9 @@ def test_collect_hosts():
         'password',
         collect_only,
         5000,
+        True,
+        False,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -634,11 +649,17 @@ def test_collect_hosts():
                 'summary.config.product.build': '6765062',
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
+                'summary.customValue': {
+                    'customValue1': 'value1',
+                    'customValue2': 'value2',
+                }
             },
             'host:2': {
                 'id': 'host:2',
                 'name': 'host-2',
                 'runtime.powerState': 'poweredOff',
+                'runtime.standbyMode': 'none',
+                'summary.customValue': {},
             },
             'host:3': {
                 'id': 'host:3',
@@ -657,6 +678,7 @@ def test_collect_hosts():
                 'summary.config.product.build': '6765063',
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
+                'summary.customValue': {},
             },
             'host:4': {
                 'id': 'host:4',
@@ -675,6 +697,7 @@ def test_collect_hosts():
                 'summary.config.product.build': '6765064',
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
+                'summary.customValue': {},
             },
             'host:5': {
                 'id': 'host:5',
@@ -693,6 +716,7 @@ def test_collect_hosts():
                 'summary.config.product.build': '6765065',
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
+                'summary.customValue': {},
             },
         })
         yield collector._vmware_get_hosts(metrics)
@@ -701,7 +725,9 @@ def test_collect_hosts():
     assert metrics['vmware_host_memory_max'].samples[0][1] == {
         'host_name': 'host-1',
         'dc_name': 'dc',
-        'cluster_name': 'cluster'
+        'cluster_name': 'cluster',
+        'customValue1': 'value1',
+        'customValue2': 'value2'
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
@@ -712,6 +738,8 @@ def test_collect_hosts():
         'cluster_name': 'cluster',
         'version': '6.0.0',
         'build': '6765062',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
     }
     assert metrics['vmware_host_product_info'].samples[0][2] == 1
 
@@ -726,6 +754,8 @@ def test_collect_hosts():
         'cluster_name': 'cluster',
         'hardware_model': 'model1',
         'hardware_cpu_model': 'cpu_model1',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
     }
     assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
 
@@ -735,7 +765,9 @@ def test_collect_hosts():
         'host_name': 'host-1',
         'dc_name': 'dc',
         'cluster_name': 'cluster',
-        'standby_mode_state': 'none'
+        'standby_mode_state': 'none',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
     }
 
     # Host:2 is Powered down and Standby Mode and not set
@@ -744,7 +776,9 @@ def test_collect_hosts():
         'host_name': 'host-2',
         'dc_name': 'dc',
         'cluster_name': 'cluster',
-        'standby_mode_state': 'unknown'
+        'standby_mode_state': 'none',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
     }
 
     # Host:3 is on Standby Mode
@@ -753,7 +787,9 @@ def test_collect_hosts():
         'host_name': 'host-3',
         'dc_name': 'dc',
         'cluster_name': 'cluster',
-        'standby_mode_state': 'in'
+        'standby_mode_state': 'in',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
     }
 
     # Host:4 is not on Standby Mode
@@ -762,7 +798,9 @@ def test_collect_hosts():
         'host_name': 'host-4',
         'dc_name': 'dc',
         'cluster_name': 'cluster',
-        'standby_mode_state': 'entering'
+        'standby_mode_state': 'entering',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
     }
 
     # Host:5 is not on Standby Mode
@@ -771,7 +809,9 @@ def test_collect_hosts():
         'host_name': 'host-5',
         'dc_name': 'dc',
         'cluster_name': 'cluster',
-        'standby_mode_state': 'exiting'
+        'standby_mode_state': 'exiting',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
     }
 
 
@@ -904,8 +944,21 @@ def test_collect_datastore():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        True
     )
     collector.content = _succeed(mock.Mock())
+    collector.client = _succeed(mock.Mock())
+    collector._tagNames = {
+        'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
+    }
+
+    collector.tags = {
+        'datastores': {
+            'datastore-1': ['tag1']
+        }
+    }
 
     collector.__dict__['datastore_labels'] = _succeed({
         'datastore-1': ['datastore-1', 'dc', 'ds_cluster'],
@@ -932,7 +985,8 @@ def test_collect_datastore():
     assert metrics['vmware_datastore_capacity_size'].samples[0][1] == {
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
-        'ds_cluster': 'ds_cluster'
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_capacity_size'].samples[0][2] == 0.0
 
@@ -940,14 +994,16 @@ def test_collect_datastore():
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
         'ds_cluster': 'ds_cluster',
-        'mode': 'normal'
+        'mode': 'normal',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_maintenance_mode'].samples[0][2] == 1.0
 
     assert metrics['vmware_datastore_accessible'].samples[0][1] == {
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
-        'ds_cluster': 'ds_cluster'
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_accessible'].samples[0][2] == 1.0
 
@@ -1352,6 +1408,8 @@ def test_vmware_resource_async_render_GET_section():
             'vsphere_user': 'username1',
             'vsphere_password': 'password1',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1366,6 +1424,8 @@ def test_vmware_resource_async_render_GET_section():
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1386,7 +1446,9 @@ def test_vmware_resource_async_render_GET_section():
         'password2',
         resource.config['mysection']['collect_only'],
         5000,
-        'On'
+        True,
+        'On',
+        True
     )
 
     request.setResponseCode.assert_called_with(200)
@@ -1400,6 +1462,8 @@ def test_config_env_multiple_sections():
         'VSPHERE_USER': 'username1',
         'VSPHERE_PASSWORD': 'password1',
         'VSPHERE_SPECS_SIZE': 5000,
+        'VSPHERE_FETCH_CUSTOM_ATTRIBUTES': True,
+        'VSPHERE_FETCH_TAGS': True,
         'VSPHERE_MYSECTION_HOST': '127.0.0.11',
         'VSPHERE_MYSECTION_USER': 'username2',
         'VSPHERE_MYSECTION_PASSWORD': 'password2',
@@ -1419,6 +1483,8 @@ def test_config_env_multiple_sections():
             'vsphere_user': 'username1',
             'vsphere_password': 'password1',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1433,6 +1499,8 @@ def test_config_env_multiple_sections():
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
             'specs_size': 5000,
+            'fetch_custom_attributes': False,
+            'fetch_tags': False,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,

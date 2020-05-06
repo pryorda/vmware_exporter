@@ -55,6 +55,8 @@ default:
     vsphere_password: "password"
     ignore_ssl: False
     specs_size: 5000
+    fetch_custom_attributes: True
+    fetch_tags: True
     collect_only:
         vms: True
         vmguests: True
@@ -68,6 +70,8 @@ esx:
     vsphere_password: 'password'
     ignore_ssl: True
     specs_size: 5000
+    fetch_custom_attributes: True
+    fetch_tags: True
     collect_only:
         vms: False
         vmguests: True
@@ -81,6 +85,8 @@ limited:
     vsphere_password: 'password'
     ignore_ssl: True
     specs_size: 5000
+    fetch_custom_attributes: True
+    fetch_tags: True
     collect_only:
         vms: False
         vmguests: False
@@ -92,33 +98,37 @@ limited:
 Switching sections can be done by adding ?section=limited to the URL.
 
 #### Environment Variables
-| Variable                      | Precedence             | Defaults | Description                                      |
-| ---------------------------- | ---------------------- | -------- | --------------------------------------- |
-| `VSPHERE_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
-| `VSPHERE_USER`               | config, env            | n/a      | User for connecting to vsphere |
-| `VSPHERE_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
-| `VSPHERE_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
-| `VSPHERE_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
-| `VSPHERE_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
-| `VSPHERE_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
-| `VSPHERE_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
-| `VSPHERE_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
-| `VSPHERE_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
+| Variable                      	| Precedence             | Defaults | Description                                      				|
+| --------------------------------------| ---------------------- | -------- | --------------------------------------------------------------------------|
+| `VSPHERE_HOST`               		| config, env, get_param | n/a      | vsphere server to connect to   						|
+| `VSPHERE_USER`               		| config, env            | n/a      | User for connecting to vsphere 						|
+| `VSPHERE_PASSWORD`           		| config, env            | n/a      | Password for connecting to vsphere 					|
+| `VSPHERE_SPECS_SIZE`         		| config, env            | 5000     | Size of specs list for query stats function 				|
+| `VSPHERE_IGNORE_SSL`         		| config, env            | False    | Ignore the ssl cert on the connection to vsphere host 			|
+| `VSPHERE_FETCH_CUSTOM_ATTRIBUTES`    	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
+| `VSPHERE_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
+| `VSPHERE_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
+| `VSPHERE_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
+| `VSPHERE_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
+| `VSPHERE_COLLECT_VMGUESTS`   		| config, env            | True     | Set to false to disable collection of virtual machine guest metrics 	|
+| `VSPHERE_COLLECT_SNAPSHOTS`  		| config, env            | True     | Set to false to disable collection of snapshot metrics 			|
 
 You can create new sections as well, with very similiar variables. For example, to create a `limited` section you can set:
 
-| Variable                      | Precedence             | Defaults | Description                                      |
-| ---------------------------- | ---------------------- | -------- | --------------------------------------- |
-| `VSPHERE_LIMITED_HOST`               | config, env, get_param | n/a      | vsphere server to connect to   |
-| `VSPHERE_LIMITED_USER`               | config, env            | n/a      | User for connecting to vsphere |
-| `VSPHERE_LIMITED_PASSWORD`           | config, env            | n/a      | Password for connecting to vsphere |
-| `VSPHERE_LIMITED_SPECS_SIZE`         | config, env            | 5000     | Size of specs list for query stats function |
-| `VSPHERE_LIMITED_IGNORE_SSL`         | config, env            | False    | Ignore the ssl cert on the connection to vsphere host |
-| `VSPHERE_LIMITED_COLLECT_HOSTS`      | config, env            | True     | Set to false to disable collection of host metrics |
-| `VSPHERE_LIMITED_COLLECT_DATASTORES` | config, env            | True     | Set to false to disable collection of datastore metrics |
-| `VSPHERE_LIMITED_COLLECT_VMS`        | config, env            | True     | Set to false to disable collection of virtual machine metrics |
-| `VSPHERE_LIMITED_COLLECT_VMGUESTS`   | config, env            | True     | Set to false to disable collection of virtual machine guest metrics |
-| `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`  | config, env            | True     | Set to false to disable collection of snapshot metrics |
+| Variable                      		| Precedence             | Defaults | Description                                      				|
+| ----------------------------------------------| ---------------------- | -------- | --------------------------------------------------------------------------|
+| `VSPHERE_LIMITED_HOST`               		| config, env, get_param | n/a      | vsphere server to connect to   						|
+| `VSPHERE_LIMITED_USER`               		| config, env            | n/a      | User for connecting to vsphere 						|
+| `VSPHERE_LIMITED_PASSWORD`           		| config, env            | n/a      | Password for connecting to vsphere 					|
+| `VSPHERE_LIMITED_SPECS_SIZE`         		| config, env            | 5000     | Size of specs list for query stats function 				|
+| `VSPHERE_LIMITED_IGNORE_SSL`         		| config, env            | False    | Ignore the ssl cert on the connection to vsphere host 			|
+| `VSPHERE_LIMITED_FETCH_CUSTOM_ATTRIBUTES`   	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
+| `VSPHERE_LIMITED_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
+| `VSPHERE_LIMITED_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
+| `VSPHERE_LIMITED_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
+| `VSPHERE_LIMITED_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
+| `VSPHERE_LIMITED_COLLECT_VMGUESTS`   		| config, env            | True     | Set to false to disable collection of virtual machine guest metrics 	|
+| `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`  		| config, env            | True     | Set to false to disable collection of snapshot metrics 			|
 
 You need to set at least `VSPHERE_SECTIONNAME_USER` for the section to be detected.
 

@@ -15,6 +15,19 @@ def batch_fetch_properties(content, obj_type, properties):
         recursive=True
     )
 
+    """
+        Gathering all custom attibutes names are stored as key (integer) in CustomFieldsManager
+        We do not want those keys, but the names. So here the names and keys are gathered to
+        be translated later
+    """
+    allCustomAttributesNames = dict(
+        [
+            (f.key, f.name)
+            for f in content.customFieldsManager.field
+            if f.managedObjectType in (obj_type, None)
+        ]
+    )
+
     try:
         PropertyCollector = vmodl.query.PropertyCollector
 
@@ -40,6 +53,7 @@ def batch_fetch_properties(content, obj_type, properties):
         filter_spec.propSet = [property_spec]
 
         props = content.propertyCollector.RetrieveContents([filter_spec])
+
     finally:
         view_ref.Destroy()
 
@@ -50,7 +64,21 @@ def batch_fetch_properties(content, obj_type, properties):
         properties['id'] = obj.obj._moId
 
         for prop in obj.propSet:
-            properties[prop.name] = prop.val
+
+            """
+                if it's a custom value property for vms (summary.customValue), hosts (summary.customValue)
+                or datastores (customValue) - we store all attributes together in a python dict and
+                translate its name key to name
+            """
+            if 'customValue' in prop.name:
+                properties[prop.name] = dict(
+                    [
+                        (allCustomAttributesNames[attribute.key], attribute.value)
+                        for attribute in prop.val
+                    ]
+                )
+            else:
+                properties[prop.name] = prop.val
 
         results[obj.obj._moId] = properties
 
