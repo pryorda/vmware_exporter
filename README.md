@@ -134,7 +134,6 @@ You can create new sections as well, with very similiar variables. For example, 
 | `VSPHERE_LIMITED_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
 | `VSPHERE_LIMITED_COLLECT_VMGUESTS`   		| config, env            | True     | Set to false to disable collection of virtual machine guest metrics 	|
 | `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`  		| config, env            | True     | Set to false to disable collection of snapshot metrics 			|
->>>>>>> e1497ad0408c5f03698afc364cac521fa43155d7
 
 You need to set at least `VSPHERE_SECTIONNAME_USER` for the section to be detected.
 

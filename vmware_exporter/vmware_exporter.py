@@ -1460,6 +1460,12 @@ class VmwareCollector():
                 if not tags:
                     tags = 'n/a'
 
+            if self.fetch_tags:
+                tags = vm_tags.get(moid, [])
+                tags = ','.join(tags)
+                if not tags:
+                    tags = 'n/a'
+
                 vm_labels[moid] += [tags] + customLabels
 
             else:
