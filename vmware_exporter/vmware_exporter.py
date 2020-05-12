@@ -1486,6 +1486,13 @@ class VmwareCollector():
                 1
             )
 
+            # Host in maintenance mode?
+            if 'runtime.inMaintenanceMode' in host:
+                host_metrics['vmware_host_maintenance_mode'].add_metric(
+                    labels,
+                    host['runtime.inMaintenanceMode'] * 1,
+                )
+
             if not power_state:
                 continue
 
@@ -1495,13 +1502,6 @@ class VmwareCollector():
                 host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(
                     labels,
                     self._to_epoch(host['runtime.bootTime'])
-                )
-
-            # Host in maintenance mode?
-            if 'runtime.inMaintenanceMode' in host:
-                host_metrics['vmware_host_maintenance_mode'].add_metric(
-                    labels,
-                    host['runtime.inMaintenanceMode'] * 1,
                 )
 
             # CPU Usage (in Mhz)
