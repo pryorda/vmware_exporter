@@ -616,7 +616,8 @@ def test_collect_hosts():
         5000,
         True,
         False,
-        False
+        False,
+        True
     )
     collector.content = _succeed(mock.Mock())
 
@@ -652,7 +653,11 @@ def test_collect_hosts():
                 'summary.customValue': {
                     'customValue1': 'value1',
                     'customValue2': 'value2',
-                }
+                },
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:2': {
                 'id': 'host:2',
@@ -660,6 +665,10 @@ def test_collect_hosts():
                 'runtime.powerState': 'poweredOff',
                 'runtime.standbyMode': 'none',
                 'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:3': {
                 'id': 'host:3',
@@ -679,6 +688,10 @@ def test_collect_hosts():
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
                 'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:4': {
                 'id': 'host:4',
@@ -698,6 +711,10 @@ def test_collect_hosts():
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
                 'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:5': {
                 'id': 'host:5',
@@ -717,6 +734,15 @@ def test_collect_hosts():
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
                 'summary.customValue': {},
+                'triggeredAlarmState': ','.join(
+                    (
+                        'triggeredAlarm:HostMemoryUsageAlarm:red',
+                        'triggeredAlarm:HostCPUUsageAlarm:yellow'
+                    )
+                ),
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': 'sensorInfo:OtherAlarm:red',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': 'memoryStatusInfo:OtherAlarm:yellow',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': 'cpuStatusInfo:OtherAlarm:yellow'
             },
         })
         yield collector._vmware_get_hosts(metrics)
@@ -803,6 +829,10 @@ def test_collect_hosts():
         'customValue2': 'n/a',
     }
 
+    # Host:4 no alarms found
+    assert metrics['vmware_host_yellow_alarms'].samples[3][2] == 0
+    assert metrics['vmware_host_red_alarms'].samples[3][2] == 0
+
     # Host:5 is not on Standby Mode
     assert metrics['vmware_host_standby_mode'].samples[4][2] == 0
     assert metrics['vmware_host_standby_mode'].samples[4][1] == {
@@ -812,6 +842,19 @@ def test_collect_hosts():
         'standby_mode_state': 'exiting',
         'customValue1': 'n/a',
         'customValue2': 'n/a',
+    }
+
+    # Host:5 testing alarms
+    assert metrics['vmware_host_yellow_alarms'].samples[4][2] == 3
+    assert metrics['vmware_host_red_alarms'].samples[4][2] == 2
+
+    assert metrics['vmware_host_yellow_alarms'].samples[4][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'alarms': 'triggeredAlarm:HostCPUUsageAlarm,cpuStatusInfo:OtherAlarm,memoryStatusInfo:OtherAlarm'
     }
 
 
@@ -944,7 +987,8 @@ def test_collect_datastore():
         'password',
         collect_only,
         5000,
-        False,
+        True,
+        True,
         True,
         True
     )
@@ -976,11 +1020,32 @@ def test_collect_datastore():
                 'vm': ['vm-1'],
                 'summary.accessible': True,
                 'summary.maintenanceMode': 'normal',
+                'triggeredAlarmState': 'triggeredAlarm:DatastoreDiskUsageAlarm:yellow,triggeredAlarm:OtherAlarm:red'
             }
         })
 
         yield collector._vmware_get_datastores(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
+
+    assert metrics['vmware_datastore_yellow_alarms'].samples[0][2] == 1
+
+    assert metrics['vmware_datastore_yellow_alarms'].samples[0][1] == {
+        'ds_name': 'datastore-1',
+        'dc_name': 'dc',
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1',
+        'alarms': 'triggeredAlarm:DatastoreDiskUsageAlarm'
+    }
+
+    assert metrics['vmware_datastore_red_alarms'].samples[0][2] == 1
+
+    assert metrics['vmware_datastore_red_alarms'].samples[0][1] == {
+        'ds_name': 'datastore-1',
+        'dc_name': 'dc',
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1',
+        'alarms': 'triggeredAlarm:OtherAlarm'
+    }
 
     assert metrics['vmware_datastore_capacity_size'].samples[0][1] == {
         'ds_name': 'datastore-1',
@@ -1410,6 +1475,7 @@ def test_vmware_resource_async_render_GET_section():
             'specs_size': 5000,
             'fetch_custom_attributes': True,
             'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1426,6 +1492,7 @@ def test_vmware_resource_async_render_GET_section():
             'specs_size': 5000,
             'fetch_custom_attributes': True,
             'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1448,6 +1515,7 @@ def test_vmware_resource_async_render_GET_section():
         5000,
         True,
         'On',
+        True,
         True
     )
 
@@ -1464,6 +1532,7 @@ def test_config_env_multiple_sections():
         'VSPHERE_SPECS_SIZE': 5000,
         'VSPHERE_FETCH_CUSTOM_ATTRIBUTES': True,
         'VSPHERE_FETCH_TAGS': True,
+        'VSPHERE_FETCH_ALARMS': True,
         'VSPHERE_MYSECTION_HOST': '127.0.0.11',
         'VSPHERE_MYSECTION_USER': 'username2',
         'VSPHERE_MYSECTION_PASSWORD': 'password2',
@@ -1485,6 +1554,7 @@ def test_config_env_multiple_sections():
             'specs_size': 5000,
             'fetch_custom_attributes': True,
             'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1501,6 +1571,7 @@ def test_config_env_multiple_sections():
             'specs_size': 5000,
             'fetch_custom_attributes': False,
             'fetch_tags': False,
+            'fetch_alarms': False,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,

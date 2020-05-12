@@ -58,7 +58,8 @@ class VmwareCollector():
         specs_size,
         fetch_custom_attributes=False,
         ignore_ssl=False,
-        fetch_tags=False
+        fetch_tags=False,
+        fetch_alarms=False
     ):
 
         self.host = host
@@ -81,6 +82,10 @@ class VmwareCollector():
         # Tags
         # flag to wheter fetch tags or not
         self.fetch_tags = fetch_tags
+
+        # Alarms
+        # flag wheter to fetch alarms or not
+        self.fetch_alarms = fetch_alarms
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
@@ -257,6 +262,99 @@ class VmwareCollector():
                 labels=self._labelNames['hosts'] + ['hardware_model', 'hardware_cpu_model']),
         }
 
+        """
+            if alarms are being retrieved, metrics have to been created here
+        """
+        if self.fetch_alarms:
+
+            """
+                for hosts
+            """
+            metric_list['hosts'].update(
+                {
+                    'vmware_host_yellow_alarms': GaugeMetricFamily(
+                        'vmware_host_yellow_alarms',
+                        'A metric with the amount of host yellow alarms and labeled with the list of alarm names',
+                        labels=self._labelNames['hosts'] + ['alarms']
+                    ),
+                    'vmware_host_red_alarms': GaugeMetricFamily(
+                        'vmware_host_red_alarms',
+                        'A metric with the amount of host red alarms and labeled with the list of alarm names',
+                        labels=self._labelNames['hosts'] + ['alarms']
+                    )
+                }
+            )
+
+            """
+                for datastores
+            """
+            metric_list['datastores'].update(
+                {
+                    'vmware_datastore_yellow_alarms': GaugeMetricFamily(
+                        'vmware_datastore_yellow_alarms',
+                        'A metric with the amount of datastore yellow alarms and labeled with the list of alarm names',
+                        labels=self._labelNames['datastores'] + ['alarms']
+                    ),
+                    'vmware_datastore_red_alarms': GaugeMetricFamily(
+                        'vmware_datastore_red_alarms',
+                        'A metric with the amount of datastore red alarms and labeled with the list of alarm names',
+                        labels=self._labelNames['datastores'] + ['alarms']
+                    )
+                }
+            )
+
+            """
+                for vms
+            """
+            metric_list['vms'].update(
+                {
+                    'vmware_vm_yellow_alarms': GaugeMetricFamily(
+                        'vmware_vm_yellow_alarms',
+                        'A metric with the amount of virtual machine yellow alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    ),
+                    'vmware_vm_red_alarms': GaugeMetricFamily(
+                        'vmware_vm_red_alarms',
+                        'A metric with the amount of virtual machine red alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    )
+                }
+            )
+            metric_list['vmguests'].update(
+                {
+                    'vmware_vm_yellow_alarms': GaugeMetricFamily(
+                        'vmware_vm_yellow_alarms',
+                        'A metric with the amount of virtual machine yellow alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    ),
+                    'vmware_vm_red_alarms': GaugeMetricFamily(
+                        'vmware_vm_red_alarms',
+                        'A metric with the amount of virtual machine red alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    )
+                }
+            )
+            metric_list['snapshots'].update(
+                {
+                    'vmware_vm_yellow_alarms': GaugeMetricFamily(
+                        'vmware_vm_yellow_alarms',
+                        'A metric with the amount of virtual machine yellow alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    ),
+                    'vmware_vm_red_alarms': GaugeMetricFamily(
+                        'vmware_vm_red_alarms',
+                        'A metric with the amount of virtual machine red alarms and \
+                                labeled with the list of alarm names',
+                        labels=self._labelNames['vms'] + ['alarms']
+                    )
+                }
+            )
+
         metrics = {}
         for key, value in self.collect_only.items():
             if value is True:
@@ -368,7 +466,7 @@ class VmwareCollector():
         output = {}
 
         try:
-            output = response.json().get('value')
+            output = response.json().get('value', output)
         except Exception as e:
             logging.error('Unable to fetch list of attached objects on tags on vcenter {} ({})'.format(self.host, e))
 
@@ -501,6 +599,12 @@ class VmwareCollector():
             """ yep! """
             properties.append('customValue')
 
+        """
+            triggeredAlarmState must be fetched to get datastore alarms list
+        """
+        if self.fetch_alarms:
+            properties.append('triggeredAlarmState')
+
         datastores = yield self.batch_fetch_properties(
             vim.Datastore,
             properties
@@ -555,6 +659,18 @@ class VmwareCollector():
         """
         if self.fetch_custom_attributes:
             properties.append('summary.customValue')
+
+        """
+            triggeredAlarmState must be fetched to get host alarms list
+            in case of hosts, sensors, cpu and memory status alarms
+            are going to be retrieved as well
+        """
+        if self.fetch_alarms:
+            properties.append('triggeredAlarmState')
+            properties.append('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo')
+            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo')
+            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo')
+            # properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo')
 
         host_systems = yield self.batch_fetch_properties(
             vim.HostSystem,
@@ -617,6 +733,12 @@ class VmwareCollector():
         """
         if self.fetch_custom_attributes:
             properties.append('summary.customValue')
+
+        """
+            triggeredAlarmState must be fetched to get vm alarms list
+        """
+        if self.fetch_alarms:
+            properties.append('triggeredAlarmState')
 
         virtual_machines = yield self.batch_fetch_properties(
             vim.VirtualMachine,
@@ -1095,6 +1217,29 @@ class VmwareCollector():
                 )
                 continue
 
+            """
+                filter red and yellow alarms
+            """
+            if self.fetch_alarms:
+                alarms = datastore.get('triggeredAlarmState').split(',')
+                alarms = [a for a in alarms if ':' in a]
+
+                # Red alarms
+                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
+                ds_metrics['vmware_datastore_red_alarms'].add_metric(
+                    labels + [red_alarms_label],
+                    len(red_alarms)
+                )
+
+                # Yellow alarms
+                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
+                ds_metrics['vmware_datastore_yellow_alarms'].add_metric(
+                    labels + [yellow_alarms_label],
+                    len(yellow_alarms)
+                )
+
             ds_capacity = float(datastore.get('summary.capacity', 0))
             ds_freespace = float(datastore.get('summary.freeSpace', 0))
             ds_uncommitted = float(datastore.get('summary.uncommitted', 0))
@@ -1352,6 +1497,29 @@ class VmwareCollector():
             else:
                 vm_labels[moid] += customLabels
 
+            """
+                filter red and yellow alarms
+            """
+            if self.fetch_alarms and ('triggeredAlarmState' in row):
+                alarms = row.get('triggeredAlarmState').split(',')
+                alarms = [a for a in alarms if ':' in a]
+
+                # Red alarms
+                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
+                metrics['vmware_vm_red_alarms'].add_metric(
+                    labels + [red_alarms_label],
+                    len(red_alarms)
+                )
+
+                # Yellow alarms
+                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
+                metrics['vmware_vm_yellow_alarms'].add_metric(
+                    labels + [yellow_alarms_label],
+                    len(yellow_alarms)
+                )
+
             if 'runtime.powerState' in row:
                 power_state = 1 if row['runtime.powerState'] == 'poweredOn' else 0
                 metrics['vmware_vm_power_state'].add_metric(labels, power_state)
@@ -1467,6 +1635,36 @@ class VmwareCollector():
                 )
                 continue
 
+            """
+                filter red and yellow alarms
+            """
+            if self.fetch_alarms:
+
+                alarms = host.get('triggeredAlarmState').split(',') + \
+                    host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo').split(',') + \
+                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
+                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
+
+                # host.get('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo', '').split(',')
+
+                alarms = [a for a in alarms if ':' in a]
+
+                # Red alarms
+                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
+                host_metrics['vmware_host_red_alarms'].add_metric(
+                    labels + [red_alarms_label],
+                    len(red_alarms)
+                )
+
+                # Yellow alarms
+                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
+                host_metrics['vmware_host_yellow_alarms'].add_metric(
+                    labels + [yellow_alarms_label],
+                    len(yellow_alarms)
+                )
+
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
             standby_mode_state = host.get('runtime.standbyMode', 'unknown')
@@ -1486,6 +1684,13 @@ class VmwareCollector():
                 1
             )
 
+            # Host in maintenance mode?
+            if 'runtime.inMaintenanceMode' in host:
+                host_metrics['vmware_host_maintenance_mode'].add_metric(
+                    labels,
+                    host['runtime.inMaintenanceMode'] * 1,
+                )
+
             if not power_state:
                 continue
 
@@ -1495,13 +1700,6 @@ class VmwareCollector():
                 host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(
                     labels,
                     self._to_epoch(host['runtime.bootTime'])
-                )
-
-            # Host in maintenance mode?
-            if 'runtime.inMaintenanceMode' in host:
-                host_metrics['vmware_host_maintenance_mode'].add_metric(
-                    labels,
-                    host['runtime.inMaintenanceMode'] * 1,
                 )
 
             # CPU Usage (in Mhz)
@@ -1592,6 +1790,7 @@ class VMWareMetricsResource(Resource):
                 'specs_size': os.environ.get('VSPHERE_SPECS_SIZE', 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', False),
                 'fetch_tags': get_bool_env('VSPHERE_FETCH_TAGS', False),
+                'fetch_alarms': get_bool_env('VSPHERE_FETCH_ALARMS', False),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
                     'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
@@ -1618,6 +1817,7 @@ class VMWareMetricsResource(Resource):
                 'specs_size': os.environ.get('VSPHERE_{}_SPECS_SIZE'.format(section), 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), False),
                 'fetch_tags': get_bool_env('VSPHERE_{}_FETCH_TAGS'.format(section), False),
+                'fetch_alarms': get_bool_env('VSPHERE_{}_FETCH_ALARMS'.format(section), False),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
                     'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
@@ -1676,6 +1876,7 @@ class VMWareMetricsResource(Resource):
             self.config[section]['fetch_custom_attributes'],
             self.config[section]['ignore_ssl'],
             self.config[section]['fetch_tags'],
+            self.config[section]['fetch_alarms'],
         )
         metrics = yield collector.collect()
 
