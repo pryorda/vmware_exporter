@@ -20,14 +20,21 @@ def batch_fetch_properties(content, obj_type, properties):
         We do not want those keys, but the names. So here the names and keys are gathered to
         be translated later
     """
-    allCustomAttributesNames = dict(
-        [
-            (f.key, f.name)
-            for f in content.customFieldsManager.field
-            if f.managedObjectType in (obj_type, None)
-        ]
-    )
+    if ('customValue' in properties) or ('summary.customValue' in properties):
 
+        allCustomAttributesNames = {}
+
+        if content.customFieldsManager and content.customFieldsManager.field:
+            allCustomAttributesNames.update(
+                dict(
+                    [
+                        (f.key, f.name)
+                        for f in content.customFieldsManager.field
+                        if f.managedObjectType in (obj_type, None)
+                    ]
+                )
+            )
+    
     try:
         PropertyCollector = vmodl.query.PropertyCollector
 
@@ -71,12 +78,19 @@ def batch_fetch_properties(content, obj_type, properties):
                 translate its name key to name
             """
             if 'customValue' in prop.name:
-                properties[prop.name] = dict(
-                    [
-                        (allCustomAttributesNames[attribute.key], attribute.value)
-                        for attribute in prop.val
-                    ]
-                )
+
+                properties[prop.name] = {}
+
+                if allCustomAttributesNames:
+
+                    properties[prop.name] = dict(
+                        [
+                            (allCustomAttributesNames[attribute.key], attribute.value)
+                            for attribute in prop.val
+                            if attribute.key in allCustomAttributesNames
+                        ]
+                    )
+            
             else:
                 properties[prop.name] = prop.val
 
