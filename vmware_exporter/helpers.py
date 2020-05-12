@@ -20,13 +20,20 @@ def batch_fetch_properties(content, obj_type, properties):
         We do not want those keys, but the names. So here the names and keys are gathered to
         be translated later
     """
-    allCustomAttributesNames = dict(
-        [
-            (f.key, f.name)
-            for f in content.customFieldsManager.field
-            if f.managedObjectType in (obj_type, None)
-        ]
-    )
+    if ('customValue' in properties) or ('summary.customValue' in properties):
+
+        allCustomAttributesNames = {}
+
+        if content.customFieldsManager and content.customFieldsManager.field:
+            allCustomAttributesNames.update(
+                dict(
+                    [
+                        (f.key, f.name)
+                        for f in content.customFieldsManager.field
+                        if f.managedObjectType in (obj_type, None)
+                    ]
+                )
+            )
 
     try:
         PropertyCollector = vmodl.query.PropertyCollector
@@ -71,12 +78,85 @@ def batch_fetch_properties(content, obj_type, properties):
                 translate its name key to name
             """
             if 'customValue' in prop.name:
-                properties[prop.name] = dict(
-                    [
-                        (allCustomAttributesNames[attribute.key], attribute.value)
-                        for attribute in prop.val
-                    ]
-                )
+
+                properties[prop.name] = {}
+
+                if allCustomAttributesNames:
+
+                    properties[prop.name] = dict(
+                        [
+                            (allCustomAttributesNames[attribute.key], attribute.value)
+                            for attribute in prop.val
+                            if attribute.key in allCustomAttributesNames
+                        ]
+                    )
+
+            elif 'triggeredAlarmState' == prop.name:
+                """
+                    triggered alarms
+                """
+                try:
+                    alarms = list(
+                        'triggeredAlarm:{}:{}'.format(item.alarm.info.systemName.split('.')[1], item.overallStatus)
+                        for item in prop.val
+                    )
+                except Exception:
+                    alarms = ['triggeredAlarm:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
+                """
+                    host hardware sensors alarms
+                """
+                try:
+                    alarms = list(
+                        'sensorInfo:{}:{}'.format(item.name.replace(' ', ''), item.healthState.key.lower())
+                        for item in prop.val if item.healthState.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['sensorInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo' == prop.name:
+                """
+                    cpu status info alarms
+                """
+                try:
+                    alarms = list(
+                        'cpuStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
+                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['cpuStatusInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo' == prop.name:
+                """
+                    memory status info alarms
+                """
+                try:
+                    alarms = list(
+                        'memoryStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
+                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+                    )
+                except Exception:
+                    alarms = ['memoryStatusInfo:AlarmsUnavailable:yellow']
+
+                properties[prop.name] = ','.join(alarms)
+
+            # storage status info alarms - not included because they made no sense in here
+            # sine there are specific datastore alarms
+            #
+            # elif 'runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo' == prop.name:
+            #    alarms = list(
+            #            'storageStatusInfo:{}:{}'.format(item.name.replace(' ',''), item.status.key.lower())
+            #            for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
+            #    )
+            #    properties[prop.name] = ','.join(alarms)
+
             else:
                 properties[prop.name] = prop.val
 
