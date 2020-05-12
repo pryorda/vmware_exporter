@@ -34,7 +34,7 @@ def batch_fetch_properties(content, obj_type, properties):
                     ]
                 )
             )
-    
+
     try:
         PropertyCollector = vmodl.query.PropertyCollector
 
@@ -90,7 +90,7 @@ def batch_fetch_properties(content, obj_type, properties):
                             if attribute.key in allCustomAttributesNames
                         ]
                     )
-            
+
             else:
                 properties[prop.name] = prop.val
 
