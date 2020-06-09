@@ -1,6 +1,6 @@
 pytest_docker_tools==0.2.0
-pytest==3.3
-pytest-cov==2.6.0
-pytest-twisted==1.8
-codecov==2.0.15
+pytest==5.4.1
+pytest-cov==2.8.1
+pytest-twisted==1.12
+codecov==2.0.17
 flake8==3.6.0

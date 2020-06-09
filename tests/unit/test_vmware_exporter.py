@@ -72,6 +72,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -95,7 +98,7 @@ def test_collect_vms():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-1']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-1', 'n/a', 'n/a', 'n/a']}
 
     # Test template True
 
@@ -105,6 +108,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -134,8 +140,8 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+        }
 
     assert metrics['vmware_vm_template'].samples[0][2] == 1.0
 
@@ -147,6 +153,9 @@ def test_collect_vms():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     collector.content = _succeed(mock.Mock())
 
@@ -206,10 +215,10 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-                'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-                'vm-2': ['vm-2'],
-                'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
-                }
+            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+            'vm-2': ['vm-2', 'n/a', 'n/a', 'n/a'],
+            'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+        }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
@@ -344,6 +353,9 @@ def test_metrics_without_hostaccess():
         'password',
         collect_only,
         5000,
+        False,
+        True,
+        False
     )
     metrics = collector._create_metric_containers()
     collector.content = _succeed(mock.Mock())
@@ -366,7 +378,7 @@ def test_metrics_without_hostaccess():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-x']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-x', 'n/a', 'n/a', 'n/a']}
         yield collector._vmware_get_vms(metrics)
 
         # 113 AssertionError {'partition': '/boot'} vs {'host_name': '/boot'}
@@ -602,12 +614,19 @@ def test_collect_hosts():
         'password',
         collect_only,
         5000,
+        True,
+        False,
+        False,
+        True
     )
     collector.content = _succeed(mock.Mock())
 
     collector.__dict__['host_labels'] = _succeed({
         'host:1': ['host-1', 'dc', 'cluster'],
-        'host:2': ['host-1', 'dc', 'cluster'],
+        'host:2': ['host-2', 'dc', 'cluster'],
+        'host:3': ['host-3', 'dc', 'cluster'],
+        'host:4': ['host-4', 'dc', 'cluster'],
+        'host:5': ['host-5', 'dc', 'cluster'],
     })
 
     metrics = collector._create_metric_containers()
@@ -620,6 +639,7 @@ def test_collect_hosts():
                 'runtime.powerState': 'poweredOn',
                 'runtime.bootTime': boot_time,
                 'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'none',
                 'runtime.inMaintenanceMode': True,
                 'summary.quickStats.overallCpuUsage': 100,
                 'summary.hardware.numCpuCores': 12,
@@ -630,12 +650,100 @@ def test_collect_hosts():
                 'summary.config.product.build': '6765062',
                 'summary.hardware.cpuModel': 'cpu_model1',
                 'summary.hardware.model': 'model1',
+                'summary.customValue': {
+                    'customValue1': 'value1',
+                    'customValue2': 'value2',
+                },
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:2': {
                 'id': 'host:2',
                 'name': 'host-2',
                 'runtime.powerState': 'poweredOff',
-            }
+                'runtime.standbyMode': 'none',
+                'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
+            },
+            'host:3': {
+                'id': 'host:3',
+                'name': 'host-3',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'in',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 8,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765063',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+                'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
+            },
+            'host:4': {
+                'id': 'host:4',
+                'name': 'host-4',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'entering',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 6,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765064',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+                'summary.customValue': {},
+                'triggeredAlarmState': '',
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
+            },
+            'host:5': {
+                'id': 'host:5',
+                'name': 'host-5',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': boot_time,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'exiting',
+                'runtime.inMaintenanceMode': True,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 4,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '6.0.0',
+                'summary.config.product.build': '6765065',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+                'summary.customValue': {},
+                'triggeredAlarmState': ','.join(
+                    (
+                        'triggeredAlarm:HostMemoryUsageAlarm:red',
+                        'triggeredAlarm:HostCPUUsageAlarm:yellow'
+                    )
+                ),
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': 'sensorInfo:OtherAlarm:red',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': 'memoryStatusInfo:OtherAlarm:yellow',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': 'cpuStatusInfo:OtherAlarm:yellow'
+            },
         })
         yield collector._vmware_get_hosts(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
@@ -643,7 +751,9 @@ def test_collect_hosts():
     assert metrics['vmware_host_memory_max'].samples[0][1] == {
         'host_name': 'host-1',
         'dc_name': 'dc',
-        'cluster_name': 'cluster'
+        'cluster_name': 'cluster',
+        'customValue1': 'value1',
+        'customValue2': 'value2'
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
@@ -654,13 +764,15 @@ def test_collect_hosts():
         'cluster_name': 'cluster',
         'version': '6.0.0',
         'build': '6765062',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
     }
     assert metrics['vmware_host_product_info'].samples[0][2] == 1
 
     # In our test data we hava a host that is powered down - we should have its
     # power_state metric but not any others.
-    assert len(metrics['vmware_host_power_state'].samples) == 2
-    assert len(metrics['vmware_host_memory_max'].samples) == 1
+    assert len(metrics['vmware_host_power_state'].samples) == 5
+    assert len(metrics['vmware_host_memory_max'].samples) == 4
 
     assert metrics['vmware_host_hardware_info'].samples[0][1] == {
         'host_name': 'host-1',
@@ -668,8 +780,82 @@ def test_collect_hosts():
         'cluster_name': 'cluster',
         'hardware_model': 'model1',
         'hardware_cpu_model': 'cpu_model1',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
     }
     assert metrics['vmware_host_hardware_info'].samples[0][2] == 1
+
+    # Host:1 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[0][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[0][1] == {
+        'host_name': 'host-1',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'none',
+        'customValue1': 'value1',
+        'customValue2': 'value2',
+    }
+
+    # Host:2 is Powered down and Standby Mode and not set
+    assert metrics['vmware_host_standby_mode'].samples[1][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[1][1] == {
+        'host_name': 'host-2',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'none',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+    }
+
+    # Host:3 is on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[2][2] == 1
+    assert metrics['vmware_host_standby_mode'].samples[2][1] == {
+        'host_name': 'host-3',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'in',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+    }
+
+    # Host:4 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[3][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[3][1] == {
+        'host_name': 'host-4',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'entering',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+    }
+
+    # Host:4 no alarms found
+    assert metrics['vmware_host_yellow_alarms'].samples[3][2] == 0
+    assert metrics['vmware_host_red_alarms'].samples[3][2] == 0
+
+    # Host:5 is not on Standby Mode
+    assert metrics['vmware_host_standby_mode'].samples[4][2] == 0
+    assert metrics['vmware_host_standby_mode'].samples[4][1] == {
+        'host_name': 'host-5',
+        'dc_name': 'dc',
+        'cluster_name': 'cluster',
+        'standby_mode_state': 'exiting',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+    }
+
+    # Host:5 testing alarms
+    assert metrics['vmware_host_yellow_alarms'].samples[4][2] == 3
+    assert metrics['vmware_host_red_alarms'].samples[4][2] == 2
+
+    assert metrics['vmware_host_yellow_alarms'].samples[4][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'alarms': 'triggeredAlarm:HostCPUUsageAlarm,cpuStatusInfo:OtherAlarm,memoryStatusInfo:OtherAlarm'
+    }
 
 
 @pytest_twisted.inlineCallbacks
@@ -801,8 +987,22 @@ def test_collect_datastore():
         'password',
         collect_only,
         5000,
+        True,
+        True,
+        True,
+        True
     )
     collector.content = _succeed(mock.Mock())
+    collector.client = _succeed(mock.Mock())
+    collector._tagNames = {
+        'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
+    }
+
+    collector.tags = {
+        'datastores': {
+            'datastore-1': ['tag1']
+        }
+    }
 
     collector.__dict__['datastore_labels'] = _succeed({
         'datastore-1': ['datastore-1', 'dc', 'ds_cluster'],
@@ -820,16 +1020,38 @@ def test_collect_datastore():
                 'vm': ['vm-1'],
                 'summary.accessible': True,
                 'summary.maintenanceMode': 'normal',
+                'triggeredAlarmState': 'triggeredAlarm:DatastoreDiskUsageAlarm:yellow,triggeredAlarm:OtherAlarm:red'
             }
         })
 
         yield collector._vmware_get_datastores(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
 
+    assert metrics['vmware_datastore_yellow_alarms'].samples[0][2] == 1
+
+    assert metrics['vmware_datastore_yellow_alarms'].samples[0][1] == {
+        'ds_name': 'datastore-1',
+        'dc_name': 'dc',
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1',
+        'alarms': 'triggeredAlarm:DatastoreDiskUsageAlarm'
+    }
+
+    assert metrics['vmware_datastore_red_alarms'].samples[0][2] == 1
+
+    assert metrics['vmware_datastore_red_alarms'].samples[0][1] == {
+        'ds_name': 'datastore-1',
+        'dc_name': 'dc',
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1',
+        'alarms': 'triggeredAlarm:OtherAlarm'
+    }
+
     assert metrics['vmware_datastore_capacity_size'].samples[0][1] == {
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
-        'ds_cluster': 'ds_cluster'
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_capacity_size'].samples[0][2] == 0.0
 
@@ -837,14 +1059,16 @@ def test_collect_datastore():
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
         'ds_cluster': 'ds_cluster',
-        'mode': 'normal'
+        'mode': 'normal',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_maintenance_mode'].samples[0][2] == 1.0
 
     assert metrics['vmware_datastore_accessible'].samples[0][1] == {
         'ds_name': 'datastore-1',
         'dc_name': 'dc',
-        'ds_cluster': 'ds_cluster'
+        'ds_cluster': 'ds_cluster',
+        'tags': 'tag1'
     }
     assert metrics['vmware_datastore_accessible'].samples[0][2] == 1.0
 
@@ -1072,8 +1296,8 @@ def test_vmware_disconnect():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
 
     # Mock that we have a connection
@@ -1107,8 +1331,8 @@ def test_counter_ids():
         '127.0.0.1',
         'root',
         'password',
-        5000,
         collect_only,
+        5000,
     )
     collector.content = content
 
@@ -1249,6 +1473,9 @@ def test_vmware_resource_async_render_GET_section():
             'vsphere_user': 'username1',
             'vsphere_password': 'password1',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1263,6 +1490,9 @@ def test_vmware_resource_async_render_GET_section():
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1283,7 +1513,10 @@ def test_vmware_resource_async_render_GET_section():
         'password2',
         resource.config['mysection']['collect_only'],
         5000,
-        'On'
+        True,
+        'On',
+        True,
+        True
     )
 
     request.setResponseCode.assert_called_with(200)
@@ -1297,6 +1530,9 @@ def test_config_env_multiple_sections():
         'VSPHERE_USER': 'username1',
         'VSPHERE_PASSWORD': 'password1',
         'VSPHERE_SPECS_SIZE': 5000,
+        'VSPHERE_FETCH_CUSTOM_ATTRIBUTES': True,
+        'VSPHERE_FETCH_TAGS': True,
+        'VSPHERE_FETCH_ALARMS': True,
         'VSPHERE_MYSECTION_HOST': '127.0.0.11',
         'VSPHERE_MYSECTION_USER': 'username2',
         'VSPHERE_MYSECTION_PASSWORD': 'password2',
@@ -1316,6 +1552,9 @@ def test_config_env_multiple_sections():
             'vsphere_user': 'username1',
             'vsphere_password': 'password1',
             'specs_size': 5000,
+            'fetch_custom_attributes': True,
+            'fetch_tags': True,
+            'fetch_alarms': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1330,6 +1569,9 @@ def test_config_env_multiple_sections():
             'vsphere_user': 'username2',
             'vsphere_password': 'password2',
             'specs_size': 5000,
+            'fetch_custom_attributes': False,
+            'fetch_tags': False,
+            'fetch_alarms': False,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
