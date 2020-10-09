@@ -9,6 +9,7 @@ from __future__ import print_function
 # Generic imports
 import argparse
 import os
+import re
 import ssl
 import sys
 import traceback
@@ -1150,6 +1151,7 @@ class VmwareCollector():
                     metric._labelnames = labelnames[0:len(self._labelNames[metric_type])]
                     metric._labelnames += customAttributesLabelNames
                     metric._labelnames += labelnames[len(self._labelNames[metric_type]):]
+                    metric._labelnames = list(map(lambda x: re.sub('[^a-zA-Z0-9_]', '_', x), metric._labelnames))
 
     @defer.inlineCallbacks
     def _vmware_get_datastores(self, ds_metrics):
