@@ -767,7 +767,6 @@ class VmwareCollector():
 
     @defer.inlineCallbacks
     def customAttributesLabelNames(self, metric_type):
-
         """
             vm perf, vms, vmguestes and snapshots metrics share the same custom attributes
             as they re related to virtual machine objects
@@ -1937,6 +1936,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
                         default=None, help="configuration file")
+    parser.add_argument('-i', '--interface', dest='interface', type=str,
+                        default='127.0.0.1', help="IP address to bind")
+    parser.add_argument('-b', '--backlog', dest='backlog', type=int,
+                        default=50, help="TCP backlog")
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
@@ -1952,8 +1955,8 @@ def main(argv=None):
     reactor.suggestThreadPoolSize(25)
 
     factory = Site(registerEndpoints(args))
-    logging.info("Starting web server on port {port}".format(port=args.port))
-    endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port)
+    logging.info("Starting web server on port {port}".format(interface=args.interface, port=args.port))
+    endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port, args.backlog, args.interface)
     endpoint.listen(factory)
     reactor.run()
 
