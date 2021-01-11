@@ -1955,7 +1955,7 @@ def main(argv=None):
     reactor.suggestThreadPoolSize(25)
 
     factory = Site(registerEndpoints(args))
-    logging.info("Starting web server on port {port}".format(interface=args.interface, port=args.port))
+    logging.info("Starting web server on {interface} port {port}".format(interface=args.interface, port=args.port))
     endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port, args.backlog, args.interface)
     endpoint.listen(factory)
     reactor.run()
