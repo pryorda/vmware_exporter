@@ -1937,7 +1937,7 @@ def main(argv=None):
     parser.add_argument('-c', '--config', dest='config_file',
                         default=None, help="configuration file")
     parser.add_argument('-i', '--interface', dest='interface', type=str,
-                        default='127.0.0.1', help="IP address to bind")
+                        default='0.0.0.0', help="IP address to bind")
     parser.add_argument('-b', '--backlog', dest='backlog', type=int,
                         default=50, help="TCP backlog")
     parser.add_argument('-p', '--port', dest='port', type=int,
