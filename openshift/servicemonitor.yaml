@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    k8s-app: vmware-exporter
+  name: vmware
+  namespace: openshift-monitoring
+spec:
+  endpoints:
+  - interval: 30s
+    port: metrics
+    scheme: http
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+    - openshift-vsphere-infra
+  selector:
+    matchLabels:
+      k8s-app: vmware-exporter
