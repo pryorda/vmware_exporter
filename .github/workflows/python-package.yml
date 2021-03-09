@@ -10,7 +10,7 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build_and_deploy:
     runs-on: ubuntu-latest
 
     strategy:
@@ -36,4 +36,4 @@ jobs:
         flake8 vmware_exporter tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        pytest --cov=. -v tests/unit
+        pytest -v tests/unit
