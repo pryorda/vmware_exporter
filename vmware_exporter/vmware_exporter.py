@@ -1937,6 +1937,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='VMWare metrics exporter for Prometheus')
     parser.add_argument('-c', '--config', dest='config_file',
                         default=None, help="configuration file")
+    parser.add_argument('-a', '--address', dest='address', type=str,
+                        default='', help="HTTP address to expose metrics")
     parser.add_argument('-p', '--port', dest='port', type=int,
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
@@ -1952,8 +1954,8 @@ def main(argv=None):
     reactor.suggestThreadPoolSize(25)
 
     factory = Site(registerEndpoints(args))
-    logging.info("Starting web server on port {port}".format(port=args.port))
-    endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port)
+    logging.info("Starting web server on port {address}:{port}".format(address=args.address, port=args.port))
+    endpoint = endpoints.TCP4ServerEndpoint(reactor, args.port, interface=args.address)
     endpoint.listen(factory)
     reactor.run()
 
