@@ -58,7 +58,7 @@ jobs:
         git config --global user.email "semantic-release@github-actions"
         semantic-release publish
         semantic-release changelog --post
-      env: # Or as an environment variable
+      env:
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         PYPI_USERNAME:  ${{ secrets.PYPI_USERNAME }}
         PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
