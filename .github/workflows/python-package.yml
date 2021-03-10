@@ -26,12 +26,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-<<<<<<< HEAD
         pip install -e . -r requirements.txt -r requirements-tests.txt python-semantic-release
         sudo apt-get update && sudo apt-get install -y nodejs npm && sudo npm install -g dockerfilelint
-=======
-        pip install -e . -r requirements.txt -r requirements-tests.txt
->>>>>>> Update python-package.yml
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -62,7 +58,7 @@ jobs:
         git config --global user.email "semantic-release@github-actions"
         semantic-release publish
         semantic-release changelog --post
-      env:
+      env: # Or as an environment variable
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
         PYPI_USERNAME:  ${{ secrets.PYPI_USERNAME }}
         PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
