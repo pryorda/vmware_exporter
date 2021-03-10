@@ -53,6 +53,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_TOKEN }}
+        fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -67,5 +70,4 @@ jobs:
         semantic-release publish
       env: # Or as an environment variable
         GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        PYPI_USERNAME:  ${{ secrets.PYPI_USERNAME }}
-        PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        PYPI_TOKEN:  ${{ secrets.PYPI_TOKEN }}
