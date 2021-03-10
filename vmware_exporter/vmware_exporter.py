@@ -1643,7 +1643,7 @@ class VmwareCollector():
             if self.fetch_alarms:
 
                 alarms = host.get('triggeredAlarmState').split(',') + \
-                    host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo').split(',') + \
+                    host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') + \
                     host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
                     host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
 

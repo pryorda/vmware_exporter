@@ -105,57 +105,28 @@ def batch_fetch_properties(content, obj_type, properties):
 
                 properties[prop.name] = ','.join(alarms)
 
-            elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
+            elif prop.name in [
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo',
+                # storage status info alarms - not included because they made no sense in here
+                # sine there are specific datastore alarms
+                # 'runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo'
+            ]:
                 """
-                    host hardware sensors alarms
+                    handle alarms
                 """
+                alarm_name = prop.name.split('.')[3]
                 try:
                     alarms = list(
-                        'sensorInfo:{}:{}'.format(item.name.replace(' ', ''), item.healthState.key.lower())
-                        for item in prop.val if item.healthState.key.lower() not in ('green', 'unknown')
-                    )
-                except Exception:
-                    alarms = ['sensorInfo:AlarmsUnavailable:yellow']
-
-                properties[prop.name] = ','.join(alarms)
-
-            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo' == prop.name:
-                """
-                    cpu status info alarms
-                """
-                try:
-                    alarms = list(
-                        'cpuStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
+                        '{}:{}:{}'.format(alarm_name, item.name.replace(' ', ''), item.status.key.lower())
                         for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
                     )
                 except Exception:
-                    alarms = ['cpuStatusInfo:AlarmsUnavailable:yellow']
+                    alarms = ['{}:AlarmsUnavailable:yellow'.format(alarm_name)]
 
                 properties[prop.name] = ','.join(alarms)
 
-            elif 'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo' == prop.name:
-                """
-                    memory status info alarms
-                """
-                try:
-                    alarms = list(
-                        'memoryStatusInfo:{}:{}'.format(item.name.replace(' ', ''), item.status.key.lower())
-                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
-                    )
-                except Exception:
-                    alarms = ['memoryStatusInfo:AlarmsUnavailable:yellow']
-
-                properties[prop.name] = ','.join(alarms)
-
-            # storage status info alarms - not included because they made no sense in here
-            # sine there are specific datastore alarms
-            #
-            # elif 'runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo' == prop.name:
-            #    alarms = list(
-            #            'storageStatusInfo:{}:{}'.format(item.name.replace(' ',''), item.status.key.lower())
-            #            for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
-            #    )
-            #    properties[prop.name] = ','.join(alarms)
             else:
                 properties[prop.name] = prop.val
 
