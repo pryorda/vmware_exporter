@@ -6,7 +6,7 @@ LABEL NAME=vmware_exporter
 WORKDIR /opt/vmware_exporter/
 COPY . /opt/vmware_exporter/
 
-RUN set -x; buildDeps="gcc python3-dev musl-dev libffi-dev openssl openssl-dev" \
+RUN set -x; buildDeps="gcc python3-dev musl-dev libffi-dev openssl openssl-dev rust cargo" \
  && apk add --no-cache --update $buildDeps \
  && pip install -r requirements.txt . \
  && apk del $buildDeps
