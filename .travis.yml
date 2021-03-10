@@ -26,7 +26,7 @@ install:
   - grep -Rl packagecloud /etc/apt/ |sudo xargs rm -vf
   - sudo apt-get update && sudo apt-get install -y nodejs npm
   - npm install -g dockerfilelint
-  - if [ $INTEGRATION_TEST == "true" ]; then
+  - if [[ $INTEGRATION_TEST == "true" ]]; then
       pip install python-semantic-release;
     fi
 
@@ -34,7 +34,7 @@ script:
   - dockerfilelint ./Dockerfile
   - flake8 vmware_exporter tests
   - pytest --cov=. -v tests/unit
-  - if [ $INTEGRATION_TEST == "true" ]; then
+  - if [[ $INTEGRATION_TEST == "true" ]]; then
       pytest tests/integration;
     else
       echo "Skipped Integration-Tests";
@@ -42,7 +42,7 @@ script:
 
 after_success:
   - codecov
-  - if [ $INTEGRATION_TEST == "true" ]; then
+  - if [[ $INTEGRATION_TEST == "true" ]]; then
       git config --global user.name "semantic-release (via TravisCI)";
       git config --global user.email "semantic-release@travis";
       semantic-release publish;
