@@ -43,12 +43,20 @@ jobs:
         pytest tests/integration
 
   deploy:
+    strategy:
+      matrix:
+        python-version: [3.7]
+
     needs: ["build"]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
 
     steps:
     - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: install semantic-release
       run: |
         pip install python-semantic-release
