@@ -45,10 +45,14 @@ jobs:
   deploy:
     needs: ["build"]
     runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
 
     steps:
+    - uses: actions/checkout@v2
+    - name: install semantic-release
+      run: |
+        pip install python-semantic-release
     - name: deploy pip
-      if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       run: |
         git config --global user.name "semantic-release (via github actions)"
         git config --global user.email "semantic-release@github-actions"
