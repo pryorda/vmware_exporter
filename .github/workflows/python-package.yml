@@ -10,12 +10,12 @@ on:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.7]
 
     steps:
     - uses: actions/checkout@v2
@@ -26,14 +26,35 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        python -m pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -e . -r requirements.txt -r requirements-tests.txt python-semantic-release
+        sudo apt-get update && sudo apt-get install -y nodejs npm && sudo npm install -g dockerfilelint
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 vmware_exporter tests --count --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 vmware_exporter tests --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        flake8 vmware_exporter tests --statistics
+    - name: Lint dockerfile
+      run: dockerfilelint ./Dockerfile
     - name: Test with pytest
       run: |
         pytest --cov=. -v tests/unit
+    - uses: codecov/codecov-action@v1
+    - name: integration tests
+      run: |
+        pytest tests/integration
+
+  deploy:
+    needs: ["build"]
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: deploy pip
+      if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      run: |
+        git config --global user.name "semantic-release (via github actions)"
+        git config --global user.email "semantic-release@github-actions"
+        semantic-release publish
+        semantic-release changelog --post
+      env: # Or as an environment variable
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        PYPI_USERNAME:  ${{ secrets.PYPI_USERNAME }}
+        PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
