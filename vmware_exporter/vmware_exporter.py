@@ -1696,14 +1696,12 @@ class VmwareCollector():
             for s in numericSensorInfo:
                 sensor = dict(item.split("=") for item in s.split(":")[1:])
 
-                if sensor['sensorStatus'] == 'red':
-                    sensor_status = 0
-                if sensor['sensorStatus'] == 'yellow':
-                    sensor_status = 1
-                if sensor['sensorStatus'] == 'green':
-                    sensor_status = 2
-                else:
-                    sensor_status = 3
+                sensor_status = {
+                    'red': 0,
+                    'yellow': 1,
+                    'green': 2,
+                    'unknown': 3,
+                }[sensor['sensorStatus']]
 
                 host_metrics['vmware_host_sensor_state'].add_metric(
                     labels + [sensor['name'], sensor['type']],
