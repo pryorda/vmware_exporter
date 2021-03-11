@@ -261,6 +261,34 @@ class VmwareCollector():
                 'vmware_host_hardware_info',
                 'A metric with a constant "1" value labeled by model and cpu model from the host.',
                 labels=self._labelNames['hosts'] + ['hardware_model', 'hardware_cpu_model']),
+            'vmware_host_sensor_state': GaugeMetricFamily(
+                'vmware_host_sensor_state',
+                'VMWare sensor state value (0=red / 1=yellow / 2=green / 3=unknown) labeled by sensor name and type from the host.',
+                labels=self._labelNames['hosts'] + ['name', 'type']),
+            'vmware_host_sensor_fan': GaugeMetricFamily(
+                'vmware_host_sensor_fan',
+                'VMWare sensor fan speed value in RPM labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_temperature': GaugeMetricFamily(
+                'vmware_host_sensor_temperature',
+                'VMWare sensor temperature value in degree C labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_voltage': GaugeMetricFamily(
+                'vmware_host_sensor_power_voltage',
+                'VMWare sensor power voltage value in volt labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_current': GaugeMetricFamily(
+                'vmware_host_sensor_power_current',
+                'VMWare sensor power current value in amp labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_watt': GaugeMetricFamily(
+                'vmware_host_sensor_power_watt',
+                'VMWare sensor power watt value in watt labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_redundancy': GaugeMetricFamily(
+                'vmware_host_sensor_redundancy',
+                'VMWare sensor redundancy value (1=ok / 0=ko) labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
         }
 
         """
@@ -1641,15 +1669,7 @@ class VmwareCollector():
                 filter red and yellow alarms
             """
             if self.fetch_alarms:
-
-                alarms = host.get('triggeredAlarmState').split(',') + \
-                    host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') + \
-                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
-                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
-
-                # host.get('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo', '').split(',')
-
-                alarms = [a for a in alarms if ':' in a]
+                alarms = [a for a in host.get('triggeredAlarmState', '').split(',') if ':' in a]
 
                 # Red alarms
                 red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
@@ -1666,6 +1686,68 @@ class VmwareCollector():
                     labels + [yellow_alarms_label],
                     len(yellow_alarms)
                 )
+
+            # Numeric Sensor Info
+            numericSensorInfo = [s for s in host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') if ':' in s]
+
+            for s in numericSensorInfo:
+                sensor = dict(item.split("=") for item in s.split(":")[1:])
+
+                if sensor['sensorStatus'] == 'red':
+                    sensor_status = 0
+                if sensor['sensorStatus'] == 'yellow':
+                    sensor_status = 1
+                if sensor['sensorStatus'] == 'green':
+                    sensor_status = 2
+                else:
+                    sensor_status = 3
+
+                host_metrics['vmware_host_sensor_state'].add_metric(
+                    labels + [sensor['name'], sensor['type']],
+                    sensor_status
+                )
+
+                # FAN speed
+                if sensor["unit"] == 'rpm':
+                    host_metrics['vmware_host_sensor_fan'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                    )
+
+                # Temperature
+                if sensor["unit"] == 'degrees c':
+                    host_metrics['vmware_host_sensor_temperature'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                    )
+
+                # Power Voltage
+                if sensor["unit"] == 'volts':
+                    host_metrics['vmware_host_sensor_power_voltage'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                    )
+
+                # Power Current
+                if sensor["unit"] == 'amps':
+                    host_metrics['vmware_host_sensor_power_current'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                    )
+
+                # Power Watt
+                if sensor["unit"] == 'watts':
+                    host_metrics['vmware_host_sensor_power_watt'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                    )
+
+                # Redundancy
+                if sensor["unit"] == 'redundancy-discrete':
+                    host_metrics['vmware_host_sensor_redundancy'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value'])
+                    )
 
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0

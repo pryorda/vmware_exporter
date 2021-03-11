@@ -105,27 +105,16 @@ def batch_fetch_properties(content, obj_type, properties):
 
                 properties[prop.name] = ','.join(alarms)
 
-            elif prop.name in [
-                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo',
-                # storage status info alarms - not included because they made no sense in here
-                # sine there are specific datastore alarms
-                # 'runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo'
-            ]:
+            elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
                 """
-                    handle alarms
+                    handle sensors
                 """
-                alarm_name = prop.name.split('.')[3]
-                try:
-                    alarms = list(
-                        '{}:{}:{}'.format(alarm_name, item.name.replace(' ', ''), item.status.key.lower())
-                        for item in prop.val if item.status.key.lower() not in ('green', 'unknown')
-                    )
-                except Exception:
-                    alarms = ['{}:AlarmsUnavailable:yellow'.format(alarm_name)]
-
-                properties[prop.name] = ','.join(alarms)
+                sensors = list(
+                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitMotdifier={}:unit={}'.format(
+                        item.name, item.sensorType, item.healthState.key, item.currentReading, item.unitModifier, item.baseUnits.lower())
+                    for item in prop.val
+                )
+                properties[prop.name] = ','.join(sensors)
 
             else:
                 properties[prop.name] = prop.val
