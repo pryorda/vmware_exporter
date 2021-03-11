@@ -734,13 +734,20 @@ def test_collect_hosts():
                 ),
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': ','.join(
                     (
-                        'numericSensorInfo:name=Fan Device 12 System Fan 6B:type=fan:sensorStatus=yellow:value=821700:unitMotdifier=-2:unit=rpm',
-                        'numericSensorInfo:name=Power Supply 2 PS2 Temperature:type=temperature:sensorStatus=green:value=2900:unitMotdifier=-2:unit=degrees c',
-                        'numericSensorInfo:name=System Board 1 VR Watchdog 0:type=voltage:sensorStatus=red:value=2000:unitMotdifier=0:unit=volts',
-                        'numericSensorInfo:name=Power Supply 2 Current 2:type=power:sensorStatus=green:value=20:unitMotdifier=-2:unit=amps',
-                        'numericSensorInfo:name=System Board 1 Pwr Consumption:type=power:sensorStatus=green:value=7000:unitMotdifier=-2:unit=watts',
-                        'numericSensorInfo:name=Cooling Unit 1 Fan Redundancy 0:type=power:sensorStatus=green:value=1:unitMotdifier=0:unit=redundancy-discrete',
-                        'numericSensorInfo:name=Management Controller Firmware 2 NM Capabilities:type=other:sensorStatus=unknown:value=5:unitMotdifier=0:unit=unspecified',
+                        'numericSensorInfo:name=Fan Device 12 System Fan '
+                        '6B:type=fan:sensorStatus=yellow:value=821700:unitMotdifier=-2:unit=rpm',
+                        'numericSensorInfo:name=Power Supply 2 PS2 '
+                        'Temperature:type=temperature:sensorStatus=green:value=2900:unitMotdifier=-2:unit=degrees c',
+                        'numericSensorInfo:name=System Board 1 VR Watchdog '
+                        '0:type=voltage:sensorStatus=red:value=2000:unitMotdifier=0:unit=volts',
+                        'numericSensorInfo:name=Power Supply 2 Current '
+                        '2:type=power:sensorStatus=green:value=20:unitMotdifier=-2:unit=amps',
+                        'numericSensorInfo:name=System Board 1 Pwr '
+                        'Consumption:type=power:sensorStatus=green:value=7000:unitMotdifier=-2:unit=watts',
+                        'numericSensorInfo:name=Cooling Unit 1 Fan Redundancy '
+                        '0:type=power:sensorStatus=green:value=1:unitMotdifier=0:unit=redundancy-discrete',
+                        'numericSensorInfo:name=Management Controller Firmware 2 NM '
+                        'Capabilities:type=other:sensorStatus=unknown:value=5:unitMotdifier=0:unit=unspecified',
                     )
                 ),
             },
@@ -928,7 +935,6 @@ def test_collect_hosts():
         'host_name': 'host-5',
         'name': 'Cooling Unit 1 Fan Redundancy 0',
     }
-
 
 
 @pytest_twisted.inlineCallbacks
