@@ -23,6 +23,7 @@ import requests
 disable annoying urllib3 warning messages for connecting to servers with non verified certificate Doh!
 """
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 """
@@ -51,16 +52,16 @@ from .defer import parallelize, run_once_property
 class VmwareCollector():
 
     def __init__(
-        self,
-        host,
-        username,
-        password,
-        collect_only,
-        specs_size,
-        fetch_custom_attributes=False,
-        ignore_ssl=False,
-        fetch_tags=False,
-        fetch_alarms=False
+            self,
+            host,
+            username,
+            password,
+            collect_only,
+            specs_size,
+            fetch_custom_attributes=False,
+            ignore_ssl=False,
+            fetch_tags=False,
+            fetch_alarms=False
     ):
 
         self.host = host
@@ -263,7 +264,8 @@ class VmwareCollector():
                 labels=self._labelNames['hosts'] + ['hardware_model', 'hardware_cpu_model']),
             'vmware_host_sensor_state': GaugeMetricFamily(
                 'vmware_host_sensor_state',
-                'VMWare sensor state value (0=red / 1=yellow / 2=green / 3=unknown) labeled by sensor name and type from the host.',
+                'VMWare sensor state value (0=red / 1=yellow / 2=green / 3=unknown) labeled by sensor name and type '
+                'from the host.',
                 labels=self._labelNames['hosts'] + ['name', 'type']),
             'vmware_host_sensor_fan': GaugeMetricFamily(
                 'vmware_host_sensor_fan',
@@ -295,7 +297,6 @@ class VmwareCollector():
             if alarms are being retrieved, metrics have to been created here
         """
         if self.fetch_alarms:
-
             """
                 for hosts
             """
@@ -417,7 +418,7 @@ class VmwareCollector():
 
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            tasks.append(self._vmware_get_datastores(metrics,))
+            tasks.append(self._vmware_get_datastores(metrics, ))
 
         if collect_only['hosts'] is True:
             tasks.append(self._vmware_get_hosts(metrics))
@@ -429,7 +430,7 @@ class VmwareCollector():
 
         logging.info("Finished collecting metrics from {vsphere_host}".format(vsphere_host=vsphere_host))
 
-        return list(metrics.values())   # noqa: F705
+        return list(metrics.values())  # noqa: F705
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
@@ -1688,7 +1689,9 @@ class VmwareCollector():
                 )
 
             # Numeric Sensor Info
-            numericSensorInfo = [s for s in host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') if ':' in s]
+            numericSensorInfo = [s for s in
+                                 host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '')
+                                     .split(',') if ':' in s]
 
             for s in numericSensorInfo:
                 sensor = dict(item.split("=") for item in s.split(":")[1:])
@@ -1779,7 +1782,6 @@ class VmwareCollector():
                 continue
 
             if host.get('runtime.bootTime'):
-
                 # Host uptime
                 host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(
                     labels,
@@ -1842,7 +1844,6 @@ class ListCollector(object):
 
 
 class VMWareMetricsResource(Resource):
-
     isLeaf = True
 
     def __init__(self, args):
@@ -1975,7 +1976,6 @@ class VMWareMetricsResource(Resource):
 
 
 class HealthzResource(Resource):
-
     isLeaf = True
 
     def render_GET(self, request):

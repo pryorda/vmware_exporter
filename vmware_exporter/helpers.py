@@ -111,7 +111,13 @@ def batch_fetch_properties(content, obj_type, properties):
                 """
                 sensors = list(
                     'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitMotdifier={}:unit={}'.format(
-                        item.name, item.sensorType, item.healthState.key, item.currentReading, item.unitModifier, item.baseUnits.lower())
+                        item.name,
+                        item.sensorType,
+                        item.healthState.key,
+                        item.currentReading,
+                        item.unitModifier,
+                        item.baseUnits.lower()
+                    )
                     for item in prop.val
                 )
                 properties[prop.name] = ','.join(sensors)
