@@ -2,6 +2,8 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a changelog](https://github.com/olivierlacan/keep-a-changelog).
 
+ <!--next-version-placeholder-->
+
 ## [0.4.2] - 2018-01-02
 ## Fixed
 - [#60](https://github.com/pryorda/vmware_exporter/pull/60) Typo Fix
