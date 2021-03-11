@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.14.3 (2021-03-11)
+### Fix
+* **optimize_build:** Remove travis, add ifs to action ([#254](https://github.com/pryorda/vmware_exporter/issues/254)) ([`43d6556`](https://github.com/pryorda/vmware_exporter/commit/43d6556556171b3ada6804a29aaff4710e511094))
+
 ## [0.4.2] - 2018-01-02
 ## Fixed
 - [#60](https://github.com/pryorda/vmware_exporter/pull/60) Typo Fix
