@@ -681,6 +681,9 @@ class VmwareCollector():
             'summary.quickStats.overallMemoryUsage',
             'summary.hardware.cpuModel',
             'summary.hardware.model',
+            'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo',
+            'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
+            'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo',
         ]
 
         """
@@ -697,10 +700,6 @@ class VmwareCollector():
         """
         if self.fetch_alarms:
             properties.append('triggeredAlarmState')
-            properties.append('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo')
-            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo')
-            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo')
-            # properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo')
 
         host_systems = yield self.batch_fetch_properties(
             vim.HostSystem,
@@ -1689,11 +1688,13 @@ class VmwareCollector():
                 )
 
             # Numeric Sensor Info
-            numericSensorInfo = [s for s in
-                                 host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '')
-                                     .split(',') if ':' in s]
+            sensors = host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
 
-            for s in numericSensorInfo:
+            sensors = [s for s in sensors if ':' in s]
+
+            for s in sensors:
                 sensor = dict(item.split("=") for item in s.split(":")[1:])
 
                 sensor_status = {
@@ -1712,35 +1713,35 @@ class VmwareCollector():
                 if sensor["unit"] == 'rpm':
                     host_metrics['vmware_host_sensor_fan'].add_metric(
                         labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
                     )
 
                 # Temperature
                 if sensor["unit"] == 'degrees c':
                     host_metrics['vmware_host_sensor_temperature'].add_metric(
                         labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
                     )
 
                 # Power Voltage
                 if sensor["unit"] == 'volts':
                     host_metrics['vmware_host_sensor_power_voltage'].add_metric(
                         labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
                     )
 
                 # Power Current
                 if sensor["unit"] == 'amps':
                     host_metrics['vmware_host_sensor_power_current'].add_metric(
                         labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
                     )
 
                 # Power Watt
                 if sensor["unit"] == 'watts':
                     host_metrics['vmware_host_sensor_power_watt'].add_metric(
                         labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitMotdifier'])))
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
                     )
 
                 # Redundancy

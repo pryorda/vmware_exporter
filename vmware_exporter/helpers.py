@@ -107,16 +107,36 @@ def batch_fetch_properties(content, obj_type, properties):
 
             elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
                 """
-                    handle sensors
+                    handle numericSensorInfo
                 """
                 sensors = list(
-                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitMotdifier={}:unit={}'.format(
+                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitModifier={}:unit={}'.format(
                         item.name,
                         item.sensorType,
                         item.healthState.key,
                         item.currentReading,
                         item.unitModifier,
                         item.baseUnits.lower()
+                    )
+                    for item in prop.val
+                )
+                properties[prop.name] = ','.join(sensors)
+
+            elif prop.name in [
+                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
+                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo',
+            ]:
+                """
+                    handle hardwareStatusInfo
+                """
+                sensors = list(
+                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitModifier={}:unit={}'.format(
+                        item.name,
+                        "n/a",
+                        item.status.key,
+                        "n/a",
+                        "n/a",
+                        "n/a",
                     )
                     for item in prop.val
                 )

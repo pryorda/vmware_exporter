@@ -735,19 +735,22 @@ def test_collect_hosts():
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': ','.join(
                     (
                         'numericSensorInfo:name=Fan Device 12 System Fan '
-                        '6B:type=fan:sensorStatus=yellow:value=821700:unitMotdifier=-2:unit=rpm',
+                        '6B:type=fan:sensorStatus=yellow:value=821700:unitModifier=-2:unit=rpm',
                         'numericSensorInfo:name=Power Supply 2 PS2 '
-                        'Temperature:type=temperature:sensorStatus=green:value=2900:unitMotdifier=-2:unit=degrees c',
+                        'Temperature:type=temperature:sensorStatus=green:value=2900:unitModifier=-2:unit=degrees c',
                         'numericSensorInfo:name=System Board 1 VR Watchdog '
-                        '0:type=voltage:sensorStatus=red:value=2000:unitMotdifier=0:unit=volts',
+                        '0:type=voltage:sensorStatus=red:value=2000:unitModifier=0:unit=volts',
                         'numericSensorInfo:name=Power Supply 2 Current '
-                        '2:type=power:sensorStatus=green:value=20:unitMotdifier=-2:unit=amps',
+                        '2:type=power:sensorStatus=green:value=20:unitModifier=-2:unit=amps',
                         'numericSensorInfo:name=System Board 1 Pwr '
-                        'Consumption:type=power:sensorStatus=green:value=7000:unitMotdifier=-2:unit=watts',
+                        'Consumption:type=power:sensorStatus=green:value=7000:unitModifier=-2:unit=watts',
                         'numericSensorInfo:name=Cooling Unit 1 Fan Redundancy '
-                        '0:type=power:sensorStatus=green:value=1:unitMotdifier=0:unit=redundancy-discrete',
+                        '0:type=power:sensorStatus=green:value=1:unitModifier=0:unit=redundancy-discrete',
                         'numericSensorInfo:name=Management Controller Firmware 2 NM '
-                        'Capabilities:type=other:sensorStatus=unknown:value=5:unitMotdifier=0:unit=unspecified',
+                        'Capabilities:type=other:sensorStatus=unknown:value=5:unitModifier=0:unit=unspecified',
+                        'cpuStatusInfo:name=CPU 1:type=n/a:sensorStatus=green:value=n/a:unitModifier=n/a:unit=n/a',
+                        'memoryStatusInfo:name=Memory 12:type=n/a:sensorStatus=yellow:value=n/a:unitModifier=n/a'
+                        ':unit=n/a',
                     )
                 ),
             },
@@ -865,7 +868,7 @@ def test_collect_hosts():
     }
 
     # Host:5 testing sensors
-    assert len(metrics['vmware_host_sensor_state'].samples) == 7
+    assert len(metrics['vmware_host_sensor_state'].samples) == 9
     assert metrics['vmware_host_sensor_state'].samples[3][1] == {
         'cluster_name': 'cluster',
         'customValue1': 'n/a',
@@ -934,6 +937,26 @@ def test_collect_hosts():
         'dc_name': 'dc',
         'host_name': 'host-5',
         'name': 'Cooling Unit 1 Fan Redundancy 0',
+    }
+
+    assert metrics['vmware_host_sensor_state'].samples[7][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'CPU 1',
+        'type': 'n/a'
+    }
+
+    assert metrics['vmware_host_sensor_state'].samples[8][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Memory 12',
+        'type': 'n/a'
     }
 
 
