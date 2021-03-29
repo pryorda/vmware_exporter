@@ -23,6 +23,7 @@ import requests
 disable annoying urllib3 warning messages for connecting to servers with non verified certificate Doh!
 """
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 """
@@ -51,16 +52,16 @@ from .defer import parallelize, run_once_property
 class VmwareCollector():
 
     def __init__(
-        self,
-        host,
-        username,
-        password,
-        collect_only,
-        specs_size,
-        fetch_custom_attributes=False,
-        ignore_ssl=False,
-        fetch_tags=False,
-        fetch_alarms=False
+            self,
+            host,
+            username,
+            password,
+            collect_only,
+            specs_size,
+            fetch_custom_attributes=False,
+            ignore_ssl=False,
+            fetch_tags=False,
+            fetch_alarms=False
     ):
 
         self.host = host
@@ -261,13 +262,41 @@ class VmwareCollector():
                 'vmware_host_hardware_info',
                 'A metric with a constant "1" value labeled by model and cpu model from the host.',
                 labels=self._labelNames['hosts'] + ['hardware_model', 'hardware_cpu_model']),
+            'vmware_host_sensor_state': GaugeMetricFamily(
+                'vmware_host_sensor_state',
+                'VMWare sensor state value (0=red / 1=yellow / 2=green / 3=unknown) labeled by sensor name and type '
+                'from the host.',
+                labels=self._labelNames['hosts'] + ['name', 'type']),
+            'vmware_host_sensor_fan': GaugeMetricFamily(
+                'vmware_host_sensor_fan',
+                'VMWare sensor fan speed value in RPM labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_temperature': GaugeMetricFamily(
+                'vmware_host_sensor_temperature',
+                'VMWare sensor temperature value in degree C labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_voltage': GaugeMetricFamily(
+                'vmware_host_sensor_power_voltage',
+                'VMWare sensor power voltage value in volt labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_current': GaugeMetricFamily(
+                'vmware_host_sensor_power_current',
+                'VMWare sensor power current value in amp labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_power_watt': GaugeMetricFamily(
+                'vmware_host_sensor_power_watt',
+                'VMWare sensor power watt value in watt labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
+            'vmware_host_sensor_redundancy': GaugeMetricFamily(
+                'vmware_host_sensor_redundancy',
+                'VMWare sensor redundancy value (1=ok / 0=ko) labeled by sensor name from the host.',
+                labels=self._labelNames['hosts'] + ['name']),
         }
 
         """
             if alarms are being retrieved, metrics have to been created here
         """
         if self.fetch_alarms:
-
             """
                 for hosts
             """
@@ -389,7 +418,7 @@ class VmwareCollector():
 
         # Collect Datastore metrics
         if collect_only['datastores'] is True:
-            tasks.append(self._vmware_get_datastores(metrics,))
+            tasks.append(self._vmware_get_datastores(metrics, ))
 
         if collect_only['hosts'] is True:
             tasks.append(self._vmware_get_hosts(metrics))
@@ -401,7 +430,7 @@ class VmwareCollector():
 
         logging.info("Finished collecting metrics from {vsphere_host}".format(vsphere_host=vsphere_host))
 
-        return list(metrics.values())   # noqa: F705
+        return list(metrics.values())  # noqa: F705
 
     def _to_epoch(self, my_date):
         """ convert to epoch time """
@@ -652,6 +681,9 @@ class VmwareCollector():
             'summary.quickStats.overallMemoryUsage',
             'summary.hardware.cpuModel',
             'summary.hardware.model',
+            'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo',
+            'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
+            'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo',
         ]
 
         """
@@ -668,10 +700,6 @@ class VmwareCollector():
         """
         if self.fetch_alarms:
             properties.append('triggeredAlarmState')
-            properties.append('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo')
-            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo')
-            properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo')
-            # properties.append('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo')
 
         host_systems = yield self.batch_fetch_properties(
             vim.HostSystem,
@@ -1641,15 +1669,7 @@ class VmwareCollector():
                 filter red and yellow alarms
             """
             if self.fetch_alarms:
-
-                alarms = host.get('triggeredAlarmState').split(',') + \
-                    host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo').split(',') + \
-                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
-                    host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
-
-                # host.get('runtime.healthSystemRuntime.hardwareStatusInfo.storageStatusInfo', '').split(',')
-
-                alarms = [a for a in alarms if ':' in a]
+                alarms = [a for a in host.get('triggeredAlarmState', '').split(',') if ':' in a]
 
                 # Red alarms
                 red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
@@ -1666,6 +1686,70 @@ class VmwareCollector():
                     labels + [yellow_alarms_label],
                     len(yellow_alarms)
                 )
+
+            # Numeric Sensor Info
+            sensors = host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
+
+            sensors = [s for s in sensors if ':' in s]
+
+            for s in sensors:
+                sensor = dict(item.split("=") for item in s.split(":")[1:])
+
+                sensor_status = {
+                    'red': 0,
+                    'yellow': 1,
+                    'green': 2,
+                    'unknown': 3,
+                }[sensor['sensorStatus']]
+
+                host_metrics['vmware_host_sensor_state'].add_metric(
+                    labels + [sensor['name'], sensor['type']],
+                    sensor_status
+                )
+
+                # FAN speed
+                if sensor["unit"] == 'rpm':
+                    host_metrics['vmware_host_sensor_fan'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                    )
+
+                # Temperature
+                if sensor["unit"] == 'degrees c':
+                    host_metrics['vmware_host_sensor_temperature'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                    )
+
+                # Power Voltage
+                if sensor["unit"] == 'volts':
+                    host_metrics['vmware_host_sensor_power_voltage'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                    )
+
+                # Power Current
+                if sensor["unit"] == 'amps':
+                    host_metrics['vmware_host_sensor_power_current'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                    )
+
+                # Power Watt
+                if sensor["unit"] == 'watts':
+                    host_metrics['vmware_host_sensor_power_watt'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                    )
+
+                # Redundancy
+                if sensor["unit"] == 'redundancy-discrete':
+                    host_metrics['vmware_host_sensor_redundancy'].add_metric(
+                        labels + [sensor['name']],
+                        int(sensor['value'])
+                    )
 
             # Standby Mode
             standby_mode = 1 if host.get('runtime.standbyMode') == 'in' else 0
@@ -1697,7 +1781,6 @@ class VmwareCollector():
                 continue
 
             if host.get('runtime.bootTime'):
-
                 # Host uptime
                 host_metrics['vmware_host_boot_timestamp_seconds'].add_metric(
                     labels,
@@ -1760,7 +1843,6 @@ class ListCollector(object):
 
 
 class VMWareMetricsResource(Resource):
-
     isLeaf = True
 
     def __init__(self, args):
@@ -1893,7 +1975,6 @@ class VMWareMetricsResource(Resource):
 
 
 class HealthzResource(Resource):
-
     isLeaf = True
 
     def render_GET(self, request):
