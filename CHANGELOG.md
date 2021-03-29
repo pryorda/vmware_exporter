@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.15.0 (2021-03-29)
+### Feature
+* **sensors:** Adding sensor metrics ([`da2f489`](https://github.com/pryorda/vmware_exporter/commit/da2f48929fc8e377202c4e193d2d4836e4d90a38))
+
 ## v0.14.3 (2021-03-11)
 ### Fix
 * **optimize_build:** Remove travis, add ifs to action ([#254](https://github.com/pryorda/vmware_exporter/issues/254)) ([`43d6556`](https://github.com/pryorda/vmware_exporter/commit/43d6556556171b3ada6804a29aaff4710e511094))
