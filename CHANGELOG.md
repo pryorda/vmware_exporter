@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.15.1 (2021-03-30)
+### Fix
+* **fix_sensor_lookup:** Fixing sensor lookup ([#262](https://github.com/pryorda/vmware_exporter/issues/262)) ([`e97c855`](https://github.com/pryorda/vmware_exporter/commit/e97c855581a4e8db8804c542aaece62b3d85081b))
+
 ## v0.15.0 (2021-03-29)
 ### Feature
 * **sensors:** Adding sensor metrics ([`da2f489`](https://github.com/pryorda/vmware_exporter/commit/da2f48929fc8e377202c4e193d2d4836e4d90a38))
