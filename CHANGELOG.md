@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.16.0 (2021-03-30)
+### Feature
+* **adding_signature_validation:** Adding Validation for signatures.  ([`72430d9`](https://github.com/pryorda/vmware_exporter/commit/72430d91f181b17c977aecb9b1fda90ef83bd4ee))
+
 ## v0.15.1 (2021-03-30)
 ### Fix
 * **fix_sensor_lookup:** Fixing sensor lookup ([#262](https://github.com/pryorda/vmware_exporter/issues/262)) ([`e97c855`](https://github.com/pryorda/vmware_exporter/commit/e97c855581a4e8db8804c542aaece62b3d85081b))
