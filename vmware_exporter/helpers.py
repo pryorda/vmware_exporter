@@ -1,5 +1,5 @@
+# autopep8'd
 import os
-
 from pyVmomi import vmodl
 
 
