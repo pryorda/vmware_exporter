@@ -1,6 +1,7 @@
 '''
 Helpers for writing efficient twisted code, optimized for coroutine scheduling efficiency
 '''
+# autopep8'd
 
 from twisted.internet import defer
 from twisted.python import failure

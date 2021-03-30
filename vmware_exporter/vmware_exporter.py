@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- python -*-
 # -*- coding: utf-8 -*-
+# autopep8'd
 """
 Handles collection of metrics for vmware.
 """
@@ -795,7 +796,6 @@ class VmwareCollector():
 
     @defer.inlineCallbacks
     def customAttributesLabelNames(self, metric_type):
-
         """
             vm perf, vms, vmguestes and snapshots metrics share the same custom attributes
             as they re related to virtual machine objects
