@@ -20,6 +20,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v2
       with:
@@ -48,9 +51,8 @@ jobs:
         ruby-version: 2.7
     - run: |
         gem install pre-commit-sign
-        ruby -e "require 'pre-commit-sign'
-        pcs = PrecommitSign.from_message(${{ github.event.head_commit.message }})
-        pcs.valid_signature?"
+        export COMMIT_MESSAGE=$(git log -1)
+        ruby validate-signature.rb "${COMMIT_MESSAGE}"
 
   deploy:
     strategy:
