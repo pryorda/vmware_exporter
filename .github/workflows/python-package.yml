@@ -42,6 +42,15 @@ jobs:
     - name: integration tests
       run: |
         pytest tests/integration
+    - name: check-for-signature
+      uses: actions/setup-ruby@v1
+      with:
+        ruby-version: 2.7
+    - run: |
+        gem install pre-commit-sign
+        ruby -e "require 'pre-commit-sign'
+        pcs = PrecommitSign.from_message(${{ github.event.head_commit.message }})
+        pcs.valid_signature?"
 
   deploy:
     strategy:
