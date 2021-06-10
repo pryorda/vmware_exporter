@@ -1695,7 +1695,10 @@ class VmwareCollector():
             sensors = [s for s in sensors if ':' in s]
 
             for s in sensors:
-                sensor = dict(item.split("=") for item in s.split(":")[1:])
+                sensor = dict(item.split("=") for item in re.split(r':(?=\w+=)', s)[1:])
+
+                if not all(key in sensor for key in ['sensorStatus', 'name', 'type', 'unit', 'value']):
+                    continue
 
                 sensor_status = {
                     'red': 0,
