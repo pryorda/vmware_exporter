@@ -1251,11 +1251,10 @@ class VmwareCollector():
                 filter red and yellow alarms
             """
             if self.fetch_alarms:
-                alarms = datastore.get('triggeredAlarmState').split(',')
-                alarms = [a for a in alarms if ':' in a]
+                alarms = datastore.get('triggeredAlarmState', [])
 
                 # Red alarms
-                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 ds_metrics['vmware_datastore_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1263,7 +1262,7 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 ds_metrics['vmware_datastore_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
@@ -1531,11 +1530,10 @@ class VmwareCollector():
                 filter red and yellow alarms
             """
             if self.fetch_alarms and ('triggeredAlarmState' in row):
-                alarms = row.get('triggeredAlarmState').split(',')
-                alarms = [a for a in alarms if ':' in a]
+                alarms = row.get('triggeredAlarmState', [])
 
                 # Red alarms
-                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 metrics['vmware_vm_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1543,7 +1541,7 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 metrics['vmware_vm_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
@@ -1669,10 +1667,10 @@ class VmwareCollector():
                 filter red and yellow alarms
             """
             if self.fetch_alarms:
-                alarms = [a for a in host.get('triggeredAlarmState', '').split(',') if ':' in a]
+                alarms = host.get('triggeredAlarmState', [])
 
                 # Red alarms
-                red_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'red']
+                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 host_metrics['vmware_host_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1680,7 +1678,7 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [':'.join(a.split(':')[:-1]) for a in alarms if a.split(':')[-1] == 'yellow']
+                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 host_metrics['vmware_host_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
@@ -1688,70 +1686,64 @@ class VmwareCollector():
                 )
 
             # Numeric Sensor Info
-            sensors = host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', '').split(',') + \
-                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', '').split(',') + \
-                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', '').split(',')
+            sensors = host.get('runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo', []) + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo', []) + \
+                host.get('runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo', [])
 
-            sensors = [s for s in sensors if ':' in s]
-
-            for s in sensors:
-                sensor = dict(item.split("=") for item in re.split(r':(?=\w+=)', s)[1:])
-
-                if not all(key in sensor for key in ['sensorStatus', 'name', 'type', 'unit', 'value']):
-                    continue
+            for sensor in sensors:
 
                 sensor_status = {
                     'red': 0,
                     'yellow': 1,
                     'green': 2,
-                    'unknown': 3,
-                }[sensor['sensorStatus'].lower()]
+                    # 'unknown': 3,
+                }.get(sensor.sensorStatus.lower(), 'unknown')
 
                 host_metrics['vmware_host_sensor_state'].add_metric(
-                    labels + [sensor['name'], sensor['type']],
+                    labels + [sensor.name, sensor.type],
                     sensor_status
                 )
 
                 # FAN speed
-                if sensor["unit"] == 'rpm':
+                if sensor.unit == 'rpm':
                     host_metrics['vmware_host_sensor_fan'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                        labels + [sensor.name],
+                        int(sensor.value) * (10 ** (int(sensor.unitModifier)))
                     )
 
                 # Temperature
-                if sensor["unit"] == 'degrees c':
+                if sensor.unit == 'degrees c':
                     host_metrics['vmware_host_sensor_temperature'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                        labels + [sensor.name],
+                        int(sensor.value) * (10 ** (int(sensor.unitModifier)))
                     )
 
                 # Power Voltage
-                if sensor["unit"] == 'volts':
+                if sensor.unit == 'volts':
                     host_metrics['vmware_host_sensor_power_voltage'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                        labels + [sensor.name],
+                        int(sensor.value) * (10 ** (int(sensor.unitModifier)))
                     )
 
                 # Power Current
-                if sensor["unit"] == 'amps':
+                if sensor.unit == 'amps':
                     host_metrics['vmware_host_sensor_power_current'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                        labels + [sensor.name],
+                        int(sensor.value) * (10 ** (int(sensor.unitModifier)))
                     )
 
                 # Power Watt
-                if sensor["unit"] == 'watts':
+                if sensor.unit == 'watts':
                     host_metrics['vmware_host_sensor_power_watt'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value']) * (10 ** (int(sensor['unitModifier'])))
+                        labels + [sensor.name],
+                        int(sensor.value) * (10 ** (int(sensor.unitModifier)))
                     )
 
                 # Redundancy
-                if sensor["unit"] == 'redundancy-discrete':
+                if sensor.unit == 'redundancy-discrete':
                     host_metrics['vmware_host_sensor_redundancy'].add_metric(
-                        labels + [sensor['name']],
-                        int(sensor['value'])
+                        labels + [sensor.name],
+                        int(sensor.value)
                     )
 
             # Standby Mode

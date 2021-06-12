@@ -1,6 +1,65 @@
 # autopep8'd
 import os
 from pyVmomi import vmodl
+import re
+
+
+def serialize(*arg, **kwarg):
+    """
+        Serialize into the format
+        item1:item2:key1=value1:key2:value2
+    """
+    escape_dict = {'\\': '\\\\', '\n': '\\n', '\r': '\\r', ',': '\\,', ':': '\\:', '=': '\\='}
+    pattern = re.compile("|".join([re.escape(k) for k in sorted(escape_dict, key=len, reverse=True)]), flags=re.DOTALL)
+    items = []
+    for item in arg:
+        items.append(pattern.sub(lambda x: escape_dict[x.group(0)], str(item)))
+    for k, v in kwarg.items():
+        items.append("{}={}".format(
+            pattern.sub(lambda x: escape_dict[x.group(0)], str(k)),
+            pattern.sub(lambda x: escape_dict[x.group(0)], str(v))
+        ))
+    return ':'.join(items)
+
+
+def deserialize(s):
+    """
+        Deserialize the format into a list and dict
+        item1:item2:key1=value1:key2:value2
+    """
+    escape_dict = {'\\r': '\r', '\\\\': '\\', '\\=': '=', '\\:': ':', '\\n': '\n', '\\,': ','}
+    pattern = re.compile("|".join([re.escape(k) for k in sorted(escape_dict, key=len, reverse=True)]), flags=re.DOTALL)
+    arg = []
+    kwarg = {}
+    for name, eq, value in re.findall(r'((?:\\.|[^=:\\]+)+)(?:(=)((?:\\.|[^:\\]+)+))?', s):
+        if eq:
+            kwarg[pattern.sub(lambda x: escape_dict[x.group(0)], name)] = pattern.sub(
+                lambda x: escape_dict[x.group(0)], value)
+        else:
+            arg.append(pattern.sub(lambda x: escape_dict[x.group(0)], name))
+    return (arg, kwarg)
+
+
+class TriggeredAlarm(object):
+    def __init__(self, name, status):
+        self.name = name
+        self.sensorStatus = status
+
+    def __str__(self):
+        return serialize('triggeredAlarm', self.name, self.sensorStatus)
+
+
+class NumericSensorInfo(object):
+    def __init__(self, name, status, type="n/a", value="n/a", unitModifier="n/a", unit="n/a"):
+        self.name = name
+        self.type = type
+        self.sensorStatus = status
+        self.value = value
+        self.unitModifier = unitModifier
+        self.unit = unit
+
+    def __str__(self):
+        return serialize('numericSensorInfo', name=self.name, type=self.type, sensorStatus=self.sensorStatus, value=self.value, unitModifier=self.unitModifier, unit=self.unit)
 
 
 def get_bool_env(key: str, default: bool):
@@ -26,13 +85,9 @@ def batch_fetch_properties(content, obj_type, properties):
 
         if content.customFieldsManager and content.customFieldsManager.field:
             allCustomAttributesNames.update(
-                dict(
-                    [
-                        (f.key, f.name)
-                        for f in content.customFieldsManager.field
-                        if f.managedObjectType in (obj_type, None)
-                    ]
-                )
+                (f.key, f.name)
+                for f in content.customFieldsManager.field
+                if f.managedObjectType in (obj_type, None)
             )
 
     try:
@@ -95,32 +150,37 @@ def batch_fetch_properties(content, obj_type, properties):
                 """
                     triggered alarms
                 """
-                try:
-                    alarms = list(
-                        'triggeredAlarm:{}:{}'.format(item.alarm.info.systemName.split('.')[1], item.overallStatus)
-                        for item in prop.val
-                    )
-                except Exception:
-                    alarms = ['triggeredAlarm:AlarmsUnavailable:yellow']
 
-                properties[prop.name] = ','.join(alarms)
+                try:
+                    properties[prop.name] = [
+                        TriggeredAlarm(
+                            name=item.alarm.info.systemName.split('.')[1],
+                            status=item.overallStatus
+                        ) for item in prop.val
+                    ]
+                except Exception:
+                    properties[prop.name] = [
+                        TriggeredAlarm(
+                            name='AlarmsUnavailable',
+                            status='yellow'
+                        )
+                    ]
 
             elif 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo' == prop.name:
                 """
                     handle numericSensorInfo
                 """
-                sensors = list(
-                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitModifier={}:unit={}'.format(
-                        item.name,
-                        item.sensorType,
-                        item.healthState.key,
-                        item.currentReading,
-                        item.unitModifier,
-                        item.baseUnits.lower()
-                    )
-                    for item in prop.val
-                )
-                properties[prop.name] = ','.join(sensors)
+
+                properties[prop.name] = [
+                    NumericSensorInfo(
+                        name=item.name,
+                        type=item.sensorType,
+                        status=item.healthState.key,
+                        value=item.currentReading,
+                        unitModifier=item.unitModifier,
+                        unit=item.baseUnits.lower()
+                    ) for item in prop.val
+                ]
 
             elif prop.name in [
                 'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo',
@@ -129,18 +189,13 @@ def batch_fetch_properties(content, obj_type, properties):
                 """
                     handle hardwareStatusInfo
                 """
-                sensors = list(
-                    'numericSensorInfo:name={}:type={}:sensorStatus={}:value={}:unitModifier={}:unit={}'.format(
-                        item.name,
-                        "n/a",
-                        item.status.key,
-                        "n/a",
-                        "n/a",
-                        "n/a",
-                    )
-                    for item in prop.val
-                )
-                properties[prop.name] = ','.join(sensors)
+
+                properties[prop.name] = [
+                    NumericSensorInfo(
+                        name=item.name,
+                        status=item.status.key
+                    ) for item in prop.val
+                ]
 
             else:
                 properties[prop.name] = prop.val
