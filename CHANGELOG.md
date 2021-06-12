@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.16.1 (2021-06-10)
+### Fix
+* **fixing_sensor:** Fix for badly behaving super-micro sensor #271 ([`2d5c196`](https://github.com/pryorda/vmware_exporter/commit/2d5c1965ec21ee6afc1d9ff3063bea3ca93bd99d))
+
 ## v0.16.0 (2021-03-30)
 ### Feature
 * **adding_signature_validation:** Adding Validation for signatures.  ([`72430d9`](https://github.com/pryorda/vmware_exporter/commit/72430d91f181b17c977aecb9b1fda90ef83bd4ee))
