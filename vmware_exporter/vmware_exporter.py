@@ -312,6 +312,16 @@ class VmwareCollector():
                         'vmware_host_red_alarms',
                         'A metric with the amount of host red alarms and labeled with the list of alarm names',
                         labels=self._labelNames['hosts'] + ['alarms']
+                    ),
+                    'vmware_host_yellow_alarm': GaugeMetricFamily(
+                        'vmware_host_yellow_alarm',
+                        'A metric with the host and yellow alarm name',
+                        labels=self._labelNames['hosts'] + ['alarm']
+                    ),
+                    'vmware_host_red_alarm': GaugeMetricFamily(
+                        'vmware_host_red_alarm',
+                        'A metric with the host and red alarm name',
+                        labels=self._labelNames['hosts'] + ['alarm']
                     )
                 }
             )
@@ -330,6 +340,16 @@ class VmwareCollector():
                         'vmware_datastore_red_alarms',
                         'A metric with the amount of datastore red alarms and labeled with the list of alarm names',
                         labels=self._labelNames['datastores'] + ['alarms']
+                    ),
+                    'vmware_datastore_yellow_alarm': GaugeMetricFamily(
+                        'vmware_datastore_yellow_alarm',
+                        'A metric with the datastore and yellow alarm name',
+                        labels=self._labelNames['datastores'] + ['alarm']
+                    ),
+                    'vmware_datastore_red_alarm': GaugeMetricFamily(
+                        'vmware_datastore_red_alarm',
+                        'A metric with datastore and red alarm name',
+                        labels=self._labelNames['datastores'] + ['alarm']
                     )
                 }
             )
@@ -350,41 +370,51 @@ class VmwareCollector():
                         'A metric with the amount of virtual machine red alarms and \
                                 labeled with the list of alarm names',
                         labels=self._labelNames['vms'] + ['alarms']
-                    )
-                }
-            )
-            metric_list['vmguests'].update(
-                {
-                    'vmware_vm_yellow_alarms': GaugeMetricFamily(
-                        'vmware_vm_yellow_alarms',
-                        'A metric with the amount of virtual machine yellow alarms and \
-                                labeled with the list of alarm names',
-                        labels=self._labelNames['vms'] + ['alarms']
                     ),
-                    'vmware_vm_red_alarms': GaugeMetricFamily(
-                        'vmware_vm_red_alarms',
-                        'A metric with the amount of virtual machine red alarms and \
-                                labeled with the list of alarm names',
-                        labels=self._labelNames['vms'] + ['alarms']
-                    )
-                }
-            )
-            metric_list['snapshots'].update(
-                {
-                    'vmware_vm_yellow_alarms': GaugeMetricFamily(
-                        'vmware_vm_yellow_alarms',
-                        'A metric with the amount of virtual machine yellow alarms and \
-                                labeled with the list of alarm names',
-                        labels=self._labelNames['vms'] + ['alarms']
+                    'vmware_vm_yellow_alarm': GaugeMetricFamily(
+                        'vmware_vm_yellow_alarm',
+                        'A metric with the virtual machine and yellow alarm name',
+                        labels=self._labelNames['vms'] + ['alarm']
                     ),
-                    'vmware_vm_red_alarms': GaugeMetricFamily(
-                        'vmware_vm_red_alarms',
-                        'A metric with the amount of virtual machine red alarms and \
-                                labeled with the list of alarm names',
-                        labels=self._labelNames['vms'] + ['alarms']
+                    'vmware_vm_red_alarm': GaugeMetricFamily(
+                        'vmware_vm_red_alarm',
+                        'A metric with the virtual machine and red alarm name',
+                        labels=self._labelNames['vms'] + ['alarm']
                     )
                 }
             )
+            # metric_list['vmguests'].update(
+            #    {
+            #        'vmware_vm_yellow_alarms': GaugeMetricFamily(
+            #            'vmware_vm_yellow_alarms',
+            #            'A metric with the amount of virtual machine yellow alarms and \
+            #                    labeled with the list of alarm names',
+            #            labels=self._labelNames['vms'] + ['alarms']
+            #        ),
+            #        'vmware_vm_red_alarms': GaugeMetricFamily(
+            #            'vmware_vm_red_alarms',
+            #            'A metric with the amount of virtual machine red alarms and \
+            #                    labeled with the list of alarm names',
+            #            labels=self._labelNames['vms'] + ['alarms']
+            #        )
+            #    }
+            # )
+            # metric_list['snapshots'].update(
+            #    {
+            #        'vmware_vm_yellow_alarms': GaugeMetricFamily(
+            #            'vmware_vm_yellow_alarms',
+            #            'A metric with the amount of virtual machine yellow alarms and \
+            #                    labeled with the list of alarm names',
+            #            labels=self._labelNames['vms'] + ['alarms']
+            #        ),
+            #        'vmware_vm_red_alarms': GaugeMetricFamily(
+            #            'vmware_vm_red_alarms',
+            #            'A metric with the amount of virtual machine red alarms and \
+            #                    labeled with the list of alarm names',
+            #            labels=self._labelNames['vms'] + ['alarms']
+            #        )
+            #    }
+            # )
 
         metrics = {}
         for key, value in self.collect_only.items():
@@ -1253,8 +1283,22 @@ class VmwareCollector():
             if self.fetch_alarms:
                 alarms = datastore.get('triggeredAlarmState', [])
 
+                for alarm in alarms:
+                    if alarm.sensorStatus == 'red':
+                        # Red alarms
+                        ds_metrics['vmware_datastore_red_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+                    elif alarm.sensorStatus == 'yellow':
+                        # Yellow alarms
+                        ds_metrics['vmware_datastore_yellow_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+
                 # Red alarms
-                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
+                red_alarms = ['triggeredAlarm:{}'.format(alarm.name) for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 ds_metrics['vmware_datastore_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1262,7 +1306,8 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
+                yellow_alarms = ['triggeredAlarm:{}'.format(alarm.name)
+                                 for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 ds_metrics['vmware_datastore_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
@@ -1532,8 +1577,22 @@ class VmwareCollector():
             if self.fetch_alarms and ('triggeredAlarmState' in row):
                 alarms = row.get('triggeredAlarmState', [])
 
+                for alarm in alarms:
+                    if alarm.sensorStatus == 'red':
+                        # Red alarms
+                        metrics['vmware_vm_red_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+                    elif alarm.sensorStatus == 'yellow':
+                        # Yellow alarms
+                        metrics['vmware_vm_yellow_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+
                 # Red alarms
-                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
+                red_alarms = ['triggeredAlarm:{}'.format(alarm.name) for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 metrics['vmware_vm_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1541,7 +1600,8 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
+                yellow_alarms = ['triggeredAlarm:{}'.format(alarm.name)
+                                 for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 metrics['vmware_vm_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
@@ -1669,8 +1729,22 @@ class VmwareCollector():
             if self.fetch_alarms:
                 alarms = host.get('triggeredAlarmState', [])
 
+                for alarm in alarms:
+                    if alarm.sensorStatus == 'red':
+                        # Red alarms
+                        host_metrics['vmware_host_red_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+                    elif alarm.sensorStatus == 'yellow':
+                        # Yellow alarms
+                        host_metrics['vmware_host_yellow_alarm'].add_metric(
+                            labels + [alarm.name],
+                            1
+                        )
+
                 # Red alarms
-                red_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'red']
+                red_alarms = ['triggeredAlarm:{}'.format(alarm.name) for alarm in alarms if alarm.sensorStatus == 'red']
                 red_alarms_label = ','.join(red_alarms) if red_alarms else 'n/a'
                 host_metrics['vmware_host_red_alarms'].add_metric(
                     labels + [red_alarms_label],
@@ -1678,7 +1752,8 @@ class VmwareCollector():
                 )
 
                 # Yellow alarms
-                yellow_alarms = [alarm.name for alarm in alarms if alarm.sensorStatus == 'yellow']
+                yellow_alarms = ['triggeredAlarm:{}'.format(alarm.name)
+                                 for alarm in alarms if alarm.sensorStatus == 'yellow']
                 yellow_alarms_label = ','.join(yellow_alarms) if yellow_alarms else 'n/a'
                 host_metrics['vmware_host_yellow_alarms'].add_metric(
                     labels + [yellow_alarms_label],
