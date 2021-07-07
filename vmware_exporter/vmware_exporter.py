@@ -1923,20 +1923,18 @@ class VMWareMetricsResource(Resource):
         self.configure(args)
 
     def configure(self, args):
+        self.allow_url_target = args.allow_url_target
         if args.config_file:
             try:
                 with open(args.config_file) as cf:
                     self.config = yaml.load(cf, Loader=yaml.FullLoader)
-
-                if 'default' not in self.config.keys():
-                    logging.error("Error, you must have a default section in config file (for now)")
-                    exit(1)
                 return
             except Exception as exception:
                 raise SystemExit("Error while reading configuration file: {0}".format(exception.message))
 
-        self.config = {
-            'default': {
+        self.config = {}
+        if 'VSPHERE_USER' in os.environ:
+            self.config['default'] = {
                 'vsphere_host': os.environ.get('VSPHERE_HOST'),
                 'vsphere_user': os.environ.get('VSPHERE_USER'),
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
@@ -1953,7 +1951,6 @@ class VMWareMetricsResource(Resource):
                     'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
                 }
             }
-        }
 
         for key in os.environ.keys():
             if key == 'VSPHERE_USER':
@@ -2003,16 +2000,25 @@ class VMWareMetricsResource(Resource):
     @defer.inlineCallbacks
     def generate_latest_metrics(self, request):
         """ gets the latest metrics """
-        section = request.args.get(b'section', [b'default'])[0].decode('utf-8')
-        if section not in self.config.keys():
-            logging.info("{} is not a valid section, using default".format(section))
-            section = 'default'
+        section = None
+        if b'section' in request.args:
+            section = request.args[b'section'][0].decode('utf-8')
+        if section not in self.config:
+            if 'default' in self.config:
+                logging.info("{} is not a valid section, using default".format(section))
+                section = 'default'
+            else:
+                request.setResponseCode(500)
+                logging.info("Invalid section and no default defined")
+                request.write(b'Invalid section defined!\n')
+                request.finish()
+                return
 
-        if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
-            vsphere_host = self.config[section].get('vsphere_host')
-        elif request.args.get(b'target', [None])[0]:
+        if (self.config[section].get('vsphere_host') or "None") != "None":
+            vsphere_host = self.config[section]['vsphere_host']
+        elif self.allow_url_target and request.args.get(b'target', [None])[0]:
             vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
-        elif request.args.get(b'vsphere_host', [None])[0]:
+        elif self.allow_url_target and request.args.get(b'vsphere_host', [None])[0]:
             vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
         else:
             request.setResponseCode(500)
@@ -2094,6 +2100,8 @@ def main(argv=None):
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
                         default="INFO", help="Set application loglevel INFO, DEBUG")
+    parser.add_argument('--allow-url-target', action='store_true',
+                        help="Allow vsphere host to be specified as url a parameter")
 
     args = parser.parse_args(argv or sys.argv[1:])
 
