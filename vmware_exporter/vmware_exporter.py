@@ -1772,7 +1772,7 @@ class VmwareCollector():
                     'yellow': 1,
                     'green': 2,
                     # 'unknown': 3,
-                }.get(sensor.sensorStatus.lower(), 'unknown')
+                }.get(sensor.sensorStatus.lower(), 3)
 
                 host_metrics['vmware_host_sensor_state'].add_metric(
                     labels + [sensor.name, sensor.type],
