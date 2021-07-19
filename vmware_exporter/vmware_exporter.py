@@ -92,10 +92,10 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vm_perf': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vmguests': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'snapshots': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
             'host_perf': ['host_name', 'dc_name', 'cluster_name'],
@@ -735,6 +735,7 @@ class VmwareCollector():
             'name',
             'runtime.host',
             'parent',
+            'summary.config.vmPathName',
         ]
 
         if self.collect_only['vms'] is True:
@@ -1088,6 +1089,15 @@ class VmwareCollector():
                 host_moid = row['runtime.host']._moId
 
             labels[moid] = [row['name']]
+
+            if 'summary.config.vmPathName' in row:
+                p = row['summary.config.vmPathName']
+                if p[0] == '[':
+                    p = p[1:p.find("]")]
+            else:
+                p = 'n/a'
+
+            labels[moid] = labels[moid] + [p]
 
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
