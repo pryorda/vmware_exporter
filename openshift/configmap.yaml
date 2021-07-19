@@ -1,0 +1,19 @@
+apiVersion: v1
+data:
+  VSPHERE_COLLECT_DATASTORES: "True"
+  VSPHERE_COLLECT_HOSTS: "True"
+  VSPHERE_COLLECT_SNAPSHOTS: "False"
+  VSPHERE_COLLECT_VMGUESTS: "True"
+  VSPHERE_COLLECT_VMS: "True"
+  VSPHERE_FETCH_ALARMS: "True"
+  VSPHERE_FETCH_CUSTOM_ATTRIBUTES: "True"
+  VSPHERE_FETCH_TAGS: "True"
+  VSPHERE_HOST: vcenter
+  VSPHERE_IGNORE_SSL: "True"
+  VSPHERE_USER: user
+kind: ConfigMap
+metadata:
+  labels:
+    app: vmware-exporter
+  name: vmware-exporter-config
+  namespace: openshift-vsphere-infra

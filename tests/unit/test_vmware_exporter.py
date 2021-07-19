@@ -656,8 +656,6 @@ def test_collect_hosts():
                 },
                 'triggeredAlarmState': '',
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:2': {
                 'id': 'host:2',
@@ -667,8 +665,6 @@ def test_collect_hosts():
                 'summary.customValue': {},
                 'triggeredAlarmState': '',
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:3': {
                 'id': 'host:3',
@@ -690,8 +686,6 @@ def test_collect_hosts():
                 'summary.customValue': {},
                 'triggeredAlarmState': '',
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:4': {
                 'id': 'host:4',
@@ -713,8 +707,6 @@ def test_collect_hosts():
                 'summary.customValue': {},
                 'triggeredAlarmState': '',
                 'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': '',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': '',
             },
             'host:5': {
                 'id': 'host:5',
@@ -740,9 +732,27 @@ def test_collect_hosts():
                         'triggeredAlarm:HostCPUUsageAlarm:yellow'
                     )
                 ),
-                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': 'sensorInfo:OtherAlarm:red',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.memoryStatusInfo': 'memoryStatusInfo:OtherAlarm:yellow',
-                'runtime.healthSystemRuntime.hardwareStatusInfo.cpuStatusInfo': 'cpuStatusInfo:OtherAlarm:yellow'
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': ','.join(
+                    (
+                        'numericSensorInfo:name=Fan Device 12 System Fan '
+                        '6B:type=fan:sensorStatus=yellow:value=821700:unitModifier=-2:unit=rpm',
+                        'numericSensorInfo:name=Power Supply 2 PS2 '
+                        'Temperature:type=temperature:sensorStatus=green:value=2900:unitModifier=-2:unit=degrees c',
+                        'numericSensorInfo:name=System Board 1 VR Watchdog '
+                        '0:type=voltage:sensorStatus=red:value=2000:unitModifier=0:unit=volts',
+                        'numericSensorInfo:name=Power Supply 2 Current '
+                        '2:type=power:sensorStatus=green:value=20:unitModifier=-2:unit=amps',
+                        'numericSensorInfo:name=System Board 1 Pwr '
+                        'Consumption:type=power:sensorStatus=green:value=7000:unitModifier=-2:unit=watts',
+                        'numericSensorInfo:name=Cooling Unit 1 Fan Redundancy '
+                        '0:type=power:sensorStatus=green:value=1:unitModifier=0:unit=redundancy-discrete',
+                        'numericSensorInfo:name=Management Controller Firmware 2 NM '
+                        'Capabilities:type=other:sensorStatus=unknown:value=5:unitModifier=0:unit=unspecified',
+                        'cpuStatusInfo:name=CPU 1:type=n/a:sensorStatus=green:value=n/a:unitModifier=n/a:unit=n/a',
+                        'memoryStatusInfo:name=Memory 12:type=n/a:sensorStatus=yellow:value=n/a:unitModifier=n/a'
+                        ':unit=n/a',
+                    )
+                ),
             },
         })
         yield collector._vmware_get_hosts(metrics)
@@ -845,8 +855,8 @@ def test_collect_hosts():
     }
 
     # Host:5 testing alarms
-    assert metrics['vmware_host_yellow_alarms'].samples[4][2] == 3
-    assert metrics['vmware_host_red_alarms'].samples[4][2] == 2
+    assert metrics['vmware_host_yellow_alarms'].samples[4][2] == 1
+    assert metrics['vmware_host_red_alarms'].samples[4][2] == 1
 
     assert metrics['vmware_host_yellow_alarms'].samples[4][1] == {
         'cluster_name': 'cluster',
@@ -854,7 +864,99 @@ def test_collect_hosts():
         'customValue2': 'n/a',
         'dc_name': 'dc',
         'host_name': 'host-5',
-        'alarms': 'triggeredAlarm:HostCPUUsageAlarm,cpuStatusInfo:OtherAlarm,memoryStatusInfo:OtherAlarm'
+        'alarms': 'triggeredAlarm:HostCPUUsageAlarm'
+    }
+
+    # Host:5 testing sensors
+    assert len(metrics['vmware_host_sensor_state'].samples) == 9
+    assert metrics['vmware_host_sensor_state'].samples[3][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Power Supply 2 Current 2',
+        'type': 'power'
+    }
+
+    assert metrics['vmware_host_sensor_fan'].samples[0][2] == 8217
+    assert metrics['vmware_host_sensor_fan'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Fan Device 12 System Fan 6B',
+    }
+
+    assert metrics['vmware_host_sensor_temperature'].samples[0][2] == 29
+    assert metrics['vmware_host_sensor_temperature'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Power Supply 2 PS2 Temperature',
+    }
+
+    assert metrics['vmware_host_sensor_power_voltage'].samples[0][2] == 2000
+    assert metrics['vmware_host_sensor_power_voltage'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'System Board 1 VR Watchdog 0',
+    }
+
+    assert metrics['vmware_host_sensor_power_current'].samples[0][2] == 0.2
+    assert metrics['vmware_host_sensor_power_current'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Power Supply 2 Current 2',
+    }
+
+    assert metrics['vmware_host_sensor_power_watt'].samples[0][2] == 70
+    assert metrics['vmware_host_sensor_power_watt'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'System Board 1 Pwr Consumption',
+    }
+
+    assert metrics['vmware_host_sensor_redundancy'].samples[0][2] == 1
+    assert metrics['vmware_host_sensor_redundancy'].samples[0][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Cooling Unit 1 Fan Redundancy 0',
+    }
+
+    assert metrics['vmware_host_sensor_state'].samples[7][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'CPU 1',
+        'type': 'n/a'
+    }
+
+    assert metrics['vmware_host_sensor_state'].samples[8][1] == {
+        'cluster_name': 'cluster',
+        'customValue1': 'n/a',
+        'customValue2': 'n/a',
+        'dc_name': 'dc',
+        'host_name': 'host-5',
+        'name': 'Memory 12',
+        'type': 'n/a'
     }
 
 

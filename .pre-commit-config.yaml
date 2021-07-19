@@ -1,4 +1,8 @@
 repos:
+- repo: https://github.com/pre-commit/mirrors-autopep8
+  rev: v1.5.6  # Use the sha / tag you want to point at
+  hooks:
+  - id: autopep8
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v1.3.0
   hooks:
@@ -34,7 +38,7 @@ repos:
   - id: flake8
     stages: [commit]
     args:
-      - --ignore=F705,E123
+      - --ignore=F705,E123,E402
 - repo: https://github.com/pryorda/dockerfilelint-precommit-hooks
   rev: v0.1.0
   hooks:
