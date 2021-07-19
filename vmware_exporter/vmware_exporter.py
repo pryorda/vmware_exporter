@@ -44,12 +44,12 @@ from pyVim import connect
 
 # Prometheus specific imports
 from prometheus_client.core import GaugeMetricFamily
-from prometheus_client import CollectorRegistry, generate_latest
+from prometheus_client import CollectorRegistry, generate_latest, Gauge
 from prometheus_client.core import REGISTRY
 
 from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
-
+from .__init__ import __version__
 
 class VmwareCollector():
 
@@ -1968,13 +1968,22 @@ class VMWareMetricsResource(Resource):
         )
         metrics = yield collector.collect()
 
+        do_metrics_registration = True
+
         # URI /metrics?section=default
         if request.path == b'/metrics' and section == 'default':
             registry = REGISTRY
+            if 'vmware_exporter_build_info' in registry._names_to_collectors:
+                do_metrics_registration = False
+            else:
+                g = Gauge('vmware_exporter_build_info', 'A metric with a constant \'1\' value labeled by version of vmware-exporter.', ["version"], registry=registry)
+                g.labels(version = __version__)
         else:
             registry = CollectorRegistry()
 
-        registry.register(ListCollector(metrics))
+        if do_metrics_registration:
+            registry.register(ListCollector(metrics))
+
         output = generate_latest(registry)
 
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
