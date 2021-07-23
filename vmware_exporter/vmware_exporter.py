@@ -51,6 +51,7 @@ from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
 from .__init__ import __version__
 
+
 class VmwareCollector():
 
     def __init__(
