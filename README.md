@@ -71,6 +71,7 @@ default:
     fetch_custom_attributes: True
     fetch_tags: True
     fetch_alarms: True
+    #exporter_metrics: True
     collect_only:
         vms: True
         vmguests: True
@@ -113,6 +114,14 @@ limited:
 ```
 Switching sections can be done by adding ?section=limited to the URL.
 
+#### Montitoring the exporter metrics
+
+The exporter exposes metrics about its own behavior as [recommended](https://prometheus.io/docs/instrumenting/writing_clientlibs/#exposition) by Prometheus.
+
+Those metrics are available in the `/metrics` page. By default, those metrics are only exposed in the 'default' section (no need to collect it multiple times). This behavior can be controlled using the `VSPHERE_EXPORTER_METRICS` variable or using `exporter_metrics` in the configuration file.
+
+The metrics about the vmware_exporter process are only available on Linux (see [prometheus/client_python](https://github.com/prometheus/client_python#process-collector)).
+
 #### Environment Variables
 | Variable                      	| Precedence             | Defaults | Description                                      				|
 | --------------------------------------| ---------------------- | -------- | --------------------------------------------------------------------------|
@@ -124,6 +133,7 @@ Switching sections can be done by adding ?section=limited to the URL.
 | `VSPHERE_FETCH_CUSTOM_ATTRIBUTES`    	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
 | `VSPHERE_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
 | `VSPHERE_FETCH_ALARMS`       		| config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well 	|
+| `VSPHERE_EXPORTER_METRICS`   		| config, env            | True     | Set fo false to disable exposing the exporter metric in section default	|
 | `VSPHERE_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
 | `VSPHERE_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
 | `VSPHERE_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
@@ -142,6 +152,7 @@ You can create new sections as well, with very similiar variables. For example, 
 | `VSPHERE_LIMITED_FETCH_CUSTOM_ATTRIBUTES`   	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
 | `VSPHERE_LIMITED_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
 | `VSPHERE_LIMITED_FETCH_ALARMS`       		| config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well	|
+| `VSPHERE_LIMITED_EXPORTER_METRICS`   		| config, env            | *        | Expose exporter metrics ( * Enabled only in section 'default' by default)	|
 | `VSPHERE_LIMITED_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
 | `VSPHERE_LIMITED_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
 | `VSPHERE_LIMITED_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
