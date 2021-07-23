@@ -1502,10 +1502,15 @@ def test_vmware_resource_async_render_GET():
         b'vsphere_host': [b'127.0.0.1'],
     }
 
+    env = {
+        'VSPHERE_EXPORTER_METRICS': False,
+    }
+
     args = mock.Mock()
     args.config_file = None
 
-    resource = VMWareMetricsResource(args)
+    with mock.patch('vmware_exporter.vmware_exporter.os.environ', env):
+        resource = VMWareMetricsResource(args)
 
     with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
         Collector.return_value.collect.return_value = []
@@ -1657,6 +1662,7 @@ def test_config_env_multiple_sections():
             'fetch_custom_attributes': True,
             'fetch_tags': True,
             'fetch_alarms': True,
+            'exporter_metrics': True,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
@@ -1674,6 +1680,7 @@ def test_config_env_multiple_sections():
             'fetch_custom_attributes': False,
             'fetch_tags': False,
             'fetch_alarms': False,
+            'exporter_metrics': False,
             'collect_only': {
                 'datastores': True,
                 'hosts': True,
