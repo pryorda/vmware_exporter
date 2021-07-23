@@ -1,6 +1,7 @@
 import contextlib
 import datetime
 from unittest import mock
+from sys import platform
 
 import pytest
 import pytest_twisted
@@ -1629,6 +1630,39 @@ def test_vmware_resource_async_render_GET_section():
     request.setResponseCode.assert_called_with(200)
     request.write.assert_called_with(b'')
     request.finish.assert_called_with()
+
+
+@pytest.mark.skipif(platform.startswith("win"), reason="Requires Linux")
+@pytest_twisted.inlineCallbacks
+def test_vmware_resource_async_render_GET_exportermetrics():
+    request = mock.Mock()
+    request.args = {
+        b'vsphere_host': [b'127.0.0.1'],
+    }
+
+    env = {
+        'VSPHERE_EXPORTER_METRICS': True,
+    }
+
+    args = mock.Mock()
+    args.config_file = None
+
+    with mock.patch('vmware_exporter.vmware_exporter.os.environ', env):
+        resource = VMWareMetricsResource(args)
+
+    with mock.patch('vmware_exporter.vmware_exporter.VmwareCollector') as Collector:
+        Collector.return_value.collect.return_value = []
+        yield resource._async_render_GET(request)
+
+    request.setResponseCode.assert_called_with(200)
+
+    metrics = []
+    for s in request.write.call_args[0][0].decode("utf-8").splitlines():
+        if not s.startswith("#"):
+            metrics.append(s.split(' ', 1)[0].split('{', 1)[0])
+
+    assert 'process_resident_memory_bytes' in metrics
+    assert 'vmware_exporter_build_info' in metrics
 
 
 def test_config_env_multiple_sections():
