@@ -1979,8 +1979,10 @@ class VMWareMetricsResource(Resource):
             if 'vmware_exporter_build_info' in registry._names_to_collectors:
                 do_metrics_registration = False
             else:
-                g = Gauge('vmware_exporter_build_info', 'A metric with a constant \'1\' value labeled by version of vmware-exporter.', ["version"], registry=registry)
-                g.labels(version = __version__)
+                g = Gauge('vmware_exporter_build_info',
+                          'A metric with a constant \'1\' value labeled by version of vmware-exporter.',
+                          ["version"], registry=registry)
+                g.labels(version=__version__)
         else:
             registry = CollectorRegistry()
 
