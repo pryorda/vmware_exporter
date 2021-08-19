@@ -1721,3 +1721,11 @@ def test_valid_loglevel_cli_argument():
 def test_main():
     with pytest.raises(SystemExit):
         main(['-h', '-l debug'])
+
+
+def test_version(capsys):
+    with pytest.raises(SystemExit):
+        main(['-v'])
+    captured = capsys.readouterr()
+    assert captured.out.startswith("vmware_exporter")
+    assert captured.err == ""

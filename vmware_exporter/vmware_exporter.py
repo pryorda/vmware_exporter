@@ -49,6 +49,8 @@ from prometheus_client import CollectorRegistry, generate_latest
 from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
 
+from .__init__ import __version__
+
 
 class VmwareCollector():
 
@@ -2037,6 +2039,9 @@ def main(argv=None):
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
                         default="INFO", help="Set application loglevel INFO, DEBUG")
+    parser.add_argument('-v', '--version', action="version",
+                        version='vmware_exporter {version}'.format(version=__version__),
+                        help='Print version and exit')
 
     args = parser.parse_args(argv or sys.argv[1:])
 
