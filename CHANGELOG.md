@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.17.0 (2021-08-19)
+### Feature
+* **add_vm_ds:** Adding vm datastore.  ([`16c8604`](https://github.com/pryorda/vmware_exporter/commit/16c8604ef4e6c77d1eb5f1876ead544fde540967))
+
 ## v0.16.1 (2021-06-10)
 ### Fix
 * **fixing_sensor:** Fix for badly behaving super-micro sensor #271 ([`2d5c196`](https://github.com/pryorda/vmware_exporter/commit/2d5c1965ec21ee6afc1d9ff3063bea3ca93bd99d))
