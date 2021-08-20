@@ -51,6 +51,8 @@ from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
 from .__init__ import __version__
 
+from .__init__ import __version__
+
 
 class VmwareCollector():
 
@@ -94,10 +96,10 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vm_perf': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vmguests': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
-            'snapshots': ['vm_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
             'host_perf': ['host_name', 'dc_name', 'cluster_name'],
@@ -737,6 +739,7 @@ class VmwareCollector():
             'name',
             'runtime.host',
             'parent',
+            'summary.config.vmPathName',
         ]
 
         if self.collect_only['vms'] is True:
@@ -1090,6 +1093,15 @@ class VmwareCollector():
                 host_moid = row['runtime.host']._moId
 
             labels[moid] = [row['name']]
+
+            if 'summary.config.vmPathName' in row:
+                p = row['summary.config.vmPathName']
+                if p[0] == '[':
+                    p = p[1:p.find("]")]
+            else:
+                p = 'n/a'
+
+            labels[moid] = labels[moid] + [p]
 
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
@@ -2048,6 +2060,9 @@ def main(argv=None):
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
                         default="INFO", help="Set application loglevel INFO, DEBUG")
+    parser.add_argument('-v', '--version', action="version",
+                        version='vmware_exporter {version}'.format(version=__version__),
+                        help='Print version and exit')
 
     args = parser.parse_args(argv or sys.argv[1:])
 

@@ -91,6 +91,7 @@ def test_collect_vms():
                 'summary.config.memorySizeMB': 1024,
                 'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
+                'summary.config.vmPathName': '[datastore-1] vm-1/vm-1.vmx',
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -99,7 +100,7 @@ def test_collect_vms():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-1', 'n/a', 'n/a', 'n/a']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-1', 'datastore-1', 'n/a', 'n/a', 'n/a']}
 
     # Test template True
 
@@ -130,6 +131,7 @@ def test_collect_vms():
                 'summary.config.numCpu': 1,
                 'summary.config.memorySizeMB': 1024,
                 'summary.config.template': True,
+                'summary.config.vmPathName': '[datastore-1] vm-1/vm-1.vmx',
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -141,7 +143,7 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+            'vm-1': ['vm-1', 'datastore-1', 'host-1', 'dc', 'cluster-1'],
         }
 
     assert metrics['vmware_vm_template'].samples[0][2] == 1.0
@@ -176,6 +178,7 @@ def test_collect_vms():
                 'summary.config.memorySizeMB': 1024,
                 'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
+                'summary.config.vmPathName': '[datastore-1] vm-1/vm-1.vmx',
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -190,6 +193,7 @@ def test_collect_vms():
                 'summary.config.memorySizeMB': 1024,
                 'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
+                'summary.config.vmPathName': '[datastore-1] vm-2/vm-2.vmx',
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -205,6 +209,7 @@ def test_collect_vms():
                 'summary.config.memorySizeMB': 1024,
                 'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
+                'summary.config.vmPathName': '[datastore-1] vm-3/vm-3.vmx',
                 'runtime.bootTime': boot_time,
                 'snapshot': snapshot,
                 'guest.disk': [disk],
@@ -216,14 +221,15 @@ def test_collect_vms():
         yield collector._vmware_get_vms(metrics)
         assert _check_properties(batch_fetch_properties.call_args[0][1])
         assert collector.vm_labels.result == {
-            'vm-1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
-            'vm-2': ['vm-2', 'n/a', 'n/a', 'n/a'],
-            'vm-3': ['vm-3', 'host-1', 'dc', 'cluster-1'],
+            'vm-1': ['vm-1', 'datastore-1', 'host-1', 'dc', 'cluster-1'],
+            'vm-2': ['vm-2', 'datastore-1', 'n/a', 'n/a', 'n/a'],
+            'vm-3': ['vm-3', 'datastore-1', 'host-1', 'dc', 'cluster-1'],
         }
 
     # Assert that vm-3 skipped #69/#70
     assert metrics['vmware_vm_power_state'].samples[1][1] == {
         'vm_name': 'vm-3',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -232,6 +238,7 @@ def test_collect_vms():
     # General VM metrics
     assert metrics['vmware_vm_power_state'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -240,6 +247,7 @@ def test_collect_vms():
 
     assert metrics['vmware_vm_boot_timestamp_seconds'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -249,6 +257,7 @@ def test_collect_vms():
     # Disk info (vmguest)
     assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -259,6 +268,7 @@ def test_collect_vms():
     # VM tools info (vmguest)
     assert metrics['vmware_vm_guest_tools_running_status'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -268,6 +278,7 @@ def test_collect_vms():
 
     assert metrics['vmware_vm_guest_tools_version'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -277,6 +288,7 @@ def test_collect_vms():
 
     assert metrics['vmware_vm_guest_tools_version_status'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -287,6 +299,7 @@ def test_collect_vms():
     # Snapshots
     assert metrics['vmware_vm_snapshots'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -295,6 +308,7 @@ def test_collect_vms():
 
     assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -304,6 +318,7 @@ def test_collect_vms():
 
     assert metrics['vmware_vm_snapshot_timestamp_seconds'].samples[1][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -314,6 +329,7 @@ def test_collect_vms():
     # Max Memory
     assert metrics['vmware_vm_memory_max'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -323,6 +339,7 @@ def test_collect_vms():
     # Max Cpu
     assert metrics['vmware_vm_max_cpu_usage'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -372,6 +389,7 @@ def test_metrics_without_hostaccess():
                 'summary.config.memorySizeMB': 1024,
                 'runtime.maxCpuUsage': 2400,
                 'summary.config.template': False,
+                'summary.config.vmPathName': '[datastore-1] vm-x/vm-x.vmx',
                 'runtime.bootTime': boot_time,
                 'guest.disk': [disk],
                 'guest.toolsStatus': 'toolsOk',
@@ -379,13 +397,14 @@ def test_metrics_without_hostaccess():
                 'guest.toolsVersionStatus2': 'guestToolsUnmanaged',
             }
         })
-        assert collector.vm_labels.result == {'vm-1': ['vm-x', 'n/a', 'n/a', 'n/a']}
+        assert collector.vm_labels.result == {'vm-1': ['vm-x', 'datastore-1', 'n/a', 'n/a', 'n/a']}
         yield collector._vmware_get_vms(metrics)
 
         # 113 AssertionError {'partition': '/boot'} vs {'host_name': '/boot'}
         assert metrics['vmware_vm_guest_disk_capacity'].samples[0][1] == {
             'vm_name': 'vm-x',
             'partition': '/boot',
+            'ds_name': 'datastore-1',
             'host_name': 'n/a',
             'cluster_name': 'n/a',
             'dc_name': 'n/a',
@@ -395,6 +414,7 @@ def test_metrics_without_hostaccess():
         # but found ['vm-1']
         assert metrics['vmware_vm_power_state'].samples[0][1] == {
             'vm_name': 'vm-x',
+            'ds_name': 'datastore-1',
             'host_name': 'n/a',
             'cluster_name': 'n/a',
             'dc_name': 'n/a',
@@ -554,7 +574,7 @@ def test_collect_vm_perf():
     })
 
     collector.__dict__['vm_labels'] = _succeed({
-        'vm:1': ['vm-1', 'host-1', 'dc', 'cluster-1'],
+        'vm:1': ['vm-1', 'datastore-1', 'host-1', 'dc', 'cluster-1'],
     })
 
     collector.__dict__['vm_inventory'] = _succeed({
@@ -575,6 +595,7 @@ def test_collect_vm_perf():
     # General VM metrics
     assert metrics['vmware_vm_net_transmitted_average'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -583,6 +604,7 @@ def test_collect_vm_perf():
 
     assert metrics['vmware_vm_cpu_demand_average'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -591,6 +613,7 @@ def test_collect_vm_perf():
 
     assert metrics['vmware_vm_disk_maxTotalLatency_latest'].samples[0][1] == {
         'vm_name': 'vm-1',
+        'ds_name': 'datastore-1',
         'host_name': 'host-1',
         'cluster_name': 'cluster-1',
         'dc_name': 'dc',
@@ -1739,3 +1762,11 @@ def test_valid_loglevel_cli_argument():
 def test_main():
     with pytest.raises(SystemExit):
         main(['-h', '-l debug'])
+
+
+def test_version(capsys):
+    with pytest.raises(SystemExit):
+        main(['-v'])
+    captured = capsys.readouterr()
+    assert captured.out.startswith("vmware_exporter")
+    assert captured.err == ""
