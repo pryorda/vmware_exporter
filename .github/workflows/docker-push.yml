@@ -16,7 +16,7 @@ jobs:
       uses: redhat-actions/buildah-build@v2
       with:
         image: vmware_exporter
-        tags: latest ${{ github.sha }} ${{ github.ref }}
+        tags: latest ${{ github.sha }} ${{ github.event.release.tag_name }}
         dockerfiles: |
           ./Dockerfile
 
