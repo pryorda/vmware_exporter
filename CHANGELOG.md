@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.18.1 (2021-09-26)
+### Fix
+* **fix_tag:** Adding dhub automation - fix tag ([#292](https://github.com/pryorda/vmware_exporter/issues/292)) ([`c3d7830`](https://github.com/pryorda/vmware_exporter/commit/c3d7830ea92567c21b5e5db51ead6ad3983c4082))
+
 ## v0.18.0 (2021-09-26)
 ### Feature
 * **adding_dhub_automation:** Adding dhub automation ([#291](https://github.com/pryorda/vmware_exporter/issues/291)) ([`ba56f30`](https://github.com/pryorda/vmware_exporter/commit/ba56f300d1d2c2e7439e1f3406aada1e0111ed34))
