@@ -1094,7 +1094,7 @@ class VmwareCollector():
 
             if 'summary.config.vmPathName' in row:
                 p = row['summary.config.vmPathName']
-                if p[0] == '[':
+                if p.startswith('['):
                     p = p[1:p.find("]")]
             else:
                 p = 'n/a'
