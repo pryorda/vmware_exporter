@@ -5,6 +5,6 @@ metadata:
   annotations:
     github.com/project-slug: pryorda/vmware_exporter
 spec:
-  type: other
+  type: service
   lifecycle: unknown
   owner: production-engineering
