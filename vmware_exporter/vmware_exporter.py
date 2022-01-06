@@ -62,7 +62,8 @@ class VmwareCollector():
             fetch_custom_attributes=False,
             ignore_ssl=False,
             fetch_tags=False,
-            fetch_alarms=False
+            fetch_alarms=False,
+            timeout=None
     ):
 
         self.host = host
@@ -71,6 +72,7 @@ class VmwareCollector():
         self.ignore_ssl = ignore_ssl
         self.collect_only = collect_only
         self.specs_size = int(specs_size)
+        self.timeout = int(timeout) if timeout else None
 
         self._session = None
 
@@ -425,8 +427,14 @@ class VmwareCollector():
 
         return metrics
 
-    @defer.inlineCallbacks
     def collect(self):
+        d_collect = self._collect()
+        if self.timeout is not None:
+            d_collect.addTimeout(self.timeout, reactor)
+        return d_collect
+
+    @defer.inlineCallbacks
+    def _collect(self):
         """ collects metrics """
         vsphere_host = self.host
 
@@ -455,9 +463,10 @@ class VmwareCollector():
             tasks.append(self._vmware_get_hosts(metrics))
             tasks.append(self._vmware_get_host_perf_manager_metrics(metrics))
 
-        yield parallelize(*tasks)
-
-        yield self._vmware_disconnect()
+        try:
+            yield parallelize(*tasks)
+        finally:
+            yield self._vmware_disconnect()
 
         logging.info("Finished collecting metrics from {vsphere_host}".format(vsphere_host=vsphere_host))
 
@@ -1949,7 +1958,8 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
                     'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
                     'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
-                }
+                },
+                'timeout': get_bool_env('VSPHERE_TIMEOUT', 120),
             }
 
         for key in os.environ.keys():
@@ -1975,7 +1985,8 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
                     'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
                     'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
-                }
+                },
+                'timeout': get_bool_env('VSPHERE_{}_TIMEOUT'.format(section), 120),
             }
 
     def render_GET(self, request):
@@ -2037,6 +2048,7 @@ class VMWareMetricsResource(Resource):
             self.config[section]['ignore_ssl'],
             self.config[section]['fetch_tags'],
             self.config[section]['fetch_alarms'],
+            self.config[section]['timeout'],
         )
         metrics = yield collector.collect()
 
