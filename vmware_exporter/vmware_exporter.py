@@ -2019,7 +2019,7 @@ class VMWareMetricsResource(Resource):
                 logging.info("{} is not a valid section, using default".format(section))
                 section = 'default'
             else:
-                request.setResponseCode(500)
+                request.setResponseCode(400)
                 logging.info("Invalid section and no default defined")
                 request.write(b'Invalid section defined!\n')
                 request.finish()
