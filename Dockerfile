@@ -3,6 +3,10 @@ FROM python:3.7-alpine
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter
 
+# Install custom CA certificates, if any are given
+COPY certs/* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
 WORKDIR /opt/vmware_exporter/
 COPY . /opt/vmware_exporter/
 
