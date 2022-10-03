@@ -557,7 +557,10 @@
   ],
   "schemaVersion": 14,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "vmware",
+    "esx"
+  ],
   "templating": {
     "list": [
       {

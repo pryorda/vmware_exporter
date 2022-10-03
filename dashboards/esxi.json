@@ -1701,7 +1701,6 @@
   "schemaVersion": 20,
   "style": "dark",
   "tags": [
-    "prometheus",
     "vmware",
     "esxi"
   ],

@@ -1899,7 +1899,9 @@
   ],
   "schemaVersion": 20,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "vmware"
+  ],
   "templating": {
     "list": [
       {
