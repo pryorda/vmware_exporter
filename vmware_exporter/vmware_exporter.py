@@ -62,6 +62,7 @@ class VmwareCollector():
             collect_only,
             specs_size,
             fetch_custom_attributes=False,
+            custom_attributes_allowed=[],
             ignore_ssl=False,
             fetch_tags=False,
             fetch_alarms=False
@@ -79,6 +80,7 @@ class VmwareCollector():
         # Custom Attributes
         # flag to wheter fetch custom attributes or not
         self.fetch_custom_attributes = fetch_custom_attributes
+        self.custom_attributes_allowed = custom_attributes_allowed
         # vms, hosts and datastores custom attributes must be stored by their moid
         self._vmsCustomAttributes = {}
         self._hostsCustomAttributes = {}
@@ -656,6 +658,11 @@ class VmwareCollector():
                     for ds_moId, ds in datastores.items()
                 ]
             )
+            if len(self.custom_attributes_allowed):
+                for k,v in self._datastoresCustomAttributes.items():
+                    for attr in list(v.keys()):
+                        if attr not in self.custom_attributes_allowed:
+                            del v[attr]
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.Datastore inventory ({fetch_time})".format(fetch_time=fetch_time))
@@ -722,6 +729,11 @@ class VmwareCollector():
                     for host_moId, host in host_systems.items()
                 ]
             )
+            if len(self.custom_attributes_allowed):
+                for k,v in self._hostsCustomAttributes.items():
+                    for attr in list(v.keys()):
+                        if attr not in self.custom_attributes_allowed:
+                            del v[attr]
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.HostSystem inventory ({fetch_time})".format(fetch_time=fetch_time))
@@ -791,6 +803,11 @@ class VmwareCollector():
                     for vm_moId, vm in virtual_machines.items()
                 ]
             )
+            if len(self.custom_attributes_allowed):
+                for k,v in self._vmsCustomAttributes.items():
+                    for attr in list(v.keys()):
+                        if attr not in self.custom_attributes_allowed:
+                            del v[attr]
 
         fetch_time = datetime.datetime.utcnow() - start
         logging.info("Fetched vim.VirtualMachine inventory ({fetch_time})".format(fetch_time=fetch_time))
@@ -1888,6 +1905,7 @@ class VMWareMetricsResource(Resource):
                 'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
                 'specs_size': os.environ.get('VSPHERE_SPECS_SIZE', 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', False),
+                'custom_attributes_allowed': os.environ.get('VSPHERE_CUSTOM_ATTRIBUTES_ALLOWED').split(","),
                 'fetch_tags': get_bool_env('VSPHERE_FETCH_TAGS', False),
                 'fetch_alarms': get_bool_env('VSPHERE_FETCH_ALARMS', False),
                 'collect_only': {
@@ -1915,6 +1933,7 @@ class VMWareMetricsResource(Resource):
                 'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
                 'specs_size': os.environ.get('VSPHERE_{}_SPECS_SIZE'.format(section), 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), False),
+                'custom_attributes_allowed': os.environ.get('VSPHERE_{}_CUSTOM_ATTRIBUTES_ALLOWED').split(","),
                 'fetch_tags': get_bool_env('VSPHERE_{}_FETCH_TAGS'.format(section), False),
                 'fetch_alarms': get_bool_env('VSPHERE_{}_FETCH_ALARMS'.format(section), False),
                 'collect_only': {
@@ -1966,6 +1985,11 @@ class VMWareMetricsResource(Resource):
             request.finish()
             return
 
+        if self.config[section].get('custom_attributes_allowed') and self.config[section].get('custom_attributes_allowed') != "None":
+            custom_attributes_allowed = self.config[section].get('custom_attributes_allowed')
+        else:
+            custom_attributes_allowed=[]
+
         collector = VmwareCollector(
             vsphere_host,
             self.config[section]['vsphere_user'],
@@ -1973,6 +1997,7 @@ class VMWareMetricsResource(Resource):
             self.config[section]['collect_only'],
             self.config[section]['specs_size'],
             self.config[section]['fetch_custom_attributes'],
+            custom_attributes_allowed,
             self.config[section]['ignore_ssl'],
             self.config[section]['fetch_tags'],
             self.config[section]['fetch_alarms'],
