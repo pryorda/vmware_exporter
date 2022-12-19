@@ -46,7 +46,7 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env
+from .helpers import batch_fetch_properties, get_bool_env, get_list_env
 from .defer import parallelize, run_once_property
 
 from .__init__ import __version__
@@ -1905,7 +1905,7 @@ class VMWareMetricsResource(Resource):
                 'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
                 'specs_size': os.environ.get('VSPHERE_SPECS_SIZE', 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', False),
-                'custom_attributes_allowed': os.environ.get('VSPHERE_CUSTOM_ATTRIBUTES_ALLOWED').split(","),
+                'custom_attributes_allowed': get_list_env('VSPHERE_CUSTOM_ATTRIBUTES_ALLOWED'),
                 'fetch_tags': get_bool_env('VSPHERE_FETCH_TAGS', False),
                 'fetch_alarms': get_bool_env('VSPHERE_FETCH_ALARMS', False),
                 'collect_only': {
@@ -1933,7 +1933,7 @@ class VMWareMetricsResource(Resource):
                 'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
                 'specs_size': os.environ.get('VSPHERE_{}_SPECS_SIZE'.format(section), 5000),
                 'fetch_custom_attributes': get_bool_env('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), False),
-                'custom_attributes_allowed': os.environ.get('VSPHERE_{}_CUSTOM_ATTRIBUTES_ALLOWED').split(","),
+                'custom_attributes_allowed': get_list_env('VSPHERE_{}_CUSTOM_ATTRIBUTES_ALLOWED'),
                 'fetch_tags': get_bool_env('VSPHERE_{}_FETCH_TAGS'.format(section), False),
                 'fetch_alarms': get_bool_env('VSPHERE_{}_FETCH_ALARMS'.format(section), False),
                 'collect_only': {
