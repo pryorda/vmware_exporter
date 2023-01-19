@@ -94,9 +94,9 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
+            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
+            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
             'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
@@ -756,6 +756,7 @@ class VmwareCollector():
                 'guest.toolsStatus',
                 'guest.toolsVersion',
                 'guest.toolsVersionStatus2',
+                'guest.ipAddress',
             ])
 
         if self.collect_only['snapshots'] is True:
@@ -1103,6 +1104,9 @@ class VmwareCollector():
 
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
+
+            if 'guest.ipAddress' in row:
+                labels[moid] = labels[moid] + [row['guest.ipAddress']]
 
             """
             this code was in vm_inventory before
