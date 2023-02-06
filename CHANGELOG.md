@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.18.4 (2022-10-11)
+### Fix
+* **update_dashboards:** Updating datasource and adding prefix ([`a42968f`](https://github.com/pryorda/vmware_exporter/commit/a42968f0cb87598558f48f99d5341a36ab1175f1))
+
 ## v0.18.3 (2022-03-25)
 ### Fix
 * **empty_string:** #294 ([`a806b1d`](https://github.com/pryorda/vmware_exporter/commit/a806b1da9f65c965769903ad5691ec1449965ddd))
