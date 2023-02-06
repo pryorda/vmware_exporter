@@ -385,38 +385,6 @@ class VmwareCollector():
                     )
                 }
             )
-            # metric_list['vmguests'].update(
-            #    {
-            #        'vmware_vm_yellow_alarms': GaugeMetricFamily(
-            #            'vmware_vm_yellow_alarms',
-            #            'A metric with the amount of virtual machine yellow alarms and \
-            #                    labeled with the list of alarm names',
-            #            labels=self._labelNames['vms'] + ['alarms']
-            #        ),
-            #        'vmware_vm_red_alarms': GaugeMetricFamily(
-            #            'vmware_vm_red_alarms',
-            #            'A metric with the amount of virtual machine red alarms and \
-            #                    labeled with the list of alarm names',
-            #            labels=self._labelNames['vms'] + ['alarms']
-            #        )
-            #    }
-            # )
-            # metric_list['snapshots'].update(
-            #    {
-            #        'vmware_vm_yellow_alarms': GaugeMetricFamily(
-            #            'vmware_vm_yellow_alarms',
-            #            'A metric with the amount of virtual machine yellow alarms and \
-            #                    labeled with the list of alarm names',
-            #            labels=self._labelNames['vms'] + ['alarms']
-            #        ),
-            #        'vmware_vm_red_alarms': GaugeMetricFamily(
-            #            'vmware_vm_red_alarms',
-            #            'A metric with the amount of virtual machine red alarms and \
-            #                    labeled with the list of alarm names',
-            #            labels=self._labelNames['vms'] + ['alarms']
-            #        )
-            #    }
-            # )
 
         metrics = {}
         for key, value in self.collect_only.items():
