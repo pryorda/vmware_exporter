@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: vmware_exporter
+  annotations:
+    github.com/project-slug: pryorda/vmware_exporter
+spec:
+  type: service
+  lifecycle: unknown
+  owner: production-engineering

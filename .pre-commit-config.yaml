@@ -16,6 +16,8 @@ repos:
     stages: [commit]
   - id: detect-aws-credentials
     stages: [commit]
+    args:
+      - --allow-missing-credentials
   # Generic file state
   - id: trailing-whitespace
     stages: [commit]
@@ -45,6 +47,7 @@ repos:
   - id: dockerfilelint
     stages: [commit]
 - repo: https://github.com/mattlqx/pre-commit-sign
-  rev: v1.1.1
+  rev: v1.1.3
   hooks:
   - id: sign-commit
+    stages: [commit-msg]

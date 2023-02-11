@@ -4,6 +4,34 @@ This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a ch
 
  <!--next-version-placeholder-->
 
+## v0.18.4 (2022-10-11)
+### Fix
+* **update_dashboards:** Updating datasource and adding prefix ([`a42968f`](https://github.com/pryorda/vmware_exporter/commit/a42968f0cb87598558f48f99d5341a36ab1175f1))
+
+## v0.18.3 (2022-03-25)
+### Fix
+* **empty_string:** #294 ([`a806b1d`](https://github.com/pryorda/vmware_exporter/commit/a806b1da9f65c965769903ad5691ec1449965ddd))
+
+## v0.18.2 (2021-09-26)
+### Fix
+* **fix_image:** Adding dhub automation - fix image ([#293](https://github.com/pryorda/vmware_exporter/issues/293)) ([`1b8bd18`](https://github.com/pryorda/vmware_exporter/commit/1b8bd18c22613582bdcbd1a5f488ca2f63b1e364))
+
+## v0.18.1 (2021-09-26)
+### Fix
+* **fix_tag:** Adding dhub automation - fix tag ([#292](https://github.com/pryorda/vmware_exporter/issues/292)) ([`c3d7830`](https://github.com/pryorda/vmware_exporter/commit/c3d7830ea92567c21b5e5db51ead6ad3983c4082))
+
+## v0.18.0 (2021-09-26)
+### Feature
+* **adding_dhub_automation:** Adding dhub automation ([#291](https://github.com/pryorda/vmware_exporter/issues/291)) ([`ba56f30`](https://github.com/pryorda/vmware_exporter/commit/ba56f300d1d2c2e7439e1f3406aada1e0111ed34))
+
+## v0.17.1 (2021-08-19)
+### Fix
+* **adding_version:** Adding version cli ([`f83b058`](https://github.com/pryorda/vmware_exporter/commit/f83b0580f58bc2d3c7d53f99194d03ef02a02758))
+
+## v0.17.0 (2021-08-19)
+### Feature
+* **add_vm_ds:** Adding vm datastore.  ([`16c8604`](https://github.com/pryorda/vmware_exporter/commit/16c8604ef4e6c77d1eb5f1876ead544fde540967))
+
 ## v0.16.1 (2021-06-10)
 ### Fix
 * **fixing_sensor:** Fix for badly behaving super-micro sensor #271 ([`2d5c196`](https://github.com/pryorda/vmware_exporter/commit/2d5c1965ec21ee6afc1d9ff3063bea3ca93bd99d))
