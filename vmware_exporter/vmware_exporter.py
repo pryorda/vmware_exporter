@@ -1900,7 +1900,6 @@ class VMWareMetricsResource(Resource):
         self.configure(args)
 
     def configure(self, args):
-        self.allow_url_target = args.allow_url_target
         if args.config_file:
             try:
                 with open(args.config_file) as cf:
@@ -1993,21 +1992,8 @@ class VMWareMetricsResource(Resource):
                 request.finish()
                 return
 
-        if (self.config[section].get('vsphere_host') or "None") != "None":
-            vsphere_host = self.config[section]['vsphere_host']
-        elif self.allow_url_target and request.args.get(b'target', [None])[0]:
-            vsphere_host = request.args.get(b'target', [None])[0].decode('utf-8')
-        elif self.allow_url_target and request.args.get(b'vsphere_host', [None])[0]:
-            vsphere_host = request.args.get(b'vsphere_host')[0].decode('utf-8')
-        else:
-            request.setResponseCode(500)
-            logging.info("No vsphere_host or target defined")
-            request.write(b'No vsphere_host or target defined!\n')
-            request.finish()
-            return
-
         collector = VmwareCollector(
-            vsphere_host,
+            self.config[section]['vsphere_host'],
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
@@ -2080,8 +2066,6 @@ def main(argv=None):
                         default=9272, help="HTTP port to expose metrics")
     parser.add_argument('-l', '--loglevel', dest='loglevel',
                         default="INFO", help="Set application loglevel INFO, DEBUG")
-    parser.add_argument('--allow-url-target', action='store_true',
-                        help="Allow vsphere host to be specified as url a parameter")
 
     args = parser.parse_args(argv or sys.argv[1:])
 
