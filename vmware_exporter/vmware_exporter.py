@@ -1349,6 +1349,7 @@ class VmwareCollector():
             'net.broadcastRx.summation',
             'net.droppedRx.summation',
             'net.droppedTx.summation',
+            'sys.uptime.latest',
         ]
 
         # Prepare gauges
@@ -1370,7 +1371,7 @@ class VmwareCollector():
             counter_key = counter_info[perf_metric]
             metrics.append(vim.PerformanceManager.MetricId(
                 counterId=counter_key,
-                instance=''
+                instance='*'
             ))
             metric_names[counter_key] = perf_metric_name
 
@@ -1427,6 +1428,8 @@ class VmwareCollector():
             'cpu.used.summation',
             'disk.read.average',
             'disk.write.average',
+            'disk.deviceReadLatency.average',
+            'disk.deviceWriteLatency.average',
             'mem.active.average',
             'mem.latency.average',
             'mem.swapin.average',
@@ -1441,6 +1444,12 @@ class VmwareCollector():
             'net.errorsRx.summation',
             'net.errorsTx.summation',
             'net.usage.average',
+            'storageAdapter.totalReadLatency.average',
+            'storageAdapter.totalWriteLatency.average',
+            'datastore.datastoreNormalReadLatency.latest',
+            'datastore.datastoreNormalWriteLatency.latest',
+            'datastore.datastoreReadIops.latest',
+            'datastore.datastoreWriteIops.latest',
         ]
 
         # Prepare gauges
@@ -1459,7 +1468,7 @@ class VmwareCollector():
             counter_key = counter_info[perf_metric]
             metrics.append(vim.PerformanceManager.MetricId(
                 counterId=counter_key,
-                instance=''
+                instance='*'
             ))
             metric_names[counter_key] = perf_metric_name
 
