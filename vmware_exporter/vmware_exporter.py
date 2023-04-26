@@ -46,7 +46,7 @@ from pyVim import connect
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client import CollectorRegistry, generate_latest
 
-from .helpers import batch_fetch_properties, get_bool_env
+from .helpers import batch_fetch_properties, batch_fetch_properties_folder_tree, compute_ancestors, get_bool_env
 from .defer import parallelize, run_once_property
 
 from .__init__ import __version__
@@ -94,7 +94,7 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'path', 'bu', 'client', 'project', 'platform'],
             'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
@@ -608,6 +608,17 @@ class VmwareCollector():
         )
         return batch
 
+    @defer.inlineCallbacks
+    def batch_fetch_properties_folder_tree(self, objtype, properties):
+        content = yield self.content
+        batch = yield threads.deferToThread(
+            batch_fetch_properties_folder_tree,
+            content,
+            objtype,
+            properties,
+        )
+        return batch
+
     @run_once_property
     @defer.inlineCallbacks
     def datastore_inventory(self):
@@ -796,6 +807,25 @@ class VmwareCollector():
         logging.info("Fetched vim.VirtualMachine inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return virtual_machines
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def folder_inventory(self):
+        logging.info("Fetching vim.Folder inventory")
+        start = datetime.datetime.utcnow()
+        folder_properties = ['name', 'parent']
+        foldermap = yield self.batch_fetch_properties_folder_tree(vim.Folder, folder_properties)
+#        for fid, f in foldermap.items():
+#            logging.info("FOLDERS : {} {}".format(fid, list(f.keys())))
+#            logging.info("FOLDERS : {} {} {} {}".format(f['obj'], f['id'], f['name'], f['parent']))
+#            if 'path' in f:
+#                logging.info("FOLDERS : {} -> {} - bu={} client={} project={} platform={}".format(fid, f['path'],f['bu'],f['client'],f['project'],f['platform']))
+
+
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.Folder inventory ({fetch_time})".format(fetch_time=fetch_time))
+
+        return foldermap
 
     @defer.inlineCallbacks
     def customAttributesLabelNames(self, metric_type):
@@ -1081,7 +1111,7 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def vm_labels(self):
 
-        virtual_machines, host_labels = yield parallelize(self.vm_inventory, self.host_labels)
+        virtual_machines, host_labels, folders = yield parallelize(self.vm_inventory, self.host_labels, self.folder_inventory)
 
         labels = {}
         for moid, row in virtual_machines.items():
@@ -1090,19 +1120,31 @@ class VmwareCollector():
             if 'runtime.host' in row:
                 host_moid = row['runtime.host']._moId
 
+            # vm name
             labels[moid] = [row['name']]
 
+            # ds name
             if 'summary.config.vmPathName' in row:
                 p = row['summary.config.vmPathName']
                 if p.startswith('['):
                     p = p[1:p.find("]")]
             else:
                 p = 'n/a'
-
             labels[moid] = labels[moid] + [p]
 
+            # # host name, dc name, cluster name
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
+            else:
+                labels[moid] = labels[moid] + ['n/a','n/a','n/a']
+            
+            # path, client, project, platform
+            p = ['n/a','n/a','n/a','n/a','n/a']
+            if 'parent' in row:
+                pid = row['parent']
+                if pid in folders:
+                    p = ["/".join(folders[pid]['path']), folders[pid]['bu'], folders[pid]['client'], folders[pid]['project'], folders[pid]['platform']]
+            labels[moid] = labels[moid] + p
 
             """
             this code was in vm_inventory before

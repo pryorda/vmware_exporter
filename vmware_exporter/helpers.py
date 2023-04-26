@@ -148,3 +148,104 @@ def batch_fetch_properties(content, obj_type, properties):
         results[obj.obj._moId] = properties
 
     return results
+
+
+
+def batch_fetch_properties_folder(content, obj_type, properties):
+    view_ref = content.viewManager.CreateContainerView(
+        container=content.rootFolder,
+        type=[obj_type],
+        recursive=True
+    )
+
+    try:
+        PropertyCollector = vmodl.query.PropertyCollector
+
+        # Describe the list of properties we want to fetch for obj_type
+        property_spec = PropertyCollector.PropertySpec()
+        property_spec.type = obj_type
+        property_spec.pathSet = properties
+
+        # Describe where we want to look for obj_type
+        traversal_spec = PropertyCollector.TraversalSpec()
+        traversal_spec.name = 'traverseEntities'
+        traversal_spec.path = 'view'
+        traversal_spec.skip = False
+        traversal_spec.type = view_ref.__class__
+
+        obj_spec = PropertyCollector.ObjectSpec()
+        obj_spec.obj = view_ref
+        obj_spec.skip = True
+        obj_spec.selectSet = [traversal_spec]
+
+        filter_spec = PropertyCollector.FilterSpec()
+        filter_spec.objectSet = [obj_spec]
+        filter_spec.propSet = [property_spec]
+
+        props = content.propertyCollector.RetrieveContents([filter_spec])
+
+    finally:
+        view_ref.Destroy()
+
+    results = {}
+    for obj in props:
+        properties = {}
+        properties['obj'] = obj.obj
+        properties['id'] = obj.obj._moId
+
+        for prop in obj.propSet:
+                properties[prop.name] = prop.val
+
+        results[obj.obj._moId] = properties
+
+    return results
+
+
+def compute_ancestors(foldermap):
+    for k in foldermap.keys():
+        if not 'path' in foldermap[k]:
+            foldermap[k]['path'] = compute_ancestors_folder(foldermap, k)
+    return foldermap
+
+def compute_ancestors_folder(foldermap, fid):
+    name = foldermap[fid]['name']
+    pid = foldermap[fid]['parent']
+    if pid in foldermap:
+        parent = foldermap[pid]
+        if 'path' in parent:
+            return parent['path'] + [name]
+        else:
+            parent['path'] = compute_ancestors_folder(foldermap, pid)
+            return parent['path'] + [name]
+    return []
+
+def compute_info(foldermap, fid):
+    path = foldermap[fid]['path']
+    bu = 'undefined_bu'
+    client = 'undefined_client'
+    project = 'undefined_project'
+    platform = 'undefined_platform'
+    if len(path) >= 1:
+        bu = path[0]
+        if len(path) >= 2:
+            client = path[1]
+            if len(path) >= 3:
+                project = path[2]
+                if len(path) >= 4:
+                    platform = path[3] 
+    foldermap[fid]['bu'] = bu
+    foldermap[fid]['client'] = client
+    foldermap[fid]['project'] = project
+    foldermap[fid]['platform'] = platform
+
+def batch_fetch_properties_folder_tree(content, obj_type, properties):
+    folders = batch_fetch_properties_folder(content, obj_type, properties)
+    foldermap = {}
+    for fid, f in folders.items():
+            foldermap[f['obj']] = f
+    foldermap = compute_ancestors(foldermap)
+    for k in foldermap.keys():
+        compute_info(foldermap, k)
+    return foldermap
+
+
