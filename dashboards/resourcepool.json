@@ -1,0 +1,844 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 98,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".+vs.+"
+            },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "lcd-gauge"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resource Pool"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 300
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Memory Limit"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decmbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Limit"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "rothz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Reserved"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "rothz"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 0,
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Resource Pool"
+          }
+        ]
+      },
+      "pluginVersion": "9.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * (vmware_resourcepool_memory_overall_usage{resourcepool_name=~\"$resourcepool_name\"} / 1024 / 1024) / vmware_resourcepool_memory_allocation_limit{resourcepool_name=~\"$resourcepool_name\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * (vmware_resourcepool_memory_overall_usage{resourcepool_name=~\"$resourcepool_name\"} / 1024 / 1024) / vmware_resourcepool_memory_allocation_reservation{resourcepool_name=~\"$resourcepool_name\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * (vmware_resourcepool_cpu_overall_usage{resourcepool_name=~\"$resourcepool_name\"}) / vmware_resourcepool_cpu_allocation_limit{resourcepool_name=~\"$resourcepool_name\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "100 * (vmware_resourcepool_cpu_overall_usage{resourcepool_name=~\"$resourcepool_name\"}) / vmware_resourcepool_cpu_allocation_reservation{resourcepool_name=~\"$resourcepool_name\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "vmware_resourcepool_cpu_allocation_limit{resourcepool_name=~\"$resourcepool_name\"} * 1000000",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "vmware_resourcepool_memory_allocation_limit{resourcepool_name=~\"$resourcepool_name\"}",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "vmware_resourcepool_cpu_allocation_reservation{resourcepool_name=~\"$resourcepool_name\"} * 1000000",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "G"
+        }
+      ],
+      "title": "Resource Pool Usage",
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "resourcepool_name"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "Time 6": true,
+              "Time 7": true,
+              "Value #B": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "cluster_name 1": true,
+              "cluster_name 2": true,
+              "cluster_name 3": true,
+              "cluster_name 4": true,
+              "cluster_name 5": true,
+              "cluster_name 6": true,
+              "cluster_name 7": true,
+              "container 1": true,
+              "container 2": true,
+              "container 3": true,
+              "container 4": true,
+              "container 5": true,
+              "container 6": true,
+              "container 7": true,
+              "dc_name 1": true,
+              "dc_name 2": true,
+              "dc_name 3": true,
+              "dc_name 4": true,
+              "dc_name 5": true,
+              "dc_name 6": true,
+              "dc_name 7": true,
+              "endpoint 1": true,
+              "endpoint 2": true,
+              "endpoint 3": true,
+              "endpoint 4": true,
+              "endpoint 5": true,
+              "endpoint 6": true,
+              "endpoint 7": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "instance 5": true,
+              "instance 6": true,
+              "instance 7": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "job 5": true,
+              "job 6": true,
+              "job 7": true,
+              "namespace 1": true,
+              "namespace 2": true,
+              "namespace 3": true,
+              "namespace 4": true,
+              "namespace 5": true,
+              "namespace 6": true,
+              "namespace 7": true,
+              "pod 1": true,
+              "pod 2": true,
+              "pod 3": true,
+              "pod 4": true,
+              "pod 5": true,
+              "pod 6": true,
+              "pod 7": true,
+              "resourcepool_status 1": true,
+              "resourcepool_status 2": true,
+              "resourcepool_status 3": true,
+              "resourcepool_status 4": true,
+              "resourcepool_status 5": true,
+              "resourcepool_status 6": true,
+              "resourcepool_status 7": true,
+              "service 1": true,
+              "service 2": true,
+              "service 3": true,
+              "service 4": true,
+              "service 5": true,
+              "service 6": true,
+              "service 7": true
+            },
+            "indexByName": {
+              "Time 1": 1,
+              "Time 2": 2,
+              "Time 3": 26,
+              "Time 4": 39,
+              "Time 5": 50,
+              "Time 6": 63,
+              "Time 7": 75,
+              "Value #A": 6,
+              "Value #B": 5,
+              "Value #C": 38,
+              "Value #D": 37,
+              "Value #E": 62,
+              "Value #F": 7,
+              "Value #G": 61,
+              "__name__": 74,
+              "cluster_name 1": 8,
+              "cluster_name 2": 17,
+              "cluster_name 3": 27,
+              "cluster_name 4": 40,
+              "cluster_name 5": 51,
+              "cluster_name 6": 64,
+              "cluster_name 7": 76,
+              "container 1": 9,
+              "container 2": 18,
+              "container 3": 28,
+              "container 4": 41,
+              "container 5": 52,
+              "container 6": 65,
+              "container 7": 77,
+              "dc_name 1": 10,
+              "dc_name 2": 3,
+              "dc_name 3": 29,
+              "dc_name 4": 42,
+              "dc_name 5": 53,
+              "dc_name 6": 66,
+              "dc_name 7": 78,
+              "endpoint 1": 11,
+              "endpoint 2": 19,
+              "endpoint 3": 30,
+              "endpoint 4": 43,
+              "endpoint 5": 54,
+              "endpoint 6": 67,
+              "endpoint 7": 79,
+              "instance 1": 12,
+              "instance 2": 20,
+              "instance 3": 31,
+              "instance 4": 44,
+              "instance 5": 55,
+              "instance 6": 68,
+              "instance 7": 80,
+              "job 1": 13,
+              "job 2": 21,
+              "job 3": 32,
+              "job 4": 45,
+              "job 5": 56,
+              "job 6": 69,
+              "job 7": 81,
+              "namespace 1": 14,
+              "namespace 2": 22,
+              "namespace 3": 33,
+              "namespace 4": 46,
+              "namespace 5": 57,
+              "namespace 6": 70,
+              "namespace 7": 82,
+              "pod 1": 15,
+              "pod 2": 23,
+              "pod 3": 34,
+              "pod 4": 47,
+              "pod 5": 58,
+              "pod 6": 71,
+              "pod 7": 83,
+              "resourcepool_name": 0,
+              "resourcepool_status 1": 4,
+              "resourcepool_status 2": 24,
+              "resourcepool_status 3": 35,
+              "resourcepool_status 4": 48,
+              "resourcepool_status 5": 59,
+              "resourcepool_status 6": 72,
+              "resourcepool_status 7": 84,
+              "service 1": 16,
+              "service 2": 25,
+              "service 3": 36,
+              "service 4": 49,
+              "service 5": 60,
+              "service 6": 73,
+              "service 7": 85
+            },
+            "renameByName": {
+              "Value #A": "Mem vs Limit",
+              "Value #B": "Mem vs Reservation",
+              "Value #C": "CPU vs Limit",
+              "Value #D": "CPU vs Reservation",
+              "Value #E": "CPU Limit",
+              "Value #F": "Memory Limit",
+              "Value #G": "CPU Reserved",
+              "dc_name 2": "DC",
+              "resourcepool_name": "Resource Pool",
+              "resourcepool_status 1": "Status"
+            }
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Time.+"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".+\\ Hz"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "hertz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".+\\ %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.displayMode",
+                "value": "lcd-gauge"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "#6ED0E0",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "#EAB839",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 1.2
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "max",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".+\\ MB"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decmbytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Resource Pool"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 308
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 204,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 0,
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Resource Pool"
+          }
+        ]
+      },
+      "pluginVersion": "9.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (resourcepool_name) (vmware_vm_num_cpu{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (resourcepool_name) (vmware_vm_num_cpu{resourcepool_name=~\"$resourcepool_name\"} * 2400000000)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "max by (resourcepool_name) (vmware_resourcepool_cpu_allocation_limit{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": true,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (resourcepool_name) (vmware_vm_num_cpu{resourcepool_name=~\"$resourcepool_name\"} * 2400)",
+          "format": "table",
+          "hide": true,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (resourcepool_name) (vmware_vm_num_cpu{resourcepool_name=~\"$resourcepool_name\"} * 2400) / max by (resourcepool_name) (vmware_resourcepool_cpu_allocation_limit{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "max by (resourcepool_name) (vmware_vm_num_cpu{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (resourcepool_name) (vmware_vm_memory_max{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "{{resourcepool_name}}",
+          "range": false,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "max by (resourcepool_name) (vmware_vm_memory_max{resourcepool_name=~\"$resourcepool_name\"})",
+          "format": "table",
+          "hide": false,
+          "interval": "",
+          "legendFormat": "{{resourcepool_name}}",
+          "range": true,
+          "refId": "H"
+        }
+      ],
+      "title": "Resource Pool Breakdown",
+      "transformations": [
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "resourcepool_name"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": false,
+              "Time 2": false
+            },
+            "indexByName": {},
+            "renameByName": {
+              "Value": "Aantal CPU",
+              "Value #A": "Claimde CPU",
+              "Value #B": "Claimde CPU Hz",
+              "Value #C": "RP Limit",
+              "Value #D": "Geclaimde CPU MHz",
+              "Value #E": "Overcommit Ratio %",
+              "Value #F": "Largest claim CPU",
+              "Value #G": "Claimde MEM MB",
+              "Value #H": "Largest claim MEM MB",
+              "resourcepool_name": "Resource Pool"
+            }
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(vmware_resourcepool_cpu_overall_usage, resourcepool_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Resource Pool",
+        "multi": true,
+        "name": "resourcepool_name",
+        "options": [],
+        "query": {
+          "query": "label_values(vmware_resourcepool_cpu_overall_usage, resourcepool_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m"
+    ]
+  },
+  "timezone": "",
+  "title": "VMWare Resourcepool",
+  "uid": "9MZxpgWSk",
+  "version": 2,
+  "weekStart": ""
+}

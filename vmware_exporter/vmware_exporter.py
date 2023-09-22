@@ -83,10 +83,15 @@ class VmwareCollector():
         self._vmsCustomAttributes = {}
         self._hostsCustomAttributes = {}
         self._datastoresCustomAttributes = {}
+        self._vmsPoolAttributes = {}
 
         # Tags
         # flag to wheter fetch tags or not
         self.fetch_tags = fetch_tags
+
+        # Resourcepools
+        # flag to wheter fetch resourcepools or not
+        self.fetch_resourcepools = collect_only['resourcepools'] is True
 
         # Alarms
         # flag wheter to fetch alarms or not
@@ -101,7 +106,12 @@ class VmwareCollector():
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
             'host_perf': ['host_name', 'dc_name', 'cluster_name'],
+            'resourcepools': ['resourcepool_name', 'dc_name', 'cluster_name', 'resourcepool_status'],
         }
+
+        # if resourcepools are gonna be fetched, 'resourcepool_name' will be a label too
+        if self.fetch_resourcepools:
+            self._labelNames['vms'].append('resourcepool_name')
 
         # if tags are gonna be fetched 'tags' will be a label too
         if self.fetch_tags:
@@ -177,6 +187,88 @@ class VmwareCollector():
                 'vmware_vm_snapshot_timestamp_seconds',
                 'VMWare Snapshot creation time in seconds',
                 labels=self._labelNames['snapshots'] + ['vm_snapshot_name']),
+        }
+        metric_list['resourcepools'] = {
+            'vmware_resourcepool_cpu_allocation_expandable_reservation': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_allocation_expandable_reservation',
+                'VMWare Resource Pool CPU Allocation expandable reservation',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_allocation_limit': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_allocation_limit',
+                'VMWare Resource Pool CPU Allocation limit',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_allocation_overhead_limit': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_allocation_overhead_limit',
+                'VMWare Resource Pool CPU Allocation overhead limit',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_allocation_reservation': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_allocation_reservation',
+                'VMWare Resource Pool CPU Allocation reservation',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_allocation_expandable_reservation': GaugeMetricFamily(
+                'vmware_resourcepool_memory_allocation_expandable_reservation',
+                'VMWare Resource Pool Memory Allocation expandable reservation',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_allocation_limit': GaugeMetricFamily(
+                'vmware_resourcepool_memory_allocation_limit',
+                'VMWare Resource Pool Memory Allocation limit',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_allocation_overhead_limit': GaugeMetricFamily(
+                'vmware_resourcepool_memory_allocation_overhead_limit',
+                'VMWare Resource Pool Memory Allocation overhead limit',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_allocation_reservation': GaugeMetricFamily(
+                'vmware_resourcepool_memory_allocation_reservation',
+                'VMWare Resource Pool Memory Allocation reservation',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_max_usage': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_max_usage',
+                'VMWare Resource Pool Max CPU usage',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_overall_usage': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_overall_usage',
+                'VMWare Resource Pool Overall CPU usage',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_reservation_used': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_reservation_used',
+                'VMWare Resource Pool CPU reservation used',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_reservation_used_for_vm': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_reservation_used_for_vm',
+                'VMWare Resource Pool CPU reservation used for VMs',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_unreserved_for_pool': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_unreserved_for_pool',
+                'VMWare Resource Pool CPU unreserved for pool',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_cpu_unreserved_for_vm': GaugeMetricFamily(
+                'vmware_resourcepool_cpu_unreserved_for_vm',
+                'VMWare Resource Pool CPU unreserved for VMs',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_max_usage': GaugeMetricFamily(
+                'vmware_resourcepool_memory_max_usage',
+                'VMWare Resource Pool Max Memory usage',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_overall_usage': GaugeMetricFamily(
+                'vmware_resourcepool_memory_overall_usage',
+                'VMWare Resource Pool Overall Memory usage',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_reservation_used': GaugeMetricFamily(
+                'vmware_resourcepool_memory_reservation_used',
+                'VMWare Resource Pool Memory reservation used',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_reservation_used_for_vm': GaugeMetricFamily(
+                'vmware_resourcepool_memory_reservation_used_for_vm',
+                'VMWare Resource Pool Memory reservation used for VMs',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_unreserved_for_pool': GaugeMetricFamily(
+                'vmware_resourcepool_memory_unreserved_for_pool',
+                'VMWare Resource Pool Memory unreserved for pool',
+                labels=self._labelNames['resourcepools']),
+            'vmware_resourcepool_memory_unreserved_for_vm': GaugeMetricFamily(
+                'vmware_resourcepool_memory_unreserved_for_vm',
+                'VMWare Resource Pool Memory unreserved for VMs',
+                labels=self._labelNames['resourcepools']),
         }
         metric_list['datastores'] = {
             'vmware_datastore_capacity_size': GaugeMetricFamily(
@@ -423,6 +515,10 @@ class VmwareCollector():
         if collect_only['datastores'] is True:
             tasks.append(self._vmware_get_datastores(metrics, ))
 
+        # Collect Resource Pool metrics
+        if collect_only['resourcepools'] is True:
+            tasks.append(self._vmware_get_resourcepool(metrics))
+
         if collect_only['hosts'] is True:
             tasks.append(self._vmware_get_hosts(metrics))
             tasks.append(self._vmware_get_host_perf_manager_metrics(metrics))
@@ -662,6 +758,32 @@ class VmwareCollector():
 
         return datastores
 
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def resourcepool_inventory(self):
+        logging.info("Fetching vim.ResourcePool inventory")
+        start = datetime.datetime.utcnow()
+        properties = [
+            'name',
+            'parent',
+            'config.memoryAllocation',
+            'config.cpuAllocation',
+            'runtime.cpu',
+            'runtime.memory'
+        ]
+
+        resource_pools = yield self.batch_fetch_properties(
+            vim.ResourcePool,
+            properties,
+        )
+
+        fetch_time = datetime.datetime.utcnow() - start
+        logging.info("Fetched vim.ResourcePool inventory ({fetch_time})".format(fetch_time=fetch_time))
+
+        return resource_pools
+
+
     @run_once_property
     @defer.inlineCallbacks
     def host_system_inventory(self):
@@ -761,6 +883,9 @@ class VmwareCollector():
         if self.collect_only['snapshots'] is True:
             properties.append('snapshot')
 
+        if self.collect_only['resourcepools'] is True:
+            properties.append('resourcePool')
+
         """
         papa smurf, are we collecting custom attributes?
         """
@@ -777,6 +902,18 @@ class VmwareCollector():
             vim.VirtualMachine,
             properties,
         )
+
+        """
+        Translate the resourcePool interface to name.
+        """
+        if self.fetch_resourcepools:
+            self._vmsPoolAttributes = dict(
+                [
+                    (vm_modId, (vm['resourcePool'].name if 'resourcePool' in vm else '-'))
+                    for vm_modId, vm in virtual_machines.items()
+                ]
+            )
+
 
         """
         once custom attributes are fetched,
@@ -974,6 +1111,40 @@ class VmwareCollector():
         datacenters = yield threads.deferToThread(lambda: content.rootFolder.childEntity)
         return datacenters
 
+
+    @run_once_property
+    @defer.inlineCallbacks
+    def resourcepool_labels(self):
+
+        def _collect(node, level=1, dc=None, ccr=""):
+            inventory = {}
+            if isinstance(node, vim.Folder) and not isinstance(node, vim.StoragePod):
+                logging.debug("[Folder    ] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
+                for child in node.childEntity:
+                    inventory.update(_collect(child, level + 1, dc))
+            elif isinstance(node, vim.Datacenter):
+                logging.debug("[Datacenter] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
+                inventory.update(_collect(node.hostFolder, level + 1, node.name))
+            elif isinstance(node, vim.ClusterComputeResource):
+                logging.debug("[Compute   ] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
+                inventory.update(_collect(node.resourcePool, level + 1, dc, node.name))
+            elif isinstance(node, vim.ResourcePool):
+                for resourcePool in node.resourcePool:
+                    logging.debug("[Pool      ] {level} {name}".format(name=node.name, level=('-' * level).ljust(7)))
+                    inventory[resourcePool.name] = [resourcePool.name, dc, ccr, resourcePool.overallStatus]
+            else:
+                logging.debug("[?         ] {level} {node}".format(node=node, level=('-' * level).ljust(7)))
+            return inventory
+
+        labels = {}
+        dcs = yield self.datacenter_inventory
+        for dc in dcs:
+            result = yield threads.deferToThread(lambda: _collect(dc))
+            labels.update(result)
+
+        return labels
+
+
     @run_once_property
     @defer.inlineCallbacks
     def datastore_labels(self):
@@ -1111,6 +1282,9 @@ class VmwareCollector():
             """
             labels_cnt = len(labels[moid])
             if self.fetch_tags:
+                labels_cnt += 1
+
+            if self.fetch_resourcepools:
                 labels_cnt += 1
 
             if labels_cnt < len(self._labelNames['vms']):
@@ -1490,6 +1664,76 @@ class VmwareCollector():
 
         logging.info('FIN: _vmware_get_host_perf_manager_metrics')
 
+
+    @defer.inlineCallbacks
+    def _vmware_get_resourcepool(self, metrics):
+        """
+        Get Resource Pool information
+        """
+        logging.info("Starting rp metrics collection")
+
+        results, resourcepool_labels = yield parallelize(self.resourcepool_inventory, self.resourcepool_labels)
+
+        for resourcepool_id, resourcepool in results.items():
+            name = resourcepool['name']
+            # Skip the "root" resource pool
+            if name == 'Resources':
+                continue
+            labels = resourcepool_labels[name]
+
+            configCpuAllocation = resourcepool.get('config.cpuAllocation')
+
+            var = bool(configCpuAllocation.expandableReservation)
+            metrics['vmware_resourcepool_cpu_allocation_expandable_reservation'].add_metric(labels, var)
+            var = float(configCpuAllocation.limit if configCpuAllocation.limit is not None else 0)
+            metrics['vmware_resourcepool_cpu_allocation_limit'].add_metric(labels, var)
+            var = float(configCpuAllocation.overheadLimit if configCpuAllocation.overheadLimit is not None else 0)
+            metrics['vmware_resourcepool_cpu_allocation_overhead_limit'].add_metric(labels, var)
+            var = float(configCpuAllocation.reservation if configCpuAllocation.reservation is not None else 0)
+            metrics['vmware_resourcepool_cpu_allocation_reservation'].add_metric(labels, var)
+
+            configMemoryAllocation = resourcepool.get('config.memoryAllocation')
+            var = bool(configMemoryAllocation.expandableReservation)
+            metrics['vmware_resourcepool_memory_allocation_expandable_reservation'].add_metric(labels, var)
+            var = float(configMemoryAllocation.limit if configMemoryAllocation.limit is not None else 0)
+            metrics['vmware_resourcepool_memory_allocation_limit'].add_metric(labels, var)
+            var = float(configMemoryAllocation.overheadLimit if configMemoryAllocation.overheadLimit is not None else 0)
+            metrics['vmware_resourcepool_memory_allocation_overhead_limit'].add_metric(labels, var)
+            var = float(configMemoryAllocation.reservation if configMemoryAllocation.reservation is not None else 0)
+            metrics['vmware_resourcepool_memory_allocation_reservation'].add_metric(labels, var)
+
+            runtimeCpu = resourcepool.get('runtime.cpu')
+
+            var = float(runtimeCpu.maxUsage if runtimeCpu.maxUsage is not None else 0)
+            metrics['vmware_resourcepool_cpu_max_usage'].add_metric(labels, var)
+            var = float(runtimeCpu.overallUsage if runtimeCpu.overallUsage is not None else 0)
+            metrics['vmware_resourcepool_cpu_overall_usage'].add_metric(labels, var)
+            var = float(runtimeCpu.reservationUsed if runtimeCpu.reservationUsed is not None else 0)
+            metrics['vmware_resourcepool_cpu_reservation_used'].add_metric(labels, var)
+            var = float(runtimeCpu.reservationUsedForVm if runtimeCpu.reservationUsedForVm is not None else 0)
+            metrics['vmware_resourcepool_cpu_reservation_used_for_vm'].add_metric(labels, var)
+            var = float(runtimeCpu.unreservedForPool if runtimeCpu.unreservedForPool is not None else 0)
+            metrics['vmware_resourcepool_cpu_unreserved_for_pool'].add_metric(labels, var)
+            var = float(runtimeCpu.unreservedForVm if runtimeCpu.unreservedForVm is not None else 0)
+            metrics['vmware_resourcepool_cpu_unreserved_for_vm'].add_metric(labels, var)
+
+            runtimeMemory = resourcepool.get('runtime.memory')
+            var = float(runtimeMemory.maxUsage if runtimeMemory.maxUsage is not None else 0)
+            metrics['vmware_resourcepool_memory_max_usage'].add_metric(labels, var)
+            var = float(runtimeMemory.overallUsage if runtimeMemory.overallUsage is not None else 0)
+            metrics['vmware_resourcepool_memory_overall_usage'].add_metric(labels, var)
+            var = float(runtimeMemory.reservationUsed if runtimeMemory.reservationUsed is not None else 0)
+            metrics['vmware_resourcepool_memory_reservation_used'].add_metric(labels, var)
+            var = float(runtimeMemory.reservationUsedForVm if runtimeMemory.reservationUsedForVm is not None else 0)
+            metrics['vmware_resourcepool_memory_reservation_used_for_vm'].add_metric(labels, var)
+            var = float(runtimeMemory.unreservedForPool if runtimeMemory.unreservedForPool is not None else 0)
+            metrics['vmware_resourcepool_memory_unreserved_for_pool'].add_metric(labels, var)
+            var = float(runtimeMemory.unreservedForVm if runtimeMemory.unreservedForVm is not None else 0)
+            metrics['vmware_resourcepool_memory_unreserved_for_vm'].add_metric(labels, var)
+
+        logging.info("Finished rp metrics collection")
+
+
     @defer.inlineCallbacks
     def _vmware_get_vms(self, metrics):
         """
@@ -1527,6 +1771,9 @@ class VmwareCollector():
             customLabels = []
             for labelName in customAttributesLabelNames:
                 customLabels.append(customAttributes[moid].get(labelName))
+
+            if self.fetch_resourcepools:
+                vm_labels[moid].append(self._vmsPoolAttributes[moid])
 
             if self.fetch_tags:
                 tags = vm_tags.get(moid, [])
@@ -1896,6 +2143,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
                     'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
                     'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
+                    'resourcepools': get_bool_env('VSPHERE_COLLECT_RESOURCEPOOLS', True),
                 }
             }
         }
@@ -1923,6 +2171,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
                     'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
                     'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                    'resourcepools': get_bool_env('VSPHERE_{}_COLLECT_RESOURCEPOOLS'.format(section), True),
                 }
             }
 
