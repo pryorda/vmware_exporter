@@ -451,7 +451,7 @@ class VmwareCollector():
             try:
                 yield threads.deferToThread(
                     self._session.post,
-                    'https://{host}/rest/com/vmware/cis/session'.format(host=self.host)
+                    'https://{host}/api/session'.format(host=self.host)
                 )
             except Exception as e:
                 logging.error('Error creating vcenter API session ({})'.format(e))
@@ -468,7 +468,7 @@ class VmwareCollector():
         session = yield self.session
         response = yield threads.deferToThread(
             session.get,
-            'https://{host}/rest/com/vmware/cis/tagging/tag'.format(host=self.host)
+            'https://{host}/api/cis/tagging/tag'.format(host=self.host)
         )
         output = []
         try:
@@ -491,7 +491,7 @@ class VmwareCollector():
         }
         response = yield threads.deferToThread(
             session.post,
-            'https://{host}/rest/com/vmware/cis/tagging/tag-association?~action=list-attached-objects-on-tags'
+            'https://{host}/api/cis/tagging/tag-association?action=list-attached-objects-on-tags'
             .format(host=self.host),
             json=jsonBody
         )
@@ -518,7 +518,7 @@ class VmwareCollector():
         for tagID in tagIDs:
             response = yield threads.deferToThread(
                 session.get,
-                'https://{host}/rest/com/vmware/cis/tagging/tag/id:{tag_id}'.format(host=self.host, tag_id=tagID)
+                'https://{host}/api/cis/tagging/tag/id:{tag_id}'.format(host=self.host, tag_id=tagID)
             )
             tagObj = response.json().get('value', {})
             if tagObj:
@@ -579,6 +579,8 @@ class VmwareCollector():
                 pwd=self.password,
                 sslContext=context,
             )
+            if vmware_connect is None:
+                raise error("could no connect to vcenter")
             return vmware_connect
 
         except vmodl.MethodFault as error:

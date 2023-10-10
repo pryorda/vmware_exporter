@@ -1,6 +1,7 @@
-prometheus-client==0.0.19
+prometheus-client
 pytz
 pyvmomi>=6.5
 twisted>=14.0.2
 pyyaml>=5.1
 service-identity
+requests
