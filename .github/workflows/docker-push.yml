@@ -15,7 +15,7 @@ jobs:
       id: build-image
       uses: redhat-actions/buildah-build@v2
       with:
-        image: pryorda/vmware_exporter
+        image: ahmadgh9/vmware_exporter
         tags: latest ${{ github.sha }} ${{ github.event.release.tag_name }}
         dockerfiles: |
           ./Dockerfile
