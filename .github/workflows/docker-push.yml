@@ -35,7 +35,7 @@ jobs:
           tags: |
             type=sha
             type=ref,event=branch
-            ${{ github.event_name == 'release' && 'type=semver,pattern={{version}}' }}
+            ${{ github.event_name == 'release' && 'type=semver,pattern={{version}}' || '' }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
