@@ -1,4 +1,5 @@
 name: Build and Push Image
+
 on:
   release:
     types: [released]
@@ -7,30 +8,28 @@ jobs:
   build:
     name: Build and push image
     runs-on: ubuntu-20.04
-
     steps:
-    - uses: actions/checkout@v2
+      - name: Checkout Code
+        uses: actions/checkout@v2
 
-    - name: Build Image
-      id: build-image
-      uses: redhat-actions/buildah-build@v2
-      with:
-        image: pryorda/vmware_exporter
-        tags: latest ${{ github.sha }} ${{ github.event.release.tag_name }}
-        dockerfiles: |
-          ./Dockerfile
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
 
-    # Podman Login action (https://github.com/redhat-actions/podman-login) also be used to log in,
-    # in which case 'username' and 'password' can be omitted.
-    - name: Push To dhub
-      id: push-to-dhub
-      uses: redhat-actions/push-to-registry@v2
-      with:
-        image: ${{ steps.build-image.outputs.image }}
-        tags: ${{ steps.build-image.outputs.tags }}
-        registry: docker.io
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
 
-    - name: Print image url
-      run: echo "Image pushed to ${{ steps.push-to-dhub.outputs.registry-paths }}"
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }},ghcr.io/${{ github.repository }}:${{ github.event.release.tag_name }}
