@@ -31,8 +31,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
-          flavor: |
-            ${{ github.event_name == 'release' && 'latest=true' }}
+          flavor: ${{ github.event_name == 'release' && 'latest=true' || '' }}
           tags: |
             type=sha
             type=ref,event=branch
