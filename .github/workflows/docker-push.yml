@@ -26,7 +26,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker Metadata
+      - name: Login to DockerHub
+        if: ${{ secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_PASSWORD }}
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Docker Metadata GHCR
         id: docker_meta
         uses: docker/metadata-action@v5
         with:
@@ -37,13 +45,27 @@ jobs:
             type=ref,event=branch
             ${{ github.event_name == 'release' && 'type=semver,pattern={{version}}' || '' }}
 
-      - name: Build and push
+      - name: Docker Metadata DockerHub
+        id: meta_dockerhub
+        if: ${{ secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_PASSWORD }}
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ github.repository }}
+          flavor: ${{ github.event_name == 'release' && 'latest=true' || '' }}
+          tags: |
+            type=sha
+            type=ref,event=branch
+            ${{ github.event_name == 'release' && 'type=semver,pattern={{version}}' || '' }}
+
+      - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
-          tags: ${{ steps.docker_meta.outputs.tags }}
+          tags: |
+            ${{ steps.docker_meta.outputs.tags }}
+            ${{ secrets.DOCKERHUB_USERNAME && secrets.DOCKERHUB_PASSWORD && steps.meta_dockerhub.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
