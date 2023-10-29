@@ -15,9 +15,9 @@ jobs:
         id: check_secrets
         run: |
           if [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" && -n "${{ secrets.DOCKERHUB_PASSWORD }}" ]]; then
-            echo "::set-output name=is_set::true"
+            echo "::set-output name=is_set::'true'"
           else
-            echo "::set-output name=is_set::false"
+            echo "::set-output name=is_set::'false'"
           fi
 
   build:
@@ -42,7 +42,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to DockerHub
-        if: ${{ needs.prepare.outputs.is_dockerhub_set }}
+        if: ${{ needs.prepare.outputs.is_dockerhub_set == 'true' }}
         uses: docker/login-action@v3
         with:
           registry: docker.io
@@ -62,7 +62,7 @@ jobs:
 
       - name: Docker Metadata DockerHub
         id: meta_dockerhub
-        if: ${{ needs.prepare.outputs.is_dockerhub_set }}
+        if: ${{ needs.prepare.outputs.is_dockerhub_set == 'true' }}
         uses: docker/metadata-action@v5
         with:
           images: docker.io/${{ github.repository }}
