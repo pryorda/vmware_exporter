@@ -155,6 +155,10 @@ class VmwareCollector():
                 'vmware_vm_guest_disk_capacity',
                 'Disk capacity metric per partition',
                 labels=self._labelNames['vmguests'] + ['partition', ]),
+            'vmware_vm_guest_os': GaugeMetricFamily(
+                'vmware_vm_guest_os',
+                'Guest operating system name configured on the virtual machine',
+                labels=self._labelNames['vmguests'] + ['os', ]),
             'vmware_vm_guest_tools_running_status': GaugeMetricFamily(
                 'vmware_vm_guest_tools_running_status',
                 'VM tools running status',
@@ -753,6 +757,7 @@ class VmwareCollector():
         if self.collect_only['vmguests'] is True:
             properties.extend([
                 'guest.disk',
+                'guest.guestFullName
                 'guest.toolsStatus',
                 'guest.toolsVersion',
                 'guest.toolsVersionStatus2',
@@ -1593,6 +1598,11 @@ class VmwareCollector():
                         labels + [disk.diskPath], disk.capacity
                     )
 
+            if 'guest.guestFullName' in row:
+                metrics['vmware_vm_guest_os'].add_metric(
+                    labels + [row['guest.guestFullName']],1
+                )
+                
             if 'guest.toolsStatus' in row:
                 metrics['vmware_vm_guest_tools_running_status'].add_metric(
                     labels + [row['guest.toolsStatus']], 1
