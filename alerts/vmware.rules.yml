@@ -8,7 +8,7 @@ groups:
     labels:
       severity: warning
     annotations:
-      title: 'High memory usage on {{ $labels.instance }}: {{ $value | printf "%.2f"
+      title: 'High memory usage on {{ $labels.host_name }}: {{ $value | printf "%.2f"
         }}%'
   - alert: VMCritMemoryUsage
     expr: ((vmware_vm_mem_usage_average / 100) >= 95)
@@ -16,7 +16,7 @@ groups:
     labels:
       severity: critical
     annotations:
-      title: 'Very High memory usage on {{ $labels.instance }}: {{ $value | printf
+      title: 'Very High memory usage on {{ $labels.host_name }}: {{ $value | printf
         "%.2f" }}%'
   - alert: VMWarnNumberSnapshots
     expr: (vmware_vm_snapshots < 3)
@@ -24,19 +24,97 @@ groups:
     labels:
       severity: warning
     annotations:
-      title: 'High snapshots number on {{ $labels.instance }}: {{ $value }}'
+      title: 'High snapshots number on {{ $labels.host_name }}: {{ $value }}'
   - alert: VMCritNumberSnapshots
     expr: (vmware_vm_snapshots >= 3)
     for: 30m
     labels:
       severity: critical
     annotations:
-      title: 'Very high snapshot number on {{ $labels.instance }}: {{ $value }}'
+      title: 'Very high snapshot number on {{ $labels.host_name }}: {{ $value }}'
   - alert: VMWarnAgeSnapshots
     expr: ((time() - vmware_vm_snapshot_timestamp_seconds) / (60 * 60 * 24) >= 7)
     for: 5m
     labels:
       severity: warning
     annotations:
-      title: 'Outdated snapshot on {{ $labels.instance }}: {{ $value | printf "%.0f"
+      title: 'Outdated snapshot on {{ $labels.host_name }}: {{ $value | printf "%.0f"
         }} days'
+  - alert: VMWarnAgeSnapshots
+    expr: ((time() - vmware_vm_snapshot_timestamp_seconds) / (60 * 60 * 24) >= 7)
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      title: 'Outdated snapshot on {{ $labels.host_name }}: {{ $value | printf "%.0f"
+        }} days'
+  - alert: VMWarnDSOutOfSpace
+    expr: (vmware_datastore_freespace_size/vmware_datastore_capacity_size <= 0.25 ) and (vmware_datastore_freespace_size/vmware_datastore_capacity_size > 0.1 )
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      title: 'High Disk usge on {{ $labels.host_name }}: {{ $value }}'
+  - alert: VMCritDSOutOfSpace
+    expr: (vmware_datastore_freespace_size/vmware_datastore_capacity_size <= 0.1)
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Critical Disk usge on {{ $labels.host_name }}: {{ $value }}'
+  - alert: VMCritDSInaccessible
+    expr: vmware_datastore_accessible == 0
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Datastore on {{ $labels.host_name }} is inaccessible'
+  - alert: VMIstanceOff
+    expr: vmware_vm_power_state == 0
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'VM  {{ $labels.vm_name }} on {{ $labels.host_name }} host is turned off'
+  - alert: HostSensorTemperatureHigh
+    expr:  ( vmware_host_sensor_temperature >= 80 ) and ( vmware_host_sensor_temperature < 90 )
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      title: 'Host sensor temperature of {{ $labels.name }} on {{ $labels.host_name }} host is high. Temperature: {{ $value }}'
+  - alert: HostSensorTemperatureTooHigh
+    expr: vmware_host_sensor_temperature >= 90
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Host sensor temperature of {{ $labels.name }} on {{ $labels.host_name }} host is high. Temperature: {{ $value }}'
+  - alert: HostDetached
+    expr: vmware_host_connection_state == 0
+    for: 30m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Host connection state changed to detached: {{ $labels.host_name }} '
+  - alert: HostCPUUsageHigh
+    expr: ( vmware_host_cpu_usage/vmware_host_cpu_max >= 0.8 ) and (vmware_host_cpu_usage/vmware_host_cpu_max < 0.9)
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      title: 'Host CPU usage is high, host: {{ $labels.host_name }} value: {{ $value }} '
+  - alert: HostCPUUsageTooHigh
+    expr: vmware_host_cpu_usage/vmware_host_cpu_max >= 0.9
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      title: 'Host CPU usage is high: {{ $labels.host_name }} '
+  - alert: HostMaintenanceModeOn
+    expr: vmware_host_maintenance_mode == 1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      title: ' State of the {{ $labels.host_name }} host changed to maintenance mode.'
