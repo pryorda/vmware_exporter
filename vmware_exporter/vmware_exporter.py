@@ -94,9 +94,9 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
+            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
+            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'vm_ip_address'],
             'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
@@ -756,6 +756,7 @@ class VmwareCollector():
                 'guest.toolsStatus',
                 'guest.toolsVersion',
                 'guest.toolsVersionStatus2',
+                'guest.ipAddress',
             ])
 
         if self.collect_only['snapshots'] is True:
@@ -1104,6 +1105,9 @@ class VmwareCollector():
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
 
+            if 'guest.ipAddress' in row:
+                labels[moid] = labels[moid] + [row['guest.ipAddress']]
+
             """
             this code was in vm_inventory before
             but I have the feeling it is best placed here where
@@ -1345,6 +1349,7 @@ class VmwareCollector():
             'net.broadcastRx.summation',
             'net.droppedRx.summation',
             'net.droppedTx.summation',
+            'sys.uptime.latest',
         ]
 
         # Prepare gauges
@@ -1366,7 +1371,7 @@ class VmwareCollector():
             counter_key = counter_info[perf_metric]
             metrics.append(vim.PerformanceManager.MetricId(
                 counterId=counter_key,
-                instance=''
+                instance='*'
             ))
             metric_names[counter_key] = perf_metric_name
 
@@ -1423,6 +1428,8 @@ class VmwareCollector():
             'cpu.used.summation',
             'disk.read.average',
             'disk.write.average',
+            'disk.deviceReadLatency.average',
+            'disk.deviceWriteLatency.average',
             'mem.active.average',
             'mem.latency.average',
             'mem.swapin.average',
@@ -1437,6 +1444,12 @@ class VmwareCollector():
             'net.errorsRx.summation',
             'net.errorsTx.summation',
             'net.usage.average',
+            'storageAdapter.totalReadLatency.average',
+            'storageAdapter.totalWriteLatency.average',
+            'datastore.datastoreNormalReadLatency.latest',
+            'datastore.datastoreNormalWriteLatency.latest',
+            'datastore.datastoreReadIops.latest',
+            'datastore.datastoreWriteIops.latest',
         ]
 
         # Prepare gauges
@@ -1455,7 +1468,7 @@ class VmwareCollector():
             counter_key = counter_info[perf_metric]
             metrics.append(vim.PerformanceManager.MetricId(
                 counterId=counter_key,
-                instance=''
+                instance='*'
             ))
             metric_names[counter_key] = perf_metric_name
 
