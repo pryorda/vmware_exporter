@@ -2042,6 +2042,8 @@ def main(argv=None):
     parser.add_argument('-v', '--version', action="version",
                         version='vmware_exporter {version}'.format(version=__version__),
                         help='Print version and exit')
+    parser.add_argument('-ps', '--pool-size', dest="pool_size", type=int,
+                        default=25, help="Set thread pool size")
 
     args = parser.parse_args(argv or sys.argv[1:])
 
@@ -2050,7 +2052,7 @@ def main(argv=None):
         raise ValueError("Invalid log level: {level}".format(level=args.loglevel))
     logging.basicConfig(level=numeric_level, format='%(asctime)s %(levelname)s:%(message)s')
 
-    reactor.suggestThreadPoolSize(25)
+    reactor.suggestThreadPoolSize(args.pool_size)
 
     factory = Site(registerEndpoints(args))
     logging.info("Starting web server on port {address}:{port}".format(address=args.address, port=args.port))
