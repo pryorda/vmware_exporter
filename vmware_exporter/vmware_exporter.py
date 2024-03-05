@@ -44,10 +44,12 @@ from pyVim import connect
 
 # Prometheus specific imports
 from prometheus_client.core import GaugeMetricFamily
-from prometheus_client import CollectorRegistry, generate_latest
+from prometheus_client import CollectorRegistry, generate_latest, Gauge
+from prometheus_client.core import REGISTRY
 
 from .helpers import batch_fetch_properties, get_bool_env
 from .defer import parallelize, run_once_property
+from .__init__ import __version__
 
 from .__init__ import __version__
 
@@ -1890,6 +1892,7 @@ class VMWareMetricsResource(Resource):
                 'fetch_custom_attributes': get_bool_env('VSPHERE_FETCH_CUSTOM_ATTRIBUTES', False),
                 'fetch_tags': get_bool_env('VSPHERE_FETCH_TAGS', False),
                 'fetch_alarms': get_bool_env('VSPHERE_FETCH_ALARMS', False),
+                'exporter_metrics': get_bool_env('VSPHERE_EXPORTER_METRICS', True),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_COLLECT_VMS', True),
                     'vmguests': get_bool_env('VSPHERE_COLLECT_VMGUESTS', True),
@@ -1917,6 +1920,7 @@ class VMWareMetricsResource(Resource):
                 'fetch_custom_attributes': get_bool_env('VSPHERE_{}_FETCH_CUSTOM_ATTRIBUTES'.format(section), False),
                 'fetch_tags': get_bool_env('VSPHERE_{}_FETCH_TAGS'.format(section), False),
                 'fetch_alarms': get_bool_env('VSPHERE_{}_FETCH_ALARMS'.format(section), False),
+                'exporter_metrics': get_bool_env('VSPHERE_{}_EXPORTER_METRICS', section.lower() == "default"),
                 'collect_only': {
                     'vms': get_bool_env('VSPHERE_{}_COLLECT_VMS'.format(section), True),
                     'vmguests': get_bool_env('VSPHERE_{}_COLLECT_VMGUESTS'.format(section), True),
@@ -1953,6 +1957,8 @@ class VMWareMetricsResource(Resource):
             logging.info("{} is not a valid section, using default".format(section))
             section = 'default'
 
+        get_exporter_metrics = self.config[section].get('exporter_metrics')
+
         if self.config[section].get('vsphere_host') and self.config[section].get('vsphere_host') != "None":
             vsphere_host = self.config[section].get('vsphere_host')
         elif request.args.get(b'target', [None])[0]:
@@ -1979,8 +1985,23 @@ class VMWareMetricsResource(Resource):
         )
         metrics = yield collector.collect()
 
-        registry = CollectorRegistry()
-        registry.register(ListCollector(metrics))
+        do_metrics_registration = True
+
+        if get_exporter_metrics:
+            registry = REGISTRY
+            if 'vmware_exporter_build_info' in registry._names_to_collectors:
+                do_metrics_registration = False
+            else:
+                g = Gauge('vmware_exporter_build_info',
+                          'A metric with a constant \'1\' value labeled by version of vmware-exporter.',
+                          ["version"], registry=registry)
+                g.labels(version=__version__)
+        else:
+            registry = CollectorRegistry()
+
+        if do_metrics_registration:
+            registry.register(ListCollector(metrics))
+
         output = generate_latest(registry)
 
         request.setHeader("Content-Type", "text/plain; charset=UTF-8")
