@@ -7,6 +7,9 @@ def get_bool_env(key: str, default: bool):
     value = os.environ.get(key, default)
     return value if type(value) == bool else value.lower() == 'true'
 
+def get_list_env(key: str):
+    from_env = os.environ.get(key, "")
+    return from_env.split(",")
 
 def batch_fetch_properties(content, obj_type, properties):
     view_ref = content.viewManager.CreateContainerView(
