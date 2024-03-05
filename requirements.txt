@@ -1,6 +1,8 @@
+wheel>=0.40.0
 prometheus-client==0.0.19
-pytz
+pytz>=2023.3
 pyvmomi>=6.5
 twisted>=14.0.2
 pyyaml>=5.1
-service-identity
+service-identity>=21.1.0
+requests>=2.31.0

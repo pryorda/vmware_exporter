@@ -6,12 +6,14 @@
 VMware vCenter Exporter for Prometheus.
 
 Get VMware vCenter information:
+
 - Basic VM and Host metrics
 - Current number of active snapshots
 - Datastore size and other stuff
 - Snapshot Unix timestamp creation date
 
 ## Badges
+
 ![Docker Stars](https://img.shields.io/docker/stars/pryorda/vmware_exporter.svg)
 ![Docker Pulls](https://img.shields.io/docker/pulls/pryorda/vmware_exporter.svg)
 ![Docker Automated](https://img.shields.io/docker/automated/pryorda/vmware_exporter.svg)
@@ -27,17 +29,17 @@ Get VMware vCenter information:
 - Install with `$ python setup.py install` or via pip `$ pip install vmware_exporter`. The docker command below is preferred.
 - Create `config.yml` based on the configuration section. Some variables can be passed as environment variables
 - Run `$ vmware_exporter -c /path/to/your/config`
-- Go to http://localhost:9272/metrics?vsphere_host=vcenter.company.com to see metrics
+- Go to [http://localhost:9272/metrics?vsphere_host=vcenter.company.com](http://localhost:9272/metrics?vsphere_host=vcenter.company.com) to see metrics
 
 Alternatively, if you don't wish to install the package, run it using `$ vmware_exporter/vmware_exporter.py` or use the following docker command:
 
-```
+```shell
 docker run -it --rm  -p 9272:9272 -e VSPHERE_USER=${VSPHERE_USERNAME} -e VSPHERE_PASSWORD=${VSPHERE_PASSWORD} -e VSPHERE_HOST=${VSPHERE_HOST} -e VSPHERE_IGNORE_SSL=True -e VSPHERE_SPECS_SIZE=2000 --name vmware_exporter pryorda/vmware_exporter
 ```
 
 When using containers combined with `--env-file` flag, please use capital letters to set bolleans, for example:
 
-```
+```shell
 $ podman run -it --rm -p 9272:9272 --name vmware_exporter --env-file config.env pryorda/vmware_exporter
 $ cat config.env
 VSPHERE_USER=administrator@vsphere.my.domain.com
@@ -47,24 +49,29 @@ VSPHERE_IGNORE_SSL=TRUE
 VSPHERE_SPECS_SIZE=2000
 ```
 
-
 ### Configuration and limiting data collection
 
 Only provide a configuration file if enviroment variables are not used. If you do plan to use a configuration file, be sure to override the container entrypoint or add -c config.yml to the command arguments.
 
 If you want to limit the scope of the metrics gathered, you can update the subsystem under `collect_only` in the config section, e.g. under `default`, or by using the environment variables:
 
+```yaml
     collect_only:
         vms: False
         vmguests: True
         datastores: True
         hosts: True
         snapshots: True
+        resourcepools: False
+```
 
 This would only connect datastores and hosts.
 
+**WARNING**: Enabling resourcepools will have a significant performance penalty.
+
 You can have multiple sections for different hosts and the configuration would look like:
-```
+
+```yaml
 default:
     vsphere_host: "vcenter"
     vsphere_user: "user"
@@ -80,6 +87,7 @@ default:
         datastores: True
         hosts: True
         snapshots: True
+        resourcepools: True
 
 esx:
     vsphere_host: vc.example2.com
@@ -96,6 +104,7 @@ esx:
         datastores: False
         hosts: True
         snapshots: True
+        resourcepools: False
 
 limited:
     vsphere_host: slowvc.example.com
@@ -112,44 +121,48 @@ limited:
         datastores: True
         hosts: False
         snapshots: False
-
+        resourcepools: False
 ```
+
 Switching sections can be done by adding ?section=limited to the URL.
 
 #### Environment Variables
-| Variable                      	| Precedence             | Defaults | Description                                      				|
-| --------------------------------------| ---------------------- | -------- | --------------------------------------------------------------------------|
-| `VSPHERE_HOST`               		| config, env, get_param | n/a      | vsphere server to connect to   						|
-| `VSPHERE_USER`               		| config, env            | n/a      | User for connecting to vsphere 						|
-| `VSPHERE_PASSWORD`           		| config, env            | n/a      | Password for connecting to vsphere 					|
-| `VSPHERE_SPECS_SIZE`         		| config, env            | 5000     | Size of specs list for query stats function 				|
-| `VSPHERE_IGNORE_SSL`         		| config, env            | False    | Ignore the ssl cert on the connection to vsphere host 			|
-| `VSPHERE_FETCH_CUSTOM_ATTRIBUTES`    	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
-| `VSPHERE_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
-| `VSPHERE_FETCH_ALARMS`       		| config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well 	|
-| `VSPHERE_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
-| `VSPHERE_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
-| `VSPHERE_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
-| `VSPHERE_COLLECT_VMGUESTS`   		| config, env            | True     | Set to false to disable collection of virtual machine guest metrics 	|
-| `VSPHERE_COLLECT_SNAPSHOTS`  		| config, env            | True     | Set to false to disable collection of snapshot metrics 			|
+
+| Variable                          | Precedence             | Defaults | Description                                                                     |
+|-----------------------------------|------------------------|----------|---------------------------------------------------------------------------------|
+| `VSPHERE_HOST`                    | config, env, get_param | n/a      | vsphere server to connect to                                                    |
+| `VSPHERE_USER`                    | config, env            | n/a      | User for connecting to vsphere                                                  |
+| `VSPHERE_PASSWORD`                | config, env            | n/a      | Password for connecting to vsphere                                              |
+| `VSPHERE_SPECS_SIZE`              | config, env            | 5000     | Size of specs list for query stats function                                     |
+| `VSPHERE_IGNORE_SSL`              | config, env            | False    | Ignore the ssl cert on the connection to vsphere host                           |
+| `VSPHERE_FETCH_CUSTOM_ATTRIBUTES` | config, env            | False    | Set to true to collect objects custom attributes as metric labels               |
+| `VSPHERE_FETCH_TAGS`              | config, env            | False    | Set to true to collect objects tags as metric labels                            |
+| `VSPHERE_FETCH_ALARMS`            | config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well         |
+| `VSPHERE_COLLECT_HOSTS`           | config, env            | True     | Set to false to disable collection of host metrics                              |
+| `VSPHERE_COLLECT_DATASTORES`      | config, env            | True     | Set to false to disable collection of datastore metrics                         |
+| `VSPHERE_COLLECT_VMS`             | config, env            | True     | Set to false to disable collection of virtual machine metrics                   |
+| `VSPHERE_COLLECT_VMGUESTS`        | config, env            | True     | Set to false to disable collection of virtual machine guest metrics             |
+| `VSPHERE_COLLECT_SNAPSHOTS`       | config, env            | True     | Set to false to disable collection of snapshot metrics                          |
+| `VSPHERE_COLLECT_RESOURCEPOOLS`   | config, env            | True     | Set to false to disable collection of resourcepool metrics                      |
 
 You can create new sections as well, with very similiar variables. For example, to create a `limited` section you can set:
 
-| Variable                      		| Precedence             | Defaults | Description                                      				|
-| ----------------------------------------------| ---------------------- | -------- | --------------------------------------------------------------------------|
-| `VSPHERE_LIMITED_HOST`               		| config, env, get_param | n/a      | vsphere server to connect to   						|
-| `VSPHERE_LIMITED_USER`               		| config, env            | n/a      | User for connecting to vsphere 						|
-| `VSPHERE_LIMITED_PASSWORD`           		| config, env            | n/a      | Password for connecting to vsphere 					|
-| `VSPHERE_LIMITED_SPECS_SIZE`         		| config, env            | 5000     | Size of specs list for query stats function 				|
-| `VSPHERE_LIMITED_IGNORE_SSL`         		| config, env            | False    | Ignore the ssl cert on the connection to vsphere host 			|
-| `VSPHERE_LIMITED_FETCH_CUSTOM_ATTRIBUTES`   	| config, env            | False    | Set to true to collect objects custom attributes as metric labels 	|
-| `VSPHERE_LIMITED_FETCH_TAGS`    		| config, env            | False    | Set to true to collect objects tags as metric labels 			|
-| `VSPHERE_LIMITED_FETCH_ALARMS`       		| config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well	|
-| `VSPHERE_LIMITED_COLLECT_HOSTS`      		| config, env            | True     | Set to false to disable collection of host metrics 			|
-| `VSPHERE_LIMITED_COLLECT_DATASTORES` 		| config, env            | True     | Set to false to disable collection of datastore metrics 			|
-| `VSPHERE_LIMITED_COLLECT_VMS`        		| config, env            | True     | Set to false to disable collection of virtual machine metrics 		|
-| `VSPHERE_LIMITED_COLLECT_VMGUESTS`   		| config, env            | True     | Set to false to disable collection of virtual machine guest metrics 	|
-| `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`  		| config, env            | True     | Set to false to disable collection of snapshot metrics 			|
+| Variable                                  | Precedence             | Defaults | Description                                                             |
+| ------------------------------------------| ---------------------- | -------- | ------------------------------------------------------------------------|
+| `VSPHERE_LIMITED_HOST`                    | config, env, get_param | n/a      | vsphere server to connect to                                            |
+| `VSPHERE_LIMITED_USER`                    | config, env            | n/a      | User for connecting to vsphere                                          |
+| `VSPHERE_LIMITED_PASSWORD`                | config, env            | n/a      | Password for connecting to vsphere                                      |
+| `VSPHERE_LIMITED_SPECS_SIZE`              | config, env            | 5000     | Size of specs list for query stats function                             |
+| `VSPHERE_LIMITED_IGNORE_SSL`              | config, env            | False    | Ignore the ssl cert on the connection to vsphere host                   |
+| `VSPHERE_LIMITED_FETCH_CUSTOM_ATTRIBUTES` | config, env            | False    | Set to true to collect objects custom attributes as metric labels       |
+| `VSPHERE_LIMITED_FETCH_TAGS`              | config, env            | False    | Set to true to collect objects tags as metric labels                    |
+| `VSPHERE_LIMITED_FETCH_ALARMS`            | config, env            | False    | Fetch objects triggered alarms, and in case of hosts hdw alarms as well |
+| `VSPHERE_LIMITED_COLLECT_HOSTS`           | config, env            | True     | Set to false to disable collection of host metrics                      |
+| `VSPHERE_LIMITED_COLLECT_DATASTORES`      | config, env            | True     | Set to false to disable collection of datastore metrics                 |
+| `VSPHERE_LIMITED_COLLECT_VMS`             | config, env            | True     | Set to false to disable collection of virtual machine metrics           |
+| `VSPHERE_LIMITED_COLLECT_VMGUESTS`        | config, env            | True     | Set to false to disable collection of virtual machine guest metrics     |
+| `VSPHERE_LIMITED_COLLECT_SNAPSHOTS`       | config, env            | True     | Set to false to disable collection of snapshot metrics                  |
+| `VSPHERE_LIMITED_COLLECT_RESOURCEPOOLS`   | config, env            | True     | Set to false to disable collection of resourcepool metrics              |
 
 You need to set at least `VSPHERE_SECTIONNAME_USER` for the section to be detected.
 
@@ -157,7 +170,7 @@ You need to set at least `VSPHERE_SECTIONNAME_USER` for the section to be detect
 
 You can use the following parameters in the Prometheus configuration file. The `params` section is used to manage multiple login/passwords.
 
-```
+```yaml
   - job_name: 'vmware_vcenter'
     metrics_path: '/metrics'
     static_configs:
@@ -208,6 +221,7 @@ You can use the following parameters in the Prometheus configuration file. The `
 
 - vCenter and vSphere 6.0/6.5 have been tested.
 - VM information, Snapshot, Host and Datastore basic information is exported, i.e:
+
 ```
 # HELP vmware_snapshots VMware current number of existing snapshots
 # TYPE vmware_snapshot_count gauge
@@ -256,16 +270,18 @@ vmware_host_memory_max{host_name="esx1.company.com"} 131059.01953125
 ## References
 
 The VMware exporter uses theses libraries:
+
 - [pyVmomi](https://github.com/vmware/pyvmomi) for VMware connection
 - Prometheus [client_python](https://github.com/prometheus/client_python) for Prometheus supervision
 - [Twisted](http://twistedmatrix.com/trac/) for HTTP server
 
 The initial code is mainly inspired by:
-- https://www.robustperception.io/writing-a-jenkins-exporter-in-python/
-- https://github.com/vmware/pyvmomi-community-samples
-- https://github.com/jbidinger/pyvmomi-tools
 
-Forked from https://github.com/rverchere/vmware_exporter. I removed the fork so that I could do searching and everything.
+- [https://www.robustperception.io/writing-a-jenkins-exporter-in-python](https://www.robustperception.io/writing-a-jenkins-exporter-in-python/)
+- [https://github.com/vmware/pyvmomi-community-samples](https://github.com/vmware/pyvmomi-community-samples)
+- [https://github.com/jbidinger/pyvmomi-tools](https://github.com/jbidinger/pyvmomi-tools)
+
+Forked from [rverchere/vmware_exporter](https://github.com/rverchere/vmware_exporter). I removed the fork so that I could do searching and everything.
 
 ## Maintainer
 
