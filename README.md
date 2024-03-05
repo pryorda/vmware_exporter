@@ -1,4 +1,4 @@
-# Needs new home. Since Broadcome is no longer catering to its opensource/free base, I have decided to move on from maintaining this project. Please create a discussion if you would like to take over managing this project. 
+# Needs new home. Since Broadcom is no longer catering to its opensource/free base, I have decided to move on from maintaining this project. Please create a discussion if you would like to take over managing this project. 
 
 
 # vmware_exporter
