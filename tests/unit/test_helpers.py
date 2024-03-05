@@ -4,7 +4,7 @@ from unittest import mock
 
 from pyVmomi import vim
 
-from vmware_exporter.helpers import batch_fetch_properties, get_bool_env
+from vmware_exporter.helpers import batch_fetch_properties, get_bool_env, serialize, deserialize
 
 
 class FakeView(vim.ManagedObject):
@@ -14,6 +14,26 @@ class FakeView(vim.ManagedObject):
 
     def Destroy(self):
         pass
+
+
+def test_serialize():
+
+    # Test basic usage
+    assert serialize('abc', 'def', g='1', h='2') == 'abc:def:g=1:h=2'
+
+    # Test escaping
+    assert serialize('\\\n\r,:=') == '\\\\\\n\\r\\,\\:\\='
+
+
+def test_deserialize():
+
+    tests = [
+        'abc:def:g=1:h=2',
+        '\\\\\\n\\r\\,\\:\\=:\\\\\\n\\r\\,\\:\\==\\\\\\n\\r\\,\\:\\='
+    ]
+    for value in tests:
+        arg, kwarg = deserialize(value)
+        assert serialize(*arg, **kwarg) == value
 
 
 def test_get_bool_env():

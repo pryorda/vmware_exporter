@@ -43,7 +43,7 @@ class BranchingDeferred(defer.Deferred):
     '''
 
     def __init__(self):
-        self.callbacks = []
+        super().__init__()
         self.result = None
 
     def callback(self, result):
