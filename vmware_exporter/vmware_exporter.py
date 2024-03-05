@@ -57,6 +57,7 @@ class VmwareCollector():
     def __init__(
             self,
             host,
+            port,
             username,
             password,
             collect_only,
@@ -68,6 +69,7 @@ class VmwareCollector():
     ):
 
         self.host = host
+        self.port = port
         self.username = username
         self.password = password
         self.ignore_ssl = ignore_ssl
@@ -575,6 +577,7 @@ class VmwareCollector():
             vmware_connect = yield threads.deferToThread(
                 connect.SmartConnect,
                 host=self.host,
+                port=self.port,
                 user=self.username,
                 pwd=self.password,
                 sslContext=context,
@@ -1883,6 +1886,7 @@ class VMWareMetricsResource(Resource):
         self.config = {
             'default': {
                 'vsphere_host': os.environ.get('VSPHERE_HOST'),
+                'vsphere_port': os.environ.get('VSPHERE_PORT', 443),
                 'vsphere_user': os.environ.get('VSPHERE_USER'),
                 'vsphere_password': os.environ.get('VSPHERE_PASSWORD'),
                 'ignore_ssl': get_bool_env('VSPHERE_IGNORE_SSL', False),
@@ -1910,6 +1914,7 @@ class VMWareMetricsResource(Resource):
 
             self.config[section.lower()] = {
                 'vsphere_host': os.environ.get('VSPHERE_{}_HOST'.format(section)),
+                'vsphere_port': os.environ.get('VSPHERE_{}_PORT'.format(section), 443),
                 'vsphere_user': os.environ.get('VSPHERE_{}_USER'.format(section)),
                 'vsphere_password': os.environ.get('VSPHERE_{}_PASSWORD'.format(section)),
                 'ignore_ssl': get_bool_env('VSPHERE_{}_IGNORE_SSL'.format(section), False),
@@ -1968,6 +1973,7 @@ class VMWareMetricsResource(Resource):
 
         collector = VmwareCollector(
             vsphere_host,
+            self.config[section]['vsphere_port'],
             self.config[section]['vsphere_user'],
             self.config[section]['vsphere_password'],
             self.config[section]['collect_only'],
