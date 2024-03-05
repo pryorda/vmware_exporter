@@ -94,9 +94,9 @@ class VmwareCollector():
 
         # label names and ammount will be needed later to insert labels from custom attributes
         self._labelNames = {
-            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
-            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
+            'vms': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'uuid', 'instance_uuid'],
+            'vm_perf': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'uuid', 'instance_uuid'],
+            'vmguests': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name', 'uuid', 'instance_uuid'],
             'snapshots': ['vm_name', 'ds_name', 'host_name', 'dc_name', 'cluster_name'],
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
@@ -738,6 +738,8 @@ class VmwareCollector():
             'runtime.host',
             'parent',
             'summary.config.vmPathName',
+            'summary.config.uuid',
+            'summary.config.instanceUuid',
         ]
 
         if self.collect_only['vms'] is True:
@@ -1103,6 +1105,15 @@ class VmwareCollector():
 
             if host_moid in host_labels:
                 labels[moid] = labels[moid] + host_labels[host_moid]
+
+            if 'summary.config.uuid' in row:
+                labels[moid] += [row['summary.config.uuid']]
+            else:
+                labels[moid] += ["no_uuid"]
+            if 'summary.config.instanceUuid' in row:
+                labels[moid] += [row['summary.config.instanceUuid']]
+            else:
+                labels[moid] += ["no_instanceUuid"]
 
             """
             this code was in vm_inventory before
