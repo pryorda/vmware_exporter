@@ -16,15 +16,15 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [3.7]
+        python-version: [3.13]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4.2.2
       with:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5.4.0
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -41,12 +41,11 @@ jobs:
     - name: Test with pytest
       run: |
         pytest --cov=. -v tests/unit
-    - uses: codecov/codecov-action@v1
     - name: integration tests
       run: |
         pytest tests/integration
     - name: Setup ruby env
-      uses: actions/setup-ruby@v1
+      uses: ruby/setup-ruby@v1.227.0
       with:
         ruby-version: 2.7
     - run: |
@@ -54,31 +53,33 @@ jobs:
         export COMMIT_MESSAGE=$(git log -1)
         ruby validate-signature.rb "${COMMIT_MESSAGE}"
 
-  deploy:
-    strategy:
-      matrix:
-        python-version: [3.7]
-
-    runs-on: ubuntu-latest
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        token: ${{ secrets.GH_TOKEN }}
-        fetch-depth: 0
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: install semantic-release
-      run: |
-        pip install python-semantic-release
-    - name: deploy pip
-      run: |
-        git config --global user.name "semantic-release (via github actions)"
-        git config --global user.email "semantic-release@github-actions"
-        semantic-release publish
-      env: # Or as an environment variable
-        GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        PYPI_TOKEN:  ${{ secrets.PYPI_TOKEN }}
+#  Deactivated pypi publishing until adoption process is done
+#
+#  deploy:
+#    strategy:
+#      matrix:
+#        python-version: [3.7]
+#
+#    runs-on: ubuntu-latest
+#    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+#
+#    steps:
+#    - uses: actions/checkout@v2
+#      with:
+#        token: ${{ secrets.GH_TOKEN }}
+#        fetch-depth: 0
+#    - name: Set up Python ${{ matrix.python-version }}
+#      uses: actions/setup-python@v2
+#      with:
+#        python-version: ${{ matrix.python-version }}
+#    - name: install semantic-release
+#      run: |
+#        pip install python-semantic-release
+#    - name: deploy pip
+#      run: |
+#        git config --global user.name "semantic-release (via github actions)"
+#        git config --global user.email "semantic-release@github-actions"
+#        semantic-release publish
+#      env: # Or as an environment variable
+#        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+#        PYPI_TOKEN:  ${{ secrets.PYPI_TOKEN }}

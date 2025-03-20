@@ -1,4 +1,4 @@
-FROM python:3.7-alpine
+FROM python:3.13-alpine
 
 LABEL MAINTAINER="Daniel Pryor <daniel@pryorda.net>"
 LABEL NAME=vmware_exporter

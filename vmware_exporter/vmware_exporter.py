@@ -101,6 +101,7 @@ class VmwareCollector():
             'datastores': ['ds_name', 'dc_name', 'ds_cluster'],
             'hosts': ['host_name', 'dc_name', 'cluster_name'],
             'host_perf': ['host_name', 'dc_name', 'cluster_name'],
+            'volumes': ['datastore', 'volume', 'backing_file_path'],
         }
 
         # if tags are gonna be fetched 'tags' will be a label too
@@ -295,6 +296,23 @@ class VmwareCollector():
                 'VMWare sensor redundancy value (1=ok / 0=ko) labeled by sensor name from the host.',
                 labels=self._labelNames['hosts'] + ['name']),
         }
+        metric_list['volumes'] = {
+            'vmware_volume_snapshots': GaugeMetricFamily(
+                'vmware_volume_snapshots',
+                'Number of snaphots for the volume',
+                labels=self._labelNames['volumes'],
+            ),
+            'vmware_volume_capacity_bytes': GaugeMetricFamily(
+                'vmware_volume_capacity_bytes',
+                'The configured capacity of the volume',
+                labels=self._labelNames['volumes'],
+            ),
+            'vmware_volume_snapshot_createtime': GaugeMetricFamily(
+                'vmware_volume_snapshot_createtime',
+                'Create time of snapshot as a unix timestamp',
+                labels=self._labelNames['volumes'] + ['snapshot_id'],
+            )
+        }
 
         """
             if alarms are being retrieved, metrics have to been created here
@@ -427,6 +445,9 @@ class VmwareCollector():
             tasks.append(self._vmware_get_hosts(metrics))
             tasks.append(self._vmware_get_host_perf_manager_metrics(metrics))
 
+        if collect_only['volumes'] is True:
+            tasks.append(self._vmware_get_volumes(metrics))
+
         yield parallelize(*tasks)
 
         yield self._vmware_disconnect()
@@ -534,7 +555,7 @@ class VmwareCollector():
         and linked to object moid
         """
         logging.info("Fetching tags")
-        start = datetime.datetime.utcnow()
+        start = datetime.datetime.now(datetime.UTC)
 
         attachedObjs = yield self._attachedObjectsOnTags
         tagNames = yield self._tagNames
@@ -556,7 +577,7 @@ class VmwareCollector():
                 else:
                     tags[section][obj.get('id')].append(tagName)
 
-        fetch_time = datetime.datetime.utcnow() - start
+        fetch_time = datetime.datetime.now(datetime.UTC) - start
         logging.info("Fetched tags ({fetch_time})".format(fetch_time=fetch_time))
 
         return tags
@@ -612,7 +633,7 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def datastore_inventory(self):
         logging.info("Fetching vim.Datastore inventory")
-        start = datetime.datetime.utcnow()
+        start = datetime.datetime.now(datetime.UTC)
         properties = [
             'name',
             'summary.capacity',
@@ -657,7 +678,7 @@ class VmwareCollector():
                 ]
             )
 
-        fetch_time = datetime.datetime.utcnow() - start
+        fetch_time = datetime.datetime.now(datetime.UTC) - start
         logging.info("Fetched vim.Datastore inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return datastores
@@ -666,7 +687,7 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def host_system_inventory(self):
         logging.info("Fetching vim.HostSystem inventory")
-        start = datetime.datetime.utcnow()
+        start = datetime.datetime.now(datetime.UTC)
         properties = [
             'name',
             'parent',
@@ -723,7 +744,7 @@ class VmwareCollector():
                 ]
             )
 
-        fetch_time = datetime.datetime.utcnow() - start
+        fetch_time = datetime.datetime.now(datetime.UTC) - start
         logging.info("Fetched vim.HostSystem inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return host_systems
@@ -732,7 +753,7 @@ class VmwareCollector():
     @defer.inlineCallbacks
     def vm_inventory(self):
         logging.info("Fetching vim.VirtualMachine inventory")
-        start = datetime.datetime.utcnow()
+        start = datetime.datetime.now(datetime.UTC)
         properties = [
             'name',
             'runtime.host',
@@ -792,7 +813,7 @@ class VmwareCollector():
                 ]
             )
 
-        fetch_time = datetime.datetime.utcnow() - start
+        fetch_time = datetime.datetime.now(datetime.UTC) - start
         logging.info("Fetched vim.VirtualMachine inventory ({fetch_time})".format(fetch_time=fetch_time))
 
         return virtual_machines
@@ -1847,6 +1868,51 @@ class VmwareCollector():
         logging.info("Finished host metrics collection")
         return results
 
+    @defer.inlineCallbacks
+    def _vmware_get_volumes(self, vol_metrics):
+        """
+        Get Volume information
+        """
+
+        datastores = yield parallelize(self.datastore_inventory)
+        content = yield self.content
+
+        for datastore_id, datastore in datastores[0].items():
+            volumes = content.vStorageObjectManager.ListVStorageObject(datastore['obj'])
+            for volume_ref in volumes:
+                try:
+                    volume = content.vStorageObjectManager.RetrieveVStorageObject(volume_ref, datastore['obj'])
+                except vim.fault.NotFound:
+                    logging.error("Volume %s was listed in the datastore, but the storage object could not be found",
+                                  volume_ref.id)
+                except Exception as error:
+                    logging.error("Error fetching volume information for volume %s: %s", volume_ref.id, error)
+                try:
+                    snapshot_info = content.vStorageObjectManager.RetrieveSnapshotInfo(volume_ref, datastore['obj'])
+                    vol_metrics['vmware_volume_snapshots'].add_metric([
+                        datastore['name'],
+                        volume.config.name,
+                        volume.config.backing.filePath
+                    ], len(snapshot_info.snapshots))
+
+                    vol_metrics['vmware_volume_capacity_bytes'].add_metric([
+                        datastore['name'],
+                        volume.config.name,
+                        volume.config.backing.filePath
+                    ], volume.config.capacityInMB * 1024 * 1024)
+
+                    for snapshot in snapshot_info.snapshots:
+                        vol_metrics['vmware_volume_snapshot_createtime'].add_metric([
+                            datastore['name'],
+                            volume.config.name,
+                            volume.config.backing.filePath,
+                            snapshot.id.id,
+                        ], int(snapshot.createTime.timestamp()))
+                except vim.fault.NotFound:
+                    logging.error("Snapshot info for volume %s not found", volume_ref.id)
+                except Exception as error:
+                    logging.error("Error fetching snapshot information for volume: %s", volume_ref.id, error)
+
 
 class ListCollector(object):
 
@@ -1896,6 +1962,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_COLLECT_DATASTORES', True),
                     'hosts': get_bool_env('VSPHERE_COLLECT_HOSTS', True),
                     'snapshots': get_bool_env('VSPHERE_COLLECT_SNAPSHOTS', True),
+                    'volumes': get_bool_env('VSPHERE_COLLECT_VOLUMES', False),
                 }
             }
         }
@@ -1923,6 +1990,7 @@ class VMWareMetricsResource(Resource):
                     'datastores': get_bool_env('VSPHERE_{}_COLLECT_DATASTORES'.format(section), True),
                     'hosts': get_bool_env('VSPHERE_{}_COLLECT_HOSTS'.format(section), True),
                     'snapshots': get_bool_env('VSPHERE_{}_COLLECT_SNAPSHOTS'.format(section), True),
+                    'volumes': get_bool_env('VSPHERE_COLLECT_VOLUMES', False),
                 }
             }
 

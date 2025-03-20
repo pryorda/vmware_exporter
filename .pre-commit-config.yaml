@@ -1,53 +1,57 @@
+default_install_hook_types: [pre-commit, commit-msg]
 repos:
-- repo: https://github.com/pre-commit/mirrors-autopep8
-  rev: v1.5.6  # Use the sha / tag you want to point at
+- repo: https://github.com/hhatto/autopep8
+  rev: v2.3.2
   hooks:
   - id: autopep8
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v1.3.0
+  rev: v5.0.0
   hooks:
   # Git state
   - id: check-merge-conflict
-    stages: [commit]
+    stages: [pre-commit]
   - id: check-added-large-files
-    stages: [commit]
+    stages: [pre-commit]
   # Sensitive information
   - id: detect-private-key
-    stages: [commit]
+    stages: [pre-commit]
   - id: detect-aws-credentials
-    stages: [commit]
+    stages: [pre-commit]
     args:
       - --allow-missing-credentials
   # Generic file state
   - id: trailing-whitespace
-    stages: [commit]
+    stages: [pre-commit]
   - id: mixed-line-ending
-    stages: [commit]
+    stages: [pre-commit]
   - id: end-of-file-fixer
-    stages: [commit]
+    stages: [pre-commit]
     exclude: .*\.tfvars$ # terraform fmt separates everything with blank lines leaving a trailing line at the end
   - id: check-executables-have-shebangs
-    stages: [commit]
+    stages: [pre-commit]
   # Language syntax/formatting
   - id: check-yaml
-    stages: [commit]
+    stages: [pre-commit]
   - id: check-json
-    stages: [commit]
+    stages: [pre-commit]
   - id: pretty-format-json
-    stages: [commit]
+    stages: [pre-commit]
     args:
       - --autofix
+- repo: https://github.com/pycqa/flake8
+  rev: 7.1.2
+  hooks:
   - id: flake8
-    stages: [commit]
+    stages: [pre-commit]
     args:
       - --ignore=F705,E123,E402
 - repo: https://github.com/pryorda/dockerfilelint-precommit-hooks
   rev: v0.1.0
   hooks:
   - id: dockerfilelint
-    stages: [commit]
+    stages: [pre-commit]
 - repo: https://github.com/mattlqx/pre-commit-sign
-  rev: v1.1.3
+  rev: v1.2.0
   hooks:
   - id: sign-commit
     stages: [commit-msg]
