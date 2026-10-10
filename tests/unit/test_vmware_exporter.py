@@ -759,6 +759,9 @@ def test_collect_hosts():
                     (
                         'numericSensorInfo:name=Fan Device 12 System Fan '
                         '6B:type=fan:sensorStatus=yellow:value=821700:unitModifier=-2:unit=rpm',
+                        # the same sensor reported twice, as vSphere sometimes does (#398)
+                        'numericSensorInfo:name=Fan Device 12 System Fan '
+                        '6B:type=fan:sensorStatus=yellow:value=821700:unitModifier=-2:unit=rpm',
                         'numericSensorInfo:name=Power Supply 2 PS2 '
                         'Temperature:type=temperature:sensorStatus=green:value=2900:unitModifier=-2:unit=degrees c',
                         'numericSensorInfo:name=System Board 1 VR Watchdog '
@@ -790,7 +793,6 @@ def test_collect_hosts():
     }
     assert metrics['vmware_host_memory_max'].samples[0][2] == 2048
     assert metrics['vmware_host_num_cpu'].samples[0][2] == 12
-
     assert metrics['vmware_host_product_info'].samples[0][1] == {
         'host_name': 'host-1',
         'dc_name': 'dc',
@@ -1729,3 +1731,67 @@ def test_version(capsys):
     captured = capsys.readouterr()
     assert captured.out.startswith("vmware_exporter")
     assert captured.err == ""
+
+
+@pytest_twisted.inlineCallbacks
+def test_collect_hosts_deduplicates_sensor_samples():
+    '''
+    vSphere can report the same sensor twice. Emitting it twice produces two
+    samples with identical labels, which Prometheus drops with a warning on
+    every scrape (#398). Each metric/label set must be emitted once.
+    '''
+    collect_only = {
+        'vms': False,
+        'vmguests': False,
+        'datastores': False,
+        'hosts': True,
+        'snapshots': False,
+    }
+    collector = VmwareCollector(
+        '127.0.0.1',
+        'root',
+        'password',
+        collect_only,
+        5000,
+        fetch_custom_attributes=False,
+    )
+    collector.content = _succeed(mock.Mock())
+    collector.__dict__['host_labels'] = _succeed({'host:1': ['host-1', 'dc', 'cluster']})
+
+    metrics = collector._create_metric_containers()
+
+    fan = 'numericSensorInfo:name=Fan 1:type=fan:sensorStatus=green:value=120000:unitModifier=-2:unit=rpm'
+    driver = 'numericSensorInfo:name=igb driver 5.0.5.1:type=Software Components:sensorStatus=green' \
+             ':value=0:unitModifier=0:unit=unspecified'
+
+    with mock.patch.object(collector, 'batch_fetch_properties') as batch_fetch_properties:
+        batch_fetch_properties.return_value = _succeed({
+            'host:1': {
+                'id': 'host:1',
+                'name': 'host-1',
+                'runtime.powerState': 'poweredOn',
+                'runtime.bootTime': EPOCH,
+                'runtime.connectionState': 'connected',
+                'runtime.standbyMode': 'none',
+                'runtime.inMaintenanceMode': False,
+                'summary.quickStats.overallCpuUsage': 100,
+                'summary.hardware.numCpuCores': 12,
+                'summary.hardware.cpuMhz': 1000,
+                'summary.quickStats.overallMemoryUsage': 1024,
+                'summary.hardware.memorySize': 2048 * 1024 * 1024,
+                'summary.config.product.version': '8.0.0',
+                'summary.config.product.build': '1',
+                'summary.hardware.cpuModel': 'cpu_model1',
+                'summary.hardware.model': 'model1',
+                'summary.customValue': {},
+                'triggeredAlarmState': '',
+                # both sensors reported twice
+                'runtime.healthSystemRuntime.systemHealthInfo.numericSensorInfo': ','.join((fan, fan, driver, driver)),
+            },
+        })
+        yield collector._vmware_get_hosts(metrics)
+
+    state = metrics['vmware_host_sensor_state'].samples
+    assert len(state) == 2
+    assert sorted(s[1]['name'] for s in state) == ['Fan 1', 'igb driver 5.0.5.1']
+    assert len(metrics['vmware_host_sensor_fan'].samples) == 1
