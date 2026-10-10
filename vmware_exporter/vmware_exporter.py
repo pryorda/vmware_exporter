@@ -1187,11 +1187,12 @@ class VmwareCollector():
 
                 for metric_name in self._metricNames.get(metric_type, []):
                     metric = metrics.get(metric_name)
-                    labelnames = metric._labelnames
-                    metric._labelnames = labelnames[0:len(self._labelNames[metric_type])]
-                    metric._labelnames += customAttributesLabelNames
-                    metric._labelnames += labelnames[len(self._labelNames[metric_type]):]
-                    metric._labelnames = list(map(lambda x: re.sub('[^a-zA-Z0-9_]', '_', x), metric._labelnames))
+                    # prometheus_client stores _labelnames as a tuple since 0.x; build
+                    # the new sequence explicitly instead of concatenating onto it
+                    labelnames = list(metric._labelnames)
+                    split = len(self._labelNames[metric_type])
+                    labelnames = labelnames[:split] + list(customAttributesLabelNames) + labelnames[split:]
+                    metric._labelnames = tuple(re.sub('[^a-zA-Z0-9_]', '_', x) for x in labelnames)
 
     @defer.inlineCallbacks
     def _vmware_get_datastores(self, ds_metrics):
