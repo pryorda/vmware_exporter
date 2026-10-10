@@ -5,7 +5,7 @@ from pyVmomi import vmodl
 
 def get_bool_env(key: str, default: bool):
     value = os.environ.get(key, default)
-    return value if type(value) == bool else value.lower() == 'true'
+    return value if isinstance(value, bool) else value.lower() == 'true'
 
 
 def batch_fetch_properties(content, obj_type, properties):

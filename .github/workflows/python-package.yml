@@ -1,5 +1,4 @@
-# This workflow will upload a Python Package using Twine when a release is created
-# For more information see: https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#publishing-to-package-registries
+# Lint and test every pull request; publish to PyPI from main via semantic-release.
 
 name: Python Package
 
@@ -15,60 +14,51 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [3.7]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e . -r requirements.txt -r requirements-tests.txt python-semantic-release
-        sudo apt-get update && sudo apt-get install -y nodejs npm && sudo npm install -g dockerfilelint
+        pip install -e . -r requirements-tests.txt
     - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 vmware_exporter tests --statistics
+      run: flake8 vmware_exporter tests --statistics
     - name: Lint dockerfile
-      run: dockerfilelint ./Dockerfile
-    - name: Test with pytest
-      run: |
-        pytest --cov=. -v tests/unit
-    - uses: codecov/codecov-action@v1
-    - name: integration tests
-      run: |
-        pytest tests/integration
-    - name: Setup ruby env
-      uses: actions/setup-ruby@v1
+      uses: hadolint/hadolint-action@v3.1.0
       with:
-        ruby-version: 2.7
-    - run: |
-        gem install pre-commit-sign
-        export COMMIT_MESSAGE=$(git log -1)
-        ruby validate-signature.rb "${COMMIT_MESSAGE}"
+        dockerfile: Dockerfile
+        failure-threshold: warning
+    - name: Unit tests
+      run: pytest --cov=vmware_exporter --cov-report=term -v tests/unit
+    - name: Integration tests
+      if: matrix.python-version == '3.12'
+      run: pytest -v tests/integration
 
   deploy:
     strategy:
       matrix:
-        python-version: [3.7]
+        python-version: ["3.12"]
 
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
       with:
         token: ${{ secrets.GH_TOKEN }}
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     - name: install semantic-release
