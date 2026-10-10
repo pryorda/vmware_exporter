@@ -40,34 +40,55 @@ class BranchingDeferred(defer.Deferred):
     like this with a standard Twisted deferred.
 
     This is a deferred that enables the parallel branching use case.
+
+    This implementation deliberately keeps its own state under private names and
+    never writes to the attributes Twisted uses internally. Older Twisted
+    versions routed every `addCallback`/`addErrback`/`addBoth` through
+    `addCallbacks`, so overriding that one method was enough. Since Twisted
+    24.10 `addBoth` appends its own callback tuple straight onto the internal
+    list, and in 25.x that list moved to `_callbacks` and `callbacks` became a
+    read-only deprecated property. So every `add*` entry point is overridden
+    here to hand out an ordinary Deferred branch instead.
     '''
 
     def __init__(self):
-        self.callbacks = []
+        super().__init__()
+        self._branches = []
         self.result = None
+
+    def _branch(self):
+        ''' An ordinary Deferred that fires when this one does. '''
+        if self.result is None:
+            d = defer.Deferred()
+            self._branches.append(d)
+            return d
+
+        if isinstance(self.result, failure.Failure):
+            return defer.fail(self.result)
+
+        return defer.succeed(self.result)
 
     def callback(self, result):
         self.result = result
-        while self.callbacks:
-            self.callbacks.pop(0).callback(result)
+        while self._branches:
+            self._branches.pop(0).callback(result)
 
     def errback(self, err):
         self.result = err
-        while self.callbacks:
-            self.callbacks.pop(0).errback(err)
+        while self._branches:
+            self._branches.pop(0).errback(err)
 
     def addCallbacks(self, *args, **kwargs):
-        if self.result is None:
-            d = defer.Deferred()
-            d.addCallbacks(*args, **kwargs)
-            self.callbacks.append(d)
-            return
+        return self._branch().addCallbacks(*args, **kwargs)
 
-        if isinstance(self.result, failure.Failure):
-            defer.fail(self.result).addCallbacks(*args, **kwargs)
-            return
+    def addCallback(self, *args, **kwargs):
+        return self._branch().addCallback(*args, **kwargs)
 
-        defer.succeed(self.result).addCallbacks(*args, **kwargs)
+    def addErrback(self, *args, **kwargs):
+        return self._branch().addErrback(*args, **kwargs)
+
+    def addBoth(self, *args, **kwargs):
+        return self._branch().addBoth(*args, **kwargs)
 
 
 class run_once_property(object):
